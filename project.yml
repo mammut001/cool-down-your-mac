@@ -1,0 +1,125 @@
+name: CoolDownYourMac
+options:
+  bundleIdPrefix: com.cooldown
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGNING_ALLOWED: YES
+    CODE_SIGNING_REQUIRED: NO
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: YES
+    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: "1.0.0"
+targets:
+  CoolDownKit:
+    type: framework
+    platform: macOS
+    sources:
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cooldown.CoolDownKit
+        PRODUCT_NAME: CoolDownKit
+        GENERATE_INFOPLIST_FILE: YES
+        DEFINES_MODULE: YES
+        SKIP_INSTALL: YES
+        ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: NO
+
+  CoolDownHelper:
+    type: tool
+    platform: macOS
+    sources:
+      - path: Pro/Helper
+        excludes:
+          - "*.plist"
+          - "*.entitlements"
+      - path: Pro/SMC
+        excludes:
+          - DirectSMCReader.swift
+      - path: Pro/XPC/CoolDownXPCProtocol.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cooldown.CoolDownPro.Helper
+        PRODUCT_NAME: com.cooldown.CoolDownPro.Helper
+        SKIP_INSTALL: YES
+        CREATE_INFOPLIST_SECTION_IN_BINARY: YES
+        INFOPLIST_FILE: Pro/Helper/Helper-Info.plist
+        CODE_SIGN_ENTITLEMENTS: Pro/Helper/CoolDownHelper.entitlements
+        OTHER_LDFLAGS: ["-framework", "IOKit"]
+        SWIFT_OBJC_BRIDGING_HEADER: Pro/SMC/CoolDown-Bridging-Header.h
+        HEADER_SEARCH_PATHS: ["$(SRCROOT)/Pro/SMC"]
+
+  CoolDownPro:
+    type: application
+    platform: macOS
+    sources:
+      - path: Apps/CoolDownPro
+      - path: Pro/XPC
+      - path: Pro/Curve
+      - path: Pro/SMC
+      - path: Pro/Sensors
+    dependencies:
+      - target: CoolDownKit
+        embed: true
+      - target: CoolDownHelper
+        embed: false
+        link: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cooldown.CoolDownPro
+        PRODUCT_NAME: CoolDownPro
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Apps/CoolDownPro/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Apps/CoolDownPro/CoolDownPro.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        LD_RUNPATH_SEARCH_PATHS: ["$(inherited)", "@executable_path/../Frameworks"]
+        OTHER_LDFLAGS: ["-framework", "ServiceManagement", "-framework", "IOKit"]
+        SWIFT_OBJC_BRIDGING_HEADER: Pro/Sensors/CoolDownSensors-Bridging-Header.h
+        HEADER_SEARCH_PATHS: ["$(SRCROOT)/Pro/SMC", "$(SRCROOT)/Pro/Sensors"]
+        ENABLE_HARDENED_RUNTIME: NO
+    postBuildScripts:
+      - name: Embed Helper and LaunchDaemon
+        script: |
+          set -euo pipefail
+          APP="${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}"
+          mkdir -p "${APP}/Contents/MacOS"
+          mkdir -p "${APP}/Contents/Library/LaunchDaemons"
+          HELPER_SRC="${BUILT_PRODUCTS_DIR}/com.cooldown.CoolDownPro.Helper"
+          if [[ -f "${HELPER_SRC}" ]]; then
+            cp -f "${HELPER_SRC}" "${APP}/Contents/MacOS/com.cooldown.CoolDownPro.Helper"
+            chmod 755 "${APP}/Contents/MacOS/com.cooldown.CoolDownPro.Helper"
+          fi
+          cp -f "${SRCROOT}/Pro/Helper/com.cooldown.CoolDownPro.Helper.plist" \
+            "${APP}/Contents/Library/LaunchDaemons/com.cooldown.CoolDownPro.Helper.plist"
+        basedOnDependencyAnalysis: false
+    scheme:
+      testTargets: []
+
+  CoolDownStore:
+    type: application
+    platform: macOS
+    sources:
+      - path: Apps/CoolDownStore
+      - path: Store
+    dependencies:
+      - target: CoolDownKit
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cooldown.CoolDown
+        PRODUCT_NAME: CoolDown
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Apps/CoolDownStore/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Apps/CoolDownStore/CoolDownStore.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        LD_RUNPATH_SEARCH_PATHS: ["$(inherited)", "@executable_path/../Frameworks"]
+        OTHER_LDFLAGS: ["-framework", "ServiceManagement"]
+        ENABLE_APP_SANDBOX: YES
+    scheme:
+      testTargets: []

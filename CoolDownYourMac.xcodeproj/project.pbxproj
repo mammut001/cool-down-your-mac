@@ -1,0 +1,1025 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		01CBEC0F892ABB390344E47F /* HelperDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69C82F10765E14D59786E63E /* HelperDelegate.swift */; };
+		023B8BEE07C60CCEE67AD904 /* SMCKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DF5BC3A7FEBD06E75E979D2 /* SMCKit.swift */; };
+		19035339C6002921A7E8A28D /* SensorNameMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 600CB849C51BC30B7D73FB14 /* SensorNameMapper.swift */; };
+		1C01F0CD6197CBF3233268AE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FAA1C59C14743166268C566B /* Assets.xcassets */; };
+		1CAD0D41225F3A46CFB784C7 /* CoolDownKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = D659E0B1C0BD93F2C4F46EA5 /* CoolDownKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		21B04F994EA6555277556737 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 89DC9CD1374ADCFE8C14DED1 /* Assets.xcassets */; };
+		26DC48804D89E6B2E0A1725C /* StoreAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C2C9DDECAB562973123F2C5 /* StoreAppModel.swift */; };
+		332757577D48DE56525FC0A3 /* StoreSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE5CBC46D9D9AB6A57EA3AC0 /* StoreSettingsView.swift */; };
+		3E30F6F7947C0C446FFF4BC4 /* SparkleUpdaterPlaceholder.swift in Sources */ = {isa = PBXBuildFile; fileRef = E16EBA414CE94736437C00CA /* SparkleUpdaterPlaceholder.swift */; };
+		3F93F971000B8C5853EBA8DD /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E20C25127DC250F7C3382F8 /* SettingsStore.swift */; };
+		40057656CE9FFBCE40D44651 /* ProSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E85BB2EEB5DCF1B905877FA8 /* ProSettingsView.swift */; };
+		4E9B8174CE6473CC3FCE9164 /* CoolDownKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D659E0B1C0BD93F2C4F46EA5 /* CoolDownKit.framework */; };
+		5A1380AFEEFE52604A3FE89A /* CoolDownKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = D659E0B1C0BD93F2C4F46EA5 /* CoolDownKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		665720AFEA76D59327A0983B /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76D8C21F054C99D0A6F97EF9 /* main.swift */; };
+		79B7D2DAC93294F64B891F1A /* SMCKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DF5BC3A7FEBD06E75E979D2 /* SMCKit.swift */; };
+		7A274C93DFFD33DDB1CC11AC /* ProAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEE4767EB79E79CE7C834339 /* ProAppModel.swift */; };
+		815763FD3D0352E8AE1DF885 /* CoolDownXPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC54DA1FFFDF6CE6FCD04B41 /* CoolDownXPCProtocol.swift */; };
+		85D6905CD68ED82DFFA6F663 /* CoolDownStoreApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8556AE28089042023C35FB7 /* CoolDownStoreApp.swift */; };
+		871688265E25D24D5F46DC1C /* HelperSecurity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4ED7415458EDEF37B87A2DC /* HelperSecurity.swift */; };
+		938C82D8B9E7B6138CDCE0E5 /* HelperClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B11E196FE00AF46D8E45D3E /* HelperClient.swift */; };
+		99647B3DBFA1913EF8298DFB /* ProMenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1383D7E486179FD83A499919 /* ProMenuBarView.swift */; };
+		9B2F3DC0643FFDBEC6C86315 /* MenuBarPopoverViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52F1D9382B347259919F1D09 /* MenuBarPopoverViews.swift */; };
+		9D6CE7D0E33C51218A255824 /* ThermalCoach.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08E4F0265E7F804413018DFD /* ThermalCoach.swift */; };
+		A2761F6AAB51547C0D82A9DE /* ProDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26A81CFBA85D8DD9DF880EFD /* ProDashboardView.swift */; };
+		A2FD84C75DA7189FED977E6B /* SensorCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5736AFC158D743FCCDFC670D /* SensorCatalog.swift */; };
+		A6479DF4DEC2325DDF4D7FA9 /* SMCTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A495F20E2BAC3D09A61D2EDE /* SMCTypes.swift */; };
+		B64A625593A6332A1EF24985 /* CoolDownXPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC54DA1FFFDF6CE6FCD04B41 /* CoolDownXPCProtocol.swift */; };
+		B728EB40E8F0E79133380A3B /* CoolDownProApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1999F521A2D837A3A57D50B7 /* CoolDownProApp.swift */; };
+		B9FCB0E44166A687454EC79B /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 713C850A8476463CC249575F /* Models.swift */; };
+		BAC5214E94CF13EC125F1BD7 /* IOHIDTemperatureBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = FBA0ABB1F9F3871DF1BC54F3 /* IOHIDTemperatureBridge.m */; };
+		CC4DBB018A1FDD7F637AB254 /* StoreMenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC7D99F70A11A828A2D58545 /* StoreMenuBarView.swift */; };
+		CDB92F6AF882392CBA29FDBE /* SensorFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A80C8DC327953632B6C645 /* SensorFormatting.swift */; };
+		D6F7019AC010F7507BF9714E /* SmartCurveEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA750041E0AA15A1D38D0451 /* SmartCurveEngine.swift */; };
+		E548458BD603363610AFFFF0 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87D7A9C65112DDBD260AD995 /* Theme.swift */; };
+		E628898E87F26E822E87AE1E /* SensorMerge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59509D94EA949B1949637FFA /* SensorMerge.swift */; };
+		E725C225038EA2C4D636F559 /* SMCTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A495F20E2BAC3D09A61D2EDE /* SMCTypes.swift */; };
+		E853F086501BBE8AA4F677CE /* IOHIDTemperatureReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 379573D118640DA4C7809388 /* IOHIDTemperatureReader.swift */; };
+		EE027C7789FD8E5C371B13B2 /* CoolDownKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D659E0B1C0BD93F2C4F46EA5 /* CoolDownKit.framework */; };
+		F761E08292D0801C8D464813 /* DirectSMCReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6FD2DD739CD721AE0B4AD8 /* DirectSMCReader.swift */; };
+		F891F0C615320577EAF66595 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6959BA725D2FDF9653AF5295 /* Localizable.strings */; };
+		FFA7ADB41B5ACBAEE7432A17 /* HelperService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 847F65571158D9C7149024BD /* HelperService.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		48D71CA120E8690D4417E507 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 00DF75FF26BC884AD0BB207C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4D90C99C324343F5F7E3B82B;
+			remoteInfo = CoolDownKit;
+		};
+		A074B8FC739BCC15FEEB6AD5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 00DF75FF26BC884AD0BB207C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4D90C99C324343F5F7E3B82B;
+			remoteInfo = CoolDownKit;
+		};
+		A98041FD36BDC786007531F9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 00DF75FF26BC884AD0BB207C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 048C6FC0B14EF5E17CA45D13;
+			remoteInfo = CoolDownHelper;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		1B6FAC539C003FBA94695875 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				5A1380AFEEFE52604A3FE89A /* CoolDownKit.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AC4270C657D5D16D5CC0CD5F /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				1CAD0D41225F3A46CFB784C7 /* CoolDownKit.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		050F8C4D3364669F41EF336E /* IOHIDTemperatureBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDTemperatureBridge.h; sourceTree = "<group>"; };
+		08E4F0265E7F804413018DFD /* ThermalCoach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThermalCoach.swift; sourceTree = "<group>"; };
+		0E361B52DB92E63025C3E7B0 /* CoolDownStore.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CoolDownStore.entitlements; sourceTree = "<group>"; };
+		1383D7E486179FD83A499919 /* ProMenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProMenuBarView.swift; sourceTree = "<group>"; };
+		1999F521A2D837A3A57D50B7 /* CoolDownProApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoolDownProApp.swift; sourceTree = "<group>"; };
+		26A81CFBA85D8DD9DF880EFD /* ProDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProDashboardView.swift; sourceTree = "<group>"; };
+		379573D118640DA4C7809388 /* IOHIDTemperatureReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOHIDTemperatureReader.swift; sourceTree = "<group>"; };
+		52F1D9382B347259919F1D09 /* MenuBarPopoverViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarPopoverViews.swift; sourceTree = "<group>"; };
+		5736AFC158D743FCCDFC670D /* SensorCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorCatalog.swift; sourceTree = "<group>"; };
+		59509D94EA949B1949637FFA /* SensorMerge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorMerge.swift; sourceTree = "<group>"; };
+		5E20C25127DC250F7C3382F8 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
+		5F72A4D65E23895D33F8B280 /* CoolDownSensors-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "CoolDownSensors-Bridging-Header.h"; sourceTree = "<group>"; };
+		600CB849C51BC30B7D73FB14 /* SensorNameMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorNameMapper.swift; sourceTree = "<group>"; };
+		69C82F10765E14D59786E63E /* HelperDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperDelegate.swift; sourceTree = "<group>"; };
+		713C850A8476463CC249575F /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		76D8C21F054C99D0A6F97EF9 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		847F65571158D9C7149024BD /* HelperService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperService.swift; sourceTree = "<group>"; };
+		84EC56875C15D4AF51B14E1A /* CoolDown-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "CoolDown-Bridging-Header.h"; sourceTree = "<group>"; };
+		87D7A9C65112DDBD260AD995 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		89DC9CD1374ADCFE8C14DED1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		8DF5BC3A7FEBD06E75E979D2 /* SMCKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMCKit.swift; sourceTree = "<group>"; };
+		94A80C8DC327953632B6C645 /* SensorFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorFormatting.swift; sourceTree = "<group>"; };
+		96187676BD0112BE659AB93B /* CoolDownPro.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CoolDownPro.entitlements; sourceTree = "<group>"; };
+		9B11E196FE00AF46D8E45D3E /* HelperClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperClient.swift; sourceTree = "<group>"; };
+		9C2C9DDECAB562973123F2C5 /* StoreAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreAppModel.swift; sourceTree = "<group>"; };
+		9D228D6B3F83B1130C0308B3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		A495F20E2BAC3D09A61D2EDE /* SMCTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMCTypes.swift; sourceTree = "<group>"; };
+		A5E43407D28DA87FA10ADB3B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		AC54DA1FFFDF6CE6FCD04B41 /* CoolDownXPCProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoolDownXPCProtocol.swift; sourceTree = "<group>"; };
+		AE5CBC46D9D9AB6A57EA3AC0 /* StoreSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreSettingsView.swift; sourceTree = "<group>"; };
+		B9925D2CA28326BD01BF81B2 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		BC7D99F70A11A828A2D58545 /* StoreMenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreMenuBarView.swift; sourceTree = "<group>"; };
+		C19C75EE00F1EF00F38CBF52 /* CoolDownStore.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CoolDownStore.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CA750041E0AA15A1D38D0451 /* SmartCurveEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartCurveEngine.swift; sourceTree = "<group>"; };
+		D659E0B1C0BD93F2C4F46EA5 /* CoolDownKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = CoolDownKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		D8556AE28089042023C35FB7 /* CoolDownStoreApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoolDownStoreApp.swift; sourceTree = "<group>"; };
+		DADC856427C2F0565439E0F4 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		DEDC53EF9A075DBF202ECC02 /* CoolDownPro.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CoolDownPro.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DEE4767EB79E79CE7C834339 /* ProAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProAppModel.swift; sourceTree = "<group>"; };
+		E16EBA414CE94736437C00CA /* SparkleUpdaterPlaceholder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleUpdaterPlaceholder.swift; sourceTree = "<group>"; };
+		E7D3E9463AFC71F31E0BC0B7 /* smc_bridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = smc_bridge.h; sourceTree = "<group>"; };
+		E85BB2EEB5DCF1B905877FA8 /* ProSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProSettingsView.swift; sourceTree = "<group>"; };
+		ED466DC9776DA02F92A14824 /* CoolDownHelper */ = {isa = PBXFileReference; includeInIndex = 0; path = CoolDownHelper; sourceTree = BUILT_PRODUCTS_DIR; };
+		EF6FD2DD739CD721AE0B4AD8 /* DirectSMCReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectSMCReader.swift; sourceTree = "<group>"; };
+		F4ED7415458EDEF37B87A2DC /* HelperSecurity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperSecurity.swift; sourceTree = "<group>"; };
+		FAA1C59C14743166268C566B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		FBA0ABB1F9F3871DF1BC54F3 /* IOHIDTemperatureBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = IOHIDTemperatureBridge.m; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		07D50C551F284C3854FFA2A2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4E9B8174CE6473CC3FCE9164 /* CoolDownKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C8869C64AE9AC10273FD7E00 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EE027C7789FD8E5C371B13B2 /* CoolDownKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		04A148FD18FEC7DCC4EE9060 /* Store */ = {
+			isa = PBXGroup;
+			children = (
+				D450581B0E7711E0473CDF25 /* ThermalCoach */,
+			);
+			path = Store;
+			sourceTree = "<group>";
+		};
+		3325EB2416E25E829E0CEFE4 /* Pro */ = {
+			isa = PBXGroup;
+			children = (
+				A178C69CE90F8B57BD6AD888 /* Curve */,
+				B380BBC89CBA04EB363F6175 /* Helper */,
+				A6D18419146B386DCF707193 /* Sensors */,
+				A49634A4E014D72C08A67002 /* SMC */,
+				F15249B23E9FD120F1F2C4A2 /* XPC */,
+			);
+			path = Pro;
+			sourceTree = "<group>";
+		};
+		43DA4457111A8FF1E6547A3E /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				52F1D9382B347259919F1D09 /* MenuBarPopoverViews.swift */,
+				87D7A9C65112DDBD260AD995 /* Theme.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		52DA15DAB99B4614B0B6C722 /* CoolDownStore */ = {
+			isa = PBXGroup;
+			children = (
+				FAA1C59C14743166268C566B /* Assets.xcassets */,
+				0E361B52DB92E63025C3E7B0 /* CoolDownStore.entitlements */,
+				D8556AE28089042023C35FB7 /* CoolDownStoreApp.swift */,
+				A5E43407D28DA87FA10ADB3B /* Info.plist */,
+				9C2C9DDECAB562973123F2C5 /* StoreAppModel.swift */,
+				BC7D99F70A11A828A2D58545 /* StoreMenuBarView.swift */,
+				AE5CBC46D9D9AB6A57EA3AC0 /* StoreSettingsView.swift */,
+			);
+			path = CoolDownStore;
+			sourceTree = "<group>";
+		};
+		636582D6212876547BB0364F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				ED466DC9776DA02F92A14824 /* CoolDownHelper */,
+				D659E0B1C0BD93F2C4F46EA5 /* CoolDownKit.framework */,
+				DEDC53EF9A075DBF202ECC02 /* CoolDownPro.app */,
+				C19C75EE00F1EF00F38CBF52 /* CoolDownStore.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		7C02453872FC338F07B73C6D /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				6959BA725D2FDF9653AF5295 /* Localizable.strings */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		7D1F5FC60C27A22A91B831E1 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				713C850A8476463CC249575F /* Models.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		A178C69CE90F8B57BD6AD888 /* Curve */ = {
+			isa = PBXGroup;
+			children = (
+				CA750041E0AA15A1D38D0451 /* SmartCurveEngine.swift */,
+			);
+			path = Curve;
+			sourceTree = "<group>";
+		};
+		A49634A4E014D72C08A67002 /* SMC */ = {
+			isa = PBXGroup;
+			children = (
+				84EC56875C15D4AF51B14E1A /* CoolDown-Bridging-Header.h */,
+				EF6FD2DD739CD721AE0B4AD8 /* DirectSMCReader.swift */,
+				E7D3E9463AFC71F31E0BC0B7 /* smc_bridge.h */,
+				8DF5BC3A7FEBD06E75E979D2 /* SMCKit.swift */,
+				A495F20E2BAC3D09A61D2EDE /* SMCTypes.swift */,
+			);
+			path = SMC;
+			sourceTree = "<group>";
+		};
+		A6D18419146B386DCF707193 /* Sensors */ = {
+			isa = PBXGroup;
+			children = (
+				5F72A4D65E23895D33F8B280 /* CoolDownSensors-Bridging-Header.h */,
+				050F8C4D3364669F41EF336E /* IOHIDTemperatureBridge.h */,
+				FBA0ABB1F9F3871DF1BC54F3 /* IOHIDTemperatureBridge.m */,
+				379573D118640DA4C7809388 /* IOHIDTemperatureReader.swift */,
+				5736AFC158D743FCCDFC670D /* SensorCatalog.swift */,
+				59509D94EA949B1949637FFA /* SensorMerge.swift */,
+				600CB849C51BC30B7D73FB14 /* SensorNameMapper.swift */,
+			);
+			path = Sensors;
+			sourceTree = "<group>";
+		};
+		AEB289619F4CFF7DC6F20CE6 /* Monitoring */ = {
+			isa = PBXGroup;
+			children = (
+				94A80C8DC327953632B6C645 /* SensorFormatting.swift */,
+				5E20C25127DC250F7C3382F8 /* SettingsStore.swift */,
+			);
+			path = Monitoring;
+			sourceTree = "<group>";
+		};
+		B380BBC89CBA04EB363F6175 /* Helper */ = {
+			isa = PBXGroup;
+			children = (
+				69C82F10765E14D59786E63E /* HelperDelegate.swift */,
+				F4ED7415458EDEF37B87A2DC /* HelperSecurity.swift */,
+				847F65571158D9C7149024BD /* HelperService.swift */,
+				76D8C21F054C99D0A6F97EF9 /* main.swift */,
+			);
+			path = Helper;
+			sourceTree = "<group>";
+		};
+		BB53BC68EFF4C0555233CFCB /* Apps */ = {
+			isa = PBXGroup;
+			children = (
+				FD55E7A69E2A3A663F189DC4 /* CoolDownPro */,
+				52DA15DAB99B4614B0B6C722 /* CoolDownStore */,
+			);
+			path = Apps;
+			sourceTree = "<group>";
+		};
+		D10E743E6987A9B57247BD9F = {
+			isa = PBXGroup;
+			children = (
+				BB53BC68EFF4C0555233CFCB /* Apps */,
+				3325EB2416E25E829E0CEFE4 /* Pro */,
+				FB8E09BCD8F4B91ABDFD37CD /* Shared */,
+				04A148FD18FEC7DCC4EE9060 /* Store */,
+				636582D6212876547BB0364F /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D450581B0E7711E0473CDF25 /* ThermalCoach */ = {
+			isa = PBXGroup;
+			children = (
+				08E4F0265E7F804413018DFD /* ThermalCoach.swift */,
+			);
+			path = ThermalCoach;
+			sourceTree = "<group>";
+		};
+		F15249B23E9FD120F1F2C4A2 /* XPC */ = {
+			isa = PBXGroup;
+			children = (
+				AC54DA1FFFDF6CE6FCD04B41 /* CoolDownXPCProtocol.swift */,
+				9B11E196FE00AF46D8E45D3E /* HelperClient.swift */,
+			);
+			path = XPC;
+			sourceTree = "<group>";
+		};
+		FB8E09BCD8F4B91ABDFD37CD /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				7D1F5FC60C27A22A91B831E1 /* Models */,
+				AEB289619F4CFF7DC6F20CE6 /* Monitoring */,
+				7C02453872FC338F07B73C6D /* Resources */,
+				43DA4457111A8FF1E6547A3E /* UI */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		FD55E7A69E2A3A663F189DC4 /* CoolDownPro */ = {
+			isa = PBXGroup;
+			children = (
+				89DC9CD1374ADCFE8C14DED1 /* Assets.xcassets */,
+				96187676BD0112BE659AB93B /* CoolDownPro.entitlements */,
+				1999F521A2D837A3A57D50B7 /* CoolDownProApp.swift */,
+				9D228D6B3F83B1130C0308B3 /* Info.plist */,
+				DEE4767EB79E79CE7C834339 /* ProAppModel.swift */,
+				26A81CFBA85D8DD9DF880EFD /* ProDashboardView.swift */,
+				1383D7E486179FD83A499919 /* ProMenuBarView.swift */,
+				E85BB2EEB5DCF1B905877FA8 /* ProSettingsView.swift */,
+				E16EBA414CE94736437C00CA /* SparkleUpdaterPlaceholder.swift */,
+			);
+			path = CoolDownPro;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		048C6FC0B14EF5E17CA45D13 /* CoolDownHelper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A78AEE2D4395A6B0E93DB93B /* Build configuration list for PBXNativeTarget "CoolDownHelper" */;
+			buildPhases = (
+				0CFDB6AA335DC6E591E3E9BF /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CoolDownHelper;
+			packageProductDependencies = (
+			);
+			productName = CoolDownHelper;
+			productReference = ED466DC9776DA02F92A14824 /* CoolDownHelper */;
+			productType = "com.apple.product-type.tool";
+		};
+		0A7DC6ACCCCEFF1A1B2CE9C6 /* CoolDownPro */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AD99AAE76352383C69D6664B /* Build configuration list for PBXNativeTarget "CoolDownPro" */;
+			buildPhases = (
+				87B2962CD981D05DB8DFCA00 /* Sources */,
+				BFF110BDDF26C95D13ACE895 /* Resources */,
+				C8869C64AE9AC10273FD7E00 /* Frameworks */,
+				AC4270C657D5D16D5CC0CD5F /* Embed Frameworks */,
+				CF6D39D88BBC62DA003A1FBC /* Embed Helper and LaunchDaemon */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				86876466423CDDFF5DEBF5DC /* PBXTargetDependency */,
+				56B3DE17C088978B514866C5 /* PBXTargetDependency */,
+			);
+			name = CoolDownPro;
+			packageProductDependencies = (
+			);
+			productName = CoolDownPro;
+			productReference = DEDC53EF9A075DBF202ECC02 /* CoolDownPro.app */;
+			productType = "com.apple.product-type.application";
+		};
+		4D90C99C324343F5F7E3B82B /* CoolDownKit */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C7E71F112A1056CA8DA63165 /* Build configuration list for PBXNativeTarget "CoolDownKit" */;
+			buildPhases = (
+				C4D70DE98EF213F526D648CC /* Sources */,
+				003CF702C713BBE93436D875 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CoolDownKit;
+			packageProductDependencies = (
+			);
+			productName = CoolDownKit;
+			productReference = D659E0B1C0BD93F2C4F46EA5 /* CoolDownKit.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		FFD2B38CBB638A9D1A45F9EA /* CoolDownStore */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C6142AD1034A2C9D22A87A96 /* Build configuration list for PBXNativeTarget "CoolDownStore" */;
+			buildPhases = (
+				201A51D5D7265DFA08E68ADD /* Sources */,
+				549D78B34F561B586D1A2523 /* Resources */,
+				07D50C551F284C3854FFA2A2 /* Frameworks */,
+				1B6FAC539C003FBA94695875 /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C6C98D5BC95EAB775A0CE310 /* PBXTargetDependency */,
+			);
+			name = CoolDownStore;
+			packageProductDependencies = (
+			);
+			productName = CoolDownStore;
+			productReference = C19C75EE00F1EF00F38CBF52 /* CoolDownStore.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		00DF75FF26BC884AD0BB207C /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					048C6FC0B14EF5E17CA45D13 = {
+						DevelopmentTeam = "";
+					};
+					0A7DC6ACCCCEFF1A1B2CE9C6 = {
+						DevelopmentTeam = "";
+					};
+					4D90C99C324343F5F7E3B82B = {
+						DevelopmentTeam = "";
+					};
+					FFD2B38CBB638A9D1A45F9EA = {
+						DevelopmentTeam = "";
+					};
+				};
+			};
+			buildConfigurationList = BB1867EAD9C4C8D01E7F6897 /* Build configuration list for PBXProject "CoolDownYourMac" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+				"zh-Hans",
+			);
+			mainGroup = D10E743E6987A9B57247BD9F;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 636582D6212876547BB0364F /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4D90C99C324343F5F7E3B82B /* CoolDownKit */,
+				048C6FC0B14EF5E17CA45D13 /* CoolDownHelper */,
+				0A7DC6ACCCCEFF1A1B2CE9C6 /* CoolDownPro */,
+				FFD2B38CBB638A9D1A45F9EA /* CoolDownStore */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		003CF702C713BBE93436D875 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F891F0C615320577EAF66595 /* Localizable.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		549D78B34F561B586D1A2523 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C01F0CD6197CBF3233268AE /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BFF110BDDF26C95D13ACE895 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				21B04F994EA6555277556737 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		CF6D39D88BBC62DA003A1FBC /* Embed Helper and LaunchDaemon */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embed Helper and LaunchDaemon";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -euo pipefail\nAPP=\"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nmkdir -p \"${APP}/Contents/MacOS\"\nmkdir -p \"${APP}/Contents/Library/LaunchDaemons\"\nHELPER_SRC=\"${BUILT_PRODUCTS_DIR}/com.cooldown.CoolDownPro.Helper\"\nif [[ -f \"${HELPER_SRC}\" ]]; then\n  cp -f \"${HELPER_SRC}\" \"${APP}/Contents/MacOS/com.cooldown.CoolDownPro.Helper\"\n  chmod 755 \"${APP}/Contents/MacOS/com.cooldown.CoolDownPro.Helper\"\nfi\ncp -f \"${SRCROOT}/Pro/Helper/com.cooldown.CoolDownPro.Helper.plist\" \\\n  \"${APP}/Contents/Library/LaunchDaemons/com.cooldown.CoolDownPro.Helper.plist\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0CFDB6AA335DC6E591E3E9BF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				815763FD3D0352E8AE1DF885 /* CoolDownXPCProtocol.swift in Sources */,
+				01CBEC0F892ABB390344E47F /* HelperDelegate.swift in Sources */,
+				871688265E25D24D5F46DC1C /* HelperSecurity.swift in Sources */,
+				FFA7ADB41B5ACBAEE7432A17 /* HelperService.swift in Sources */,
+				79B7D2DAC93294F64B891F1A /* SMCKit.swift in Sources */,
+				E725C225038EA2C4D636F559 /* SMCTypes.swift in Sources */,
+				665720AFEA76D59327A0983B /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		201A51D5D7265DFA08E68ADD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				85D6905CD68ED82DFFA6F663 /* CoolDownStoreApp.swift in Sources */,
+				26DC48804D89E6B2E0A1725C /* StoreAppModel.swift in Sources */,
+				CC4DBB018A1FDD7F637AB254 /* StoreMenuBarView.swift in Sources */,
+				332757577D48DE56525FC0A3 /* StoreSettingsView.swift in Sources */,
+				9D6CE7D0E33C51218A255824 /* ThermalCoach.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		87B2962CD981D05DB8DFCA00 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B728EB40E8F0E79133380A3B /* CoolDownProApp.swift in Sources */,
+				B64A625593A6332A1EF24985 /* CoolDownXPCProtocol.swift in Sources */,
+				F761E08292D0801C8D464813 /* DirectSMCReader.swift in Sources */,
+				938C82D8B9E7B6138CDCE0E5 /* HelperClient.swift in Sources */,
+				BAC5214E94CF13EC125F1BD7 /* IOHIDTemperatureBridge.m in Sources */,
+				E853F086501BBE8AA4F677CE /* IOHIDTemperatureReader.swift in Sources */,
+				7A274C93DFFD33DDB1CC11AC /* ProAppModel.swift in Sources */,
+				A2761F6AAB51547C0D82A9DE /* ProDashboardView.swift in Sources */,
+				99647B3DBFA1913EF8298DFB /* ProMenuBarView.swift in Sources */,
+				40057656CE9FFBCE40D44651 /* ProSettingsView.swift in Sources */,
+				023B8BEE07C60CCEE67AD904 /* SMCKit.swift in Sources */,
+				A6479DF4DEC2325DDF4D7FA9 /* SMCTypes.swift in Sources */,
+				A2FD84C75DA7189FED977E6B /* SensorCatalog.swift in Sources */,
+				E628898E87F26E822E87AE1E /* SensorMerge.swift in Sources */,
+				19035339C6002921A7E8A28D /* SensorNameMapper.swift in Sources */,
+				D6F7019AC010F7507BF9714E /* SmartCurveEngine.swift in Sources */,
+				3E30F6F7947C0C446FFF4BC4 /* SparkleUpdaterPlaceholder.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C4D70DE98EF213F526D648CC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9B2F3DC0643FFDBEC6C86315 /* MenuBarPopoverViews.swift in Sources */,
+				B9FCB0E44166A687454EC79B /* Models.swift in Sources */,
+				CDB92F6AF882392CBA29FDBE /* SensorFormatting.swift in Sources */,
+				3F93F971000B8C5853EBA8DD /* SettingsStore.swift in Sources */,
+				E548458BD603363610AFFFF0 /* Theme.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		56B3DE17C088978B514866C5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 048C6FC0B14EF5E17CA45D13 /* CoolDownHelper */;
+			targetProxy = A98041FD36BDC786007531F9 /* PBXContainerItemProxy */;
+		};
+		86876466423CDDFF5DEBF5DC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4D90C99C324343F5F7E3B82B /* CoolDownKit */;
+			targetProxy = 48D71CA120E8690D4417E507 /* PBXContainerItemProxy */;
+		};
+		C6C98D5BC95EAB775A0CE310 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4D90C99C324343F5F7E3B82B /* CoolDownKit */;
+			targetProxy = A074B8FC739BCC15FEEB6AD5 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		6959BA725D2FDF9653AF5295 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				B9925D2CA28326BD01BF81B2 /* en */,
+				DADC856427C2F0565439E0F4 /* zh-Hans */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		0B4EF91B74EF7558AB6BA458 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
+				CODE_SIGN_IDENTITY = "";
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				GENERATE_INFOPLIST_FILE = YES;
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cooldown.CoolDownKit;
+				PRODUCT_NAME = CoolDownKit;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		24BBD2A3E97748E9122A0268 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/CoolDownPro/CoolDownPro.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/Pro/SMC",
+					"$(SRCROOT)/Pro/Sensors",
+				);
+				INFOPLIST_FILE = Apps/CoolDownPro/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"-framework",
+					ServiceManagement,
+					"-framework",
+					IOKit,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cooldown.CoolDownPro;
+				PRODUCT_NAME = CoolDownPro;
+				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = "Pro/Sensors/CoolDownSensors-Bridging-Header.h";
+			};
+			name = Debug;
+		};
+		45D9352B031E4A1268C7A8C9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/CoolDownStore/CoolDownStore.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Apps/CoolDownStore/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"-framework",
+					ServiceManagement,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cooldown.CoolDown;
+				PRODUCT_NAME = CoolDown;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		59A946A9FC75A6F7AD9E2AB4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
+				CODE_SIGN_IDENTITY = "";
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				GENERATE_INFOPLIST_FILE = YES;
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cooldown.CoolDownKit;
+				PRODUCT_NAME = CoolDownKit;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		5D11708AC1E50F67DACAB6B2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Pro/Helper/CoolDownHelper.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/Pro/SMC",
+				);
+				INFOPLIST_FILE = "Pro/Helper/Helper-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"-framework",
+					IOKit,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cooldown.CoolDownPro.Helper;
+				PRODUCT_NAME = com.cooldown.CoolDownPro.Helper;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Pro/SMC/CoolDown-Bridging-Header.h";
+			};
+			name = Debug;
+		};
+		6100FE8A2FDB5BACA5B07E24 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/CoolDownPro/CoolDownPro.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/Pro/SMC",
+					"$(SRCROOT)/Pro/Sensors",
+				);
+				INFOPLIST_FILE = Apps/CoolDownPro/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"-framework",
+					ServiceManagement,
+					"-framework",
+					IOKit,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cooldown.CoolDownPro;
+				PRODUCT_NAME = CoolDownPro;
+				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = "Pro/Sensors/CoolDownSensors-Bridging-Header.h";
+			};
+			name = Release;
+		};
+		8B884B3336D0D56CD6556640 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+		A63E56A25B83A06D0F7CCF59 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Pro/Helper/CoolDownHelper.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/Pro/SMC",
+				);
+				INFOPLIST_FILE = "Pro/Helper/Helper-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"-framework",
+					IOKit,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cooldown.CoolDownPro.Helper;
+				PRODUCT_NAME = com.cooldown.CoolDownPro.Helper;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Pro/SMC/CoolDown-Bridging-Header.h";
+			};
+			name = Release;
+		};
+		DD63A160B9A60A3EAA5FE584 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		F4F56789F5A0C0033C61819F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/CoolDownStore/CoolDownStore.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Apps/CoolDownStore/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"-framework",
+					ServiceManagement,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cooldown.CoolDown;
+				PRODUCT_NAME = CoolDown;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A78AEE2D4395A6B0E93DB93B /* Build configuration list for PBXNativeTarget "CoolDownHelper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5D11708AC1E50F67DACAB6B2 /* Debug */,
+				A63E56A25B83A06D0F7CCF59 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		AD99AAE76352383C69D6664B /* Build configuration list for PBXNativeTarget "CoolDownPro" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				24BBD2A3E97748E9122A0268 /* Debug */,
+				6100FE8A2FDB5BACA5B07E24 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		BB1867EAD9C4C8D01E7F6897 /* Build configuration list for PBXProject "CoolDownYourMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DD63A160B9A60A3EAA5FE584 /* Debug */,
+				8B884B3336D0D56CD6556640 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C6142AD1034A2C9D22A87A96 /* Build configuration list for PBXNativeTarget "CoolDownStore" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				45D9352B031E4A1268C7A8C9 /* Debug */,
+				F4F56789F5A0C0033C61819F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C7E71F112A1056CA8DA63165 /* Build configuration list for PBXNativeTarget "CoolDownKit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0B4EF91B74EF7558AB6BA458 /* Debug */,
+				59A946A9FC75A6F7AD9E2AB4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 00DF75FF26BC884AD0BB207C /* Project object */;
+}
