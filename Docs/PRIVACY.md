@@ -24,7 +24,8 @@ If enabled, the apps may show local notifications when heat thresholds or therma
 
 ## Updates (Pro)
 
-Sparkle update checks contact the update server you configure (HTTPS appcast). The request typically includes app version and macOS version as part of the Sparkle protocol.
+Cool Down Pro does not perform automatic update checks. It does not contact an
+update server.
 
 ## Contact
 

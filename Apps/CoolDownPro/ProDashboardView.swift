@@ -7,25 +7,48 @@ struct ProDashboardView: View {
     @EnvironmentObject private var settings: SettingsStore
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            Divider()
-            sensorTable
+        TabView {
+            sensorsTab
+                .tabItem { Label("Overview", systemImage: "gauge.with.dots.needle.67percent") }
+
+            FanCurveEditorView()
+                .environmentObject(model)
+                .environmentObject(settings)
+                .tabItem { Label("Fan Curve", systemImage: "chart.xyaxis.line") }
         }
-        .frame(minWidth: 520, minHeight: 560)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .frame(minWidth: 640, minHeight: 700)
+        .background(GlassBackdrop())
+        .alert("Enable fan control?", isPresented: $model.shouldPresentHelperSetup) {
+            Button("Not Now", role: .cancel) {}
+            Button("Continue") { model.installHelper() }
+        } message: {
+            Text("Cool Down Pro needs your approval once to install its privileged helper. macOS will show its own confirmation next. After approval, fan control is ready to use.")
+        }
         .onAppear {
             NSApp.activate(ignoringOtherApps: true)
             Task { await model.tick() }
         }
     }
 
-    private var header: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 16) {
+    private var sensorsTab: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                sensorsHeader
+                liveMetrics
+                sensorTable
+            }
+            .padding(20)
+        }
+    }
+
+    private var sensorsHeader: some View {
+        GlassCard {
+            HStack(alignment: .center, spacing: 20) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Cool Down Pro")
-                    .font(.system(size: 22, weight: .semibold, design: .rounded))
-                Text("\(model.snapshot.temperatures.count) sensors · \(settings.settings.mode.displayName)")
+                Label("Cool Down Pro", systemImage: "fanblades.fill")
+                    .font(.system(size: 23, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
+                Text("\(settings.settings.mode.displayName) · \(model.snapshot.temperatures.count) sensors live")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Toggle("Show all raw sensors", isOn: $model.showAllSensors)
@@ -37,31 +60,57 @@ struct ProDashboardView: View {
                     }
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
+            VStack(alignment: .trailing, spacing: 3) {
                 Text(SensorFormatting.temperature(model.snapshot.maxTemperatureC))
-                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                    .font(.system(size: 42, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(CoolDownTheme.temperatureColor(model.snapshot.maxTemperatureC ?? 0))
-                Text("peak CPU/GPU")
+                Text("hottest component")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(20)
+        }
+    }
+
+    private var liveMetrics: some View {
+        HStack(spacing: 12) {
+            metricCard("Control", value: settings.settings.mode.displayName, icon: "slider.horizontal.3", tint: CoolDownTheme.accent)
+            metricCard("Fan target", value: settings.settings.mode == .systemAuto ? "Auto" : SensorFormatting.percent(model.targetFanPercent), icon: "fanblades", tint: CoolDownTheme.calm)
+            metricCard("CPU load", value: String(format: "%.0f%%", model.loadMonitor.cpuLoadPercent), icon: "cpu", tint: CoolDownTheme.warning)
+            metricCard("Fan control", value: model.helperControlIsReady ? "Ready" : "Needs approval", icon: "checkmark.shield", tint: model.helperControlIsReady ? CoolDownTheme.calm : CoolDownTheme.warning)
+        }
+    }
+
+    private func metricCard(_ title: String, value: String, icon: String, tint: Color) -> some View {
+        GlassCard {
+            VStack(alignment: .leading, spacing: 9) {
+                Image(systemName: icon)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(tint)
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(value)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     private var sensorTable: some View {
-        VStack(spacing: 0) {
+        GlassCard {
+            VStack(spacing: 0) {
             HStack {
-                Text("Sensor")
+                Label("Sensors", systemImage: "thermometer.medium")
                 Spacer()
                 Text("Value °C")
                     .frame(width: 72, alignment: .trailing)
             }
             .font(.caption.weight(.semibold))
             .foregroundStyle(.secondary)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 8)
+            .padding(.bottom, 10)
 
             Divider()
 
@@ -95,7 +144,10 @@ struct ProDashboardView: View {
                     }
                 }
                 .listStyle(.inset)
+                .scrollContentBackground(.hidden)
+                .frame(minHeight: 250)
             }
+        }
         }
     }
 
@@ -110,7 +162,7 @@ struct ProDashboardView: View {
     private func icon(for group: SensorGroup) -> String {
         switch group {
         case .cpu: return "cpu"
-        case .gpu: return "cloud"
+        case .gpu: return "rectangle.3.group.fill"
         case .battery: return "battery.100"
         case .storage: return "internaldrive"
         case .wireless: return "wifi"

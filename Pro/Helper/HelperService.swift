@@ -6,10 +6,31 @@ final class HelperService: NSObject, CoolDownHelperProtocol {
 
     private func withSMC<T>(_ body: (SMCKit) throws -> T) throws -> T {
         if smc == nil {
-            smc = try SMCKit()
+            do {
+                smc = try SMCKit()
+                Self.log("SMC open OK")
+            } catch {
+                Self.log("SMC open failed: \(error)")
+                throw error
+            }
         }
         guard let smc else { throw CoolDownXPCError.smcFailed.nsError }
         return try body(smc)
+    }
+
+    private static func log(_ message: String) {
+        let line = "\(Date()): \(message)\n"
+        let url = URL(fileURLWithPath: "/tmp/cooldown-helper-smc.log")
+        if let data = line.data(using: .utf8) {
+            if FileManager.default.fileExists(atPath: url.path),
+               let handle = try? FileHandle(forWritingTo: url) {
+                defer { try? handle.close() }
+                _ = try? handle.seekToEnd()
+                try? handle.write(contentsOf: data)
+            } else {
+                try? data.write(to: url)
+            }
+        }
     }
 
     func ping(reply: @escaping (Bool) -> Void) {

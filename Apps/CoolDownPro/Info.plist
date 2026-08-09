@@ -26,13 +26,12 @@
 	<true/>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
-	<key>SUFeedURL</key>
-	<string>https://example.com/cooldown/appcast.xml</string>
-	<key>SUPublicEDKey</key>
-	<string>REPLACE_WITH_SPARKLE_ED25519_PUBLIC_KEY</string>
-	<key>SUEnableAutomaticChecks</key>
-	<true/>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>Cool Down Pro notifies you when temperatures exceed your alert threshold.</string>
+	<key>SMPrivilegedExecutables</key>
+	<dict>
+		<key>com.cooldown.CoolDownPro.PrivilegedHelper</key>
+		<string>identifier com.cooldown.CoolDownPro.PrivilegedHelper and anchor apple generic and certificate leaf[subject.OU] = Z5D5N7CU6L</string>
+	</dict>
 </dict>
 </plist>

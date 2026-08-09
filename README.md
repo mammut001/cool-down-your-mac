@@ -2,7 +2,7 @@
 
 Dual-product macOS menu bar utilities:
 
-- **Cool Down Pro** — independent distribution with SMC fan control, privileged helper, smart curves, notarized DMG + Sparkle
+- **Cool Down Pro** — independent distribution with SMC fan control, privileged helper, smart curves, and notarized releases
 - **Cool Down** — Mac App Store edition that monitors thermal pressure and helps quit hot processes (no fan writes)
 
 ## Requirements
@@ -28,7 +28,17 @@ Release packaging:
 ./Packaging/scripts/build-release.sh
 ```
 
-See [Docs/DISTRIBUTION.md](Docs/DISTRIBUTION.md) for notarization, Sparkle, and App Store steps.
+See [Docs/DISTRIBUTION.md](Docs/DISTRIBUTION.md) for notarization and App Store steps.
+
+## Screenshots
+
+### Cool Down Pro — Overview
+
+![Cool Down Pro overview](Docs/images/cool-down-pro-overview.jpg)
+
+### Cool Down Pro — Smart Fan Curve
+
+![Cool Down Pro smart fan curve](Docs/images/cool-down-pro-fan-curve.jpg)
 
 ## Architecture (Pro)
 
@@ -39,4 +49,4 @@ CoolDownPro.app  --XPC-->  Privileged Helper  --IOKit-->  AppleSMC
 
 ## License
 
-Add your license before shipping.
+This project is licensed under the [GNU General Public License v2.0 only](LICENSE).

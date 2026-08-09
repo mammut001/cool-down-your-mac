@@ -2,23 +2,7 @@ import Foundation
 import IOKit
 import Darwin
 
-// Minimal SMC probe to list readable temperature-like keys on this Mac.
-
-typealias SMCByteBuffer = (
-    UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
-    UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
-    UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
-    UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8
-)
-
-func zeroBytes() -> SMCByteBuffer {
-    (
-        0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0
-    )
-}
+// Read-only diagnostic utility for the legacy AppleSMC interface.
 
 func blankKeyData() -> SMCKeyData {
     var data = SMCKeyData()
@@ -73,71 +57,75 @@ final class Probe {
         var input = blankKeyData()
         var output = blankKeyData()
         input.key = fourCC("#KEY")
-        input.data8 = UInt8(kSMCGetKeyInfo)
+        input.data8 = CChar(bitPattern: UInt8(kSMCGetKeyInfo))
         try invoke(input: &input, output: &output)
 
         var readIn = blankKeyData()
         var readOut = blankKeyData()
         readIn.key = input.key
-        readIn.data8 = UInt8(kSMCReadKey)
+        readIn.data8 = CChar(bitPattern: UInt8(kSMCReadKey))
         readIn.keyInfo.dataSize = output.keyInfo.dataSize
         readIn.keyInfo.dataType = output.keyInfo.dataType
         try invoke(input: &readIn, output: &readOut)
 
         // ui32 big-endian in first 4 bytes of bytes tuple
-        let b = readOut.bytes
-        let value = (UInt32(b.0) << 24) | (UInt32(b.1) << 16) | (UInt32(b.2) << 8) | UInt32(b.3)
+        let b = byteArray(readOut.bytes)
+        let value = (UInt32(b[0]) << 24) | (UInt32(b[1]) << 16) | (UInt32(b[2]) << 8) | UInt32(b[3])
         return Int(value)
     }
 
     func keyAt(index: Int) throws -> String {
         var input = blankKeyData()
         var output = blankKeyData()
-        input.data8 = UInt8(kSMCGetKeyFromIndex)
+        input.data8 = CChar(bitPattern: UInt8(kSMCGetKeyFromIndex))
         input.data32 = UInt32(index)
         try invoke(input: &input, output: &output)
         return fourCCString(output.key)
     }
 
-    func read(key: String) throws -> (type: String, size: UInt32, bytes: SMCByteBuffer) {
+    func read(key: String) throws -> (type: String, size: UInt32, bytes: [UInt8]) {
         var input = blankKeyData()
         var output = blankKeyData()
         input.key = fourCC(key)
-        input.data8 = UInt8(kSMCGetKeyInfo)
+        input.data8 = CChar(bitPattern: UInt8(kSMCGetKeyInfo))
         try invoke(input: &input, output: &output)
 
         var readIn = blankKeyData()
         var readOut = blankKeyData()
         readIn.key = input.key
-        readIn.data8 = UInt8(kSMCReadKey)
+        readIn.data8 = CChar(bitPattern: UInt8(kSMCReadKey))
         readIn.keyInfo.dataSize = output.keyInfo.dataSize
         readIn.keyInfo.dataType = output.keyInfo.dataType
         try invoke(input: &readIn, output: &readOut)
-        return (fourCCString(output.keyInfo.dataType), output.keyInfo.dataSize, readOut.bytes)
+        return (fourCCString(output.keyInfo.dataType), output.keyInfo.dataSize, byteArray(readOut.bytes))
     }
 
-    func celsius(type: String, bytes: SMCByteBuffer) -> Double? {
+    func celsius(type: String, bytes: [UInt8]) -> Double? {
         switch type {
         case "sp78", "sp87", "sp96", "sp5a", "sp4b", "sp69":
-            let hi = Int8(bitPattern: bytes.0)
-            let lo = bytes.1
+            let hi = Int8(bitPattern: bytes[0])
+            let lo = bytes[1]
             return Double(hi) + Double(lo) / 256.0
         case "flt ":
-            let be = (UInt32(bytes.0) << 24) | (UInt32(bytes.1) << 16) | (UInt32(bytes.2) << 8) | UInt32(bytes.3)
+            let be = (UInt32(bytes[0]) << 24) | (UInt32(bytes[1]) << 16) | (UInt32(bytes[2]) << 8) | UInt32(bytes[3])
             return Double(Float(bitPattern: be))
         case "ui16", "ui8 ", "ui32":
             return nil
         default:
             // Heuristic: treat 2-byte as sp78-like if plausible
             if type.hasPrefix("sp") {
-                let hi = Int8(bitPattern: bytes.0)
-                let lo = bytes.1
+                let hi = Int8(bitPattern: bytes[0])
+                let lo = bytes[1]
                 let v = Double(hi) + Double(lo) / 256.0
                 return (v > -20 && v < 150) ? v : nil
             }
             return nil
         }
     }
+}
+
+private func byteArray(_ tuple: SMCBytes_t) -> [UInt8] {
+    withUnsafeBytes(of: tuple) { Array($0.bindMemory(to: UInt8.self)) }
 }
 
 do {

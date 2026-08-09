@@ -3,12 +3,10 @@ import SwiftUI
 public struct SnapshotHeaderView: View {
     public let maxTemp: Double?
     public let modeLabel: String
-    public let helperOK: Bool
 
-    public init(maxTemp: Double?, modeLabel: String, helperOK: Bool) {
+    public init(maxTemp: Double?, modeLabel: String) {
         self.maxTemp = maxTemp
         self.modeLabel = modeLabel
-        self.helperOK = helperOK
     }
 
     public var body: some View {
@@ -28,11 +26,6 @@ public struct SnapshotHeaderView: View {
         }
         .padding(.bottom, 4)
 
-        if !helperOK {
-            Label("Helper not installed — install to control fans", systemImage: "exclamationmark.triangle.fill")
-                .font(.caption)
-                .foregroundStyle(CoolDownTheme.warning)
-        }
     }
 }
 

@@ -1,8 +1,8 @@
 import Foundation
 import CoolDownKit
 
-/// Best-effort unprivileged SMC read for UI when helper is not yet installed.
-/// Writes always go through the privileged helper.
+/// Best-effort unprivileged SMC access for UI (and local write fallback when helper SMC fails).
+/// Prefer the privileged helper for production fan writes.
 enum DirectSMCReader {
     static func readSnapshot() -> SensorSnapshot? {
         do {
@@ -24,11 +24,31 @@ enum DirectSMCReader {
             return SensorSnapshot(
                 fans: fans,
                 temperatures: temps,
-                canControlFans: false,
+                canControlFans: kit.canControlFans,
                 helperAvailable: false
             )
         } catch {
             return nil
+        }
+    }
+
+    @discardableResult
+    static func setFansAuto() -> Bool {
+        do {
+            try SMCKit().setAllFansAuto()
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    @discardableResult
+    static func setFansPercent(_ percent: Double) -> Bool {
+        do {
+            try SMCKit().setAllFansPercent(percent)
+            return true
+        } catch {
+            return false
         }
     }
 }

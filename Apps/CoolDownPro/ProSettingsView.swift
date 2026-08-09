@@ -21,10 +21,16 @@ struct ProSettingsView: View {
                 }
                 Section("Helper") {
                     LabeledContent("Status") {
-                        Text(model.helper.isConnected ? "Connected" : "Not connected")
+                        Text(model.helperControlIsReady ? "Enabled" : "Needs approval")
                     }
-                    Button("Install / Register Helper") { model.installHelper() }
-                    Text("Helper requires admin approval via System Settings → General → Login Items.")
+                    Button(model.helperActionTitle) {
+                        if model.helperIsRegistered && !model.helperControlIsReady {
+                            model.reinstallHelper()
+                        } else {
+                            model.requestHelperSetup()
+                        }
+                    }
+                    Text("You only need to approve fan control once. macOS may show a separate confirmation.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -34,31 +40,28 @@ struct ProSettingsView: View {
 
             Form {
                 Section("Smart Curve") {
-                    ForEach(Array(settings.settings.curve.points.enumerated()), id: \.element.id) { index, _ in
-                        HStack {
-                            TextField(
-                                "°C",
-                                value: $settings.settings.curve.points[index].temperatureC,
-                                format: .number
-                            )
-                            Text("→")
-                            TextField(
-                                "%",
-                                value: Binding(
-                                    get: { settings.settings.curve.points[index].fanPercent * 100 },
-                                    set: { settings.settings.curve.points[index].fanPercent = ($0 / 100).clamped(to: 0...1) }
-                                ),
-                                format: .number
-                            )
-                        }
-                    }
+                    Text("Edit the temperature → fan curve in the Cool Down Pro window under the Fan Curve tab.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     HStack {
                         Text("Hysteresis")
                         Slider(value: $settings.settings.curve.hysteresisC, in: 0.5...5, step: 0.5)
                         Text("\(settings.settings.curve.hysteresisC, specifier: "%.1f")°C")
                             .frame(width: 48, alignment: .trailing)
                     }
-                    Button("Reset to default curve") { settings.resetCurveToDefault() }
+                    HStack {
+                        Text("Load boost max")
+                        Slider(value: $settings.settings.loadBoostMax, in: 0...0.4, step: 0.05)
+                        Text("\(Int(settings.settings.loadBoostMax * 100))%")
+                            .frame(width: 40, alignment: .trailing)
+                    }
+                    HStack {
+                        Text("Boost above load")
+                        Slider(value: $settings.settings.loadBoostThreshold, in: 20...95, step: 5)
+                        Text("\(Int(settings.settings.loadBoostThreshold))%")
+                            .frame(width: 40, alignment: .trailing)
+                    }
+                    Button("Reset curve to default") { settings.resetCurveToDefault() }
                 }
             }
             .formStyle(.grouped)

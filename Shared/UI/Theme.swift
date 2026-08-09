@@ -15,3 +15,41 @@ public enum CoolDownTheme {
         }
     }
 }
+
+/// A lightweight material treatment that keeps the interface feeling native on
+/// macOS while giving related controls a clear, glass-like hierarchy.
+public struct GlassCard<Content: View>: View {
+    private let content: Content
+
+    public init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    public var body: some View {
+        content
+            .padding(16)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(.white.opacity(0.24), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.09), radius: 18, y: 8)
+    }
+}
+
+public struct GlassBackdrop: View {
+    public init() {}
+
+    public var body: some View {
+        LinearGradient(
+            colors: [
+                CoolDownTheme.accent.opacity(0.19),
+                Color(nsColor: .windowBackgroundColor).opacity(0.72),
+                CoolDownTheme.calm.opacity(0.13)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .ignoresSafeArea()
+    }
+}

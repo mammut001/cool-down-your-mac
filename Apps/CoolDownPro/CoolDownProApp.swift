@@ -13,7 +13,7 @@ struct CoolDownProApp: App {
                 .environmentObject(appModel)
                 .environmentObject(appModel.settings)
         } label: {
-            ProMenuBarLabel(title: appModel.menuBarTitle)
+            DashboardLaunchLabel(title: appModel.menuBarTitle)
         }
         .menuBarExtraStyle(.window)
 
@@ -37,6 +37,11 @@ struct CoolDownProApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        // Open dashboard shortly after launch so sensors/RPM are visible without hunting the menu bar.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            NotificationCenter.default.post(name: .coolDownOpenDashboard, object: nil)
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -66,5 +71,19 @@ struct ProMenuBarLabel: View {
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .monospacedDigit()
         }
+    }
+}
+
+/// Always-mounted menu bar label so launch/reopen can open the dashboard window.
+private struct DashboardLaunchLabel: View {
+    @Environment(\.openWindow) private var openWindow
+    let title: String
+
+    var body: some View {
+        ProMenuBarLabel(title: title)
+            .onReceive(NotificationCenter.default.publisher(for: .coolDownOpenDashboard)) { _ in
+                openWindow(id: "dashboard")
+                NSApp.activate(ignoringOtherApps: true)
+            }
     }
 }

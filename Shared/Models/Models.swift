@@ -211,6 +211,10 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public var alertTemperatureC: Double
     public var alertsEnabled: Bool
     public var showTemperatureInMenuBar: Bool
+    /// Max extra fan fraction added under heavy CPU load in Smart Curve mode (0...0.4).
+    public var loadBoostMax: Double
+    /// Aggregate process load % above which boost starts ramping.
+    public var loadBoostThreshold: Double
 
     public init(
         mode: ControlMode = .smartCurve,
@@ -220,7 +224,9 @@ public struct AppSettings: Codable, Hashable, Sendable {
         launchAtLogin: Bool = false,
         alertTemperatureC: Double = 90,
         alertsEnabled: Bool = true,
-        showTemperatureInMenuBar: Bool = true
+        showTemperatureInMenuBar: Bool = true,
+        loadBoostMax: Double = 0.20,
+        loadBoostThreshold: Double = 60
     ) {
         self.mode = mode
         self.curve = curve
@@ -230,9 +236,45 @@ public struct AppSettings: Codable, Hashable, Sendable {
         self.alertTemperatureC = alertTemperatureC
         self.alertsEnabled = alertsEnabled
         self.showTemperatureInMenuBar = showTemperatureInMenuBar
+        self.loadBoostMax = loadBoostMax.clamped(to: 0...0.4)
+        self.loadBoostThreshold = loadBoostThreshold.clamped(to: 20...95)
     }
 
     public static let storageKey = "cooldown.settings.v1"
+
+    enum CodingKeys: String, CodingKey {
+        case mode, curve, manualPercent, sampleIntervalSeconds, launchAtLogin
+        case alertTemperatureC, alertsEnabled, showTemperatureInMenuBar
+        case loadBoostMax, loadBoostThreshold
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        mode = try c.decodeIfPresent(ControlMode.self, forKey: .mode) ?? .smartCurve
+        curve = try c.decodeIfPresent(CurveProfile.self, forKey: .curve) ?? CurveProfile()
+        manualPercent = (try c.decodeIfPresent(Double.self, forKey: .manualPercent) ?? 0.4).clamped(to: 0...1)
+        sampleIntervalSeconds = try c.decodeIfPresent(Double.self, forKey: .sampleIntervalSeconds) ?? 2.0
+        launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
+        alertTemperatureC = try c.decodeIfPresent(Double.self, forKey: .alertTemperatureC) ?? 90
+        alertsEnabled = try c.decodeIfPresent(Bool.self, forKey: .alertsEnabled) ?? true
+        showTemperatureInMenuBar = try c.decodeIfPresent(Bool.self, forKey: .showTemperatureInMenuBar) ?? true
+        loadBoostMax = (try c.decodeIfPresent(Double.self, forKey: .loadBoostMax) ?? 0.20).clamped(to: 0...0.4)
+        loadBoostThreshold = (try c.decodeIfPresent(Double.self, forKey: .loadBoostThreshold) ?? 60).clamped(to: 20...95)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(mode, forKey: .mode)
+        try c.encode(curve, forKey: .curve)
+        try c.encode(manualPercent, forKey: .manualPercent)
+        try c.encode(sampleIntervalSeconds, forKey: .sampleIntervalSeconds)
+        try c.encode(launchAtLogin, forKey: .launchAtLogin)
+        try c.encode(alertTemperatureC, forKey: .alertTemperatureC)
+        try c.encode(alertsEnabled, forKey: .alertsEnabled)
+        try c.encode(showTemperatureInMenuBar, forKey: .showTemperatureInMenuBar)
+        try c.encode(loadBoostMax, forKey: .loadBoostMax)
+        try c.encode(loadBoostThreshold, forKey: .loadBoostThreshold)
+    }
 }
 
 public enum ThermalPressureLevel: String, Codable, Sendable {
