@@ -9,13 +9,15 @@ settings:
   base:
     SWIFT_VERSION: "5.9"
     MACOSX_DEPLOYMENT_TARGET: "14.0"
-    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_IDENTITY: "4ECF07C42DD3995B5A117F3420C14166393978E5"
+    CODE_SIGN_STYLE: Manual
     CODE_SIGNING_ALLOWED: YES
-    CODE_SIGNING_REQUIRED: NO
-    DEVELOPMENT_TEAM: ""
+    CODE_SIGNING_REQUIRED: YES
+    OTHER_CODE_SIGN_FLAGS: ["--timestamp"]
+    DEVELOPMENT_TEAM: "Z5D5N7CU6L"
     ENABLE_HARDENED_RUNTIME: YES
-    CURRENT_PROJECT_VERSION: 1
-    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: 12
+    MARKETING_VERSION: "1.0.2"
 targets:
   CoolDownKit:
     type: framework
@@ -42,18 +44,46 @@ targets:
       - path: Pro/SMC
         excludes:
           - DirectSMCReader.swift
+          - PrivilegedSMCWriter.swift
+          - smc_cli_main.swift
       - path: Pro/XPC/CoolDownXPCProtocol.swift
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.cooldown.CoolDownPro.Helper
-        PRODUCT_NAME: com.cooldown.CoolDownPro.Helper
+        PRODUCT_BUNDLE_IDENTIFIER: com.cooldown.CoolDownPro.PrivilegedHelper
+        PRODUCT_NAME: com.cooldown.CoolDownPro.PrivilegedHelper
         SKIP_INSTALL: YES
         CREATE_INFOPLIST_SECTION_IN_BINARY: YES
         INFOPLIST_FILE: Pro/Helper/Helper-Info.plist
         CODE_SIGN_ENTITLEMENTS: Pro/Helper/CoolDownHelper.entitlements
+        OTHER_LDFLAGS: ["-framework", "IOKit", "-sectcreate", "__TEXT", "__launchd_plist", "$(SRCROOT)/Pro/Helper/com.cooldown.CoolDownPro.PrivilegedHelper.plist"]
+        SWIFT_OBJC_BRIDGING_HEADER: Pro/SMC/CoolDown-Bridging-Header.h
+        HEADER_SEARCH_PATHS: ["$(SRCROOT)/Pro/SMC"]
+        ENABLE_HARDENED_RUNTIME: YES
+        # Distribution builds must not contain Xcode's debugging entitlement.
+        CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+        ENABLE_APP_SANDBOX: NO
+        # A system LaunchDaemon must not carry Xcode's debug entitlement.
+        CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+
+  CoolDownSMCCLI:
+    type: tool
+    platform: macOS
+    sources:
+      - path: Pro/SMC/smc_cli_main.swift
+      - path: Pro/SMC/SMCKit.swift
+      - path: Pro/SMC/SMCTypes.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cooldown.CoolDownPro.SMCCLI
+        PRODUCT_NAME: cooldown-smc
+        SKIP_INSTALL: YES
+        CREATE_INFOPLIST_SECTION_IN_BINARY: YES
         OTHER_LDFLAGS: ["-framework", "IOKit"]
         SWIFT_OBJC_BRIDGING_HEADER: Pro/SMC/CoolDown-Bridging-Header.h
         HEADER_SEARCH_PATHS: ["$(SRCROOT)/Pro/SMC"]
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+        ENABLE_APP_SANDBOX: NO
 
   CoolDownPro:
     type: application
@@ -63,11 +93,17 @@ targets:
       - path: Pro/XPC
       - path: Pro/Curve
       - path: Pro/SMC
+        excludes:
+          - smc_cli_main.swift
       - path: Pro/Sensors
+      - path: Pro/Monitoring
     dependencies:
       - target: CoolDownKit
         embed: true
       - target: CoolDownHelper
+        embed: false
+        link: false
+      - target: CoolDownSMCCLI
         embed: false
         link: false
     settings:
@@ -82,21 +118,25 @@ targets:
         OTHER_LDFLAGS: ["-framework", "ServiceManagement", "-framework", "IOKit"]
         SWIFT_OBJC_BRIDGING_HEADER: Pro/Sensors/CoolDownSensors-Bridging-Header.h
         HEADER_SEARCH_PATHS: ["$(SRCROOT)/Pro/SMC", "$(SRCROOT)/Pro/Sensors"]
-        ENABLE_HARDENED_RUNTIME: NO
+        ENABLE_HARDENED_RUNTIME: YES
     postBuildScripts:
       - name: Embed Helper and LaunchDaemon
         script: |
           set -euo pipefail
           APP="${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}"
           mkdir -p "${APP}/Contents/MacOS"
-          mkdir -p "${APP}/Contents/Library/LaunchDaemons"
-          HELPER_SRC="${BUILT_PRODUCTS_DIR}/com.cooldown.CoolDownPro.Helper"
+          mkdir -p "${APP}/Contents/Resources"
+          HELPER_SRC="${BUILT_PRODUCTS_DIR}/com.cooldown.CoolDownPro.PrivilegedHelper"
           if [[ -f "${HELPER_SRC}" ]]; then
-            cp -f "${HELPER_SRC}" "${APP}/Contents/MacOS/com.cooldown.CoolDownPro.Helper"
-            chmod 755 "${APP}/Contents/MacOS/com.cooldown.CoolDownPro.Helper"
+            mkdir -p "${APP}/Contents/Library/LaunchServices"
+            cp -f "${HELPER_SRC}" "${APP}/Contents/Library/LaunchServices/com.cooldown.CoolDownPro.PrivilegedHelper"
+            chmod 755 "${APP}/Contents/Library/LaunchServices/com.cooldown.CoolDownPro.PrivilegedHelper"
           fi
-          cp -f "${SRCROOT}/Pro/Helper/com.cooldown.CoolDownPro.Helper.plist" \
-            "${APP}/Contents/Library/LaunchDaemons/com.cooldown.CoolDownPro.Helper.plist"
+          CLI_SRC="${BUILT_PRODUCTS_DIR}/cooldown-smc"
+          if [[ -f "${CLI_SRC}" ]]; then
+            cp -f "${CLI_SRC}" "${APP}/Contents/MacOS/cooldown-smc"
+            chmod 755 "${APP}/Contents/MacOS/cooldown-smc"
+          fi
         basedOnDependencyAnalysis: false
     scheme:
       testTargets: []

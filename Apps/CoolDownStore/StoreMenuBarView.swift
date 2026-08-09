@@ -22,7 +22,10 @@ struct StoreMenuBarView: View {
                     .foregroundStyle(color(for: model.pressure))
             }
 
-            GroupBox("System") {
+            GlassCard {
+                VStack(alignment: .leading, spacing: 8) {
+                Label("System", systemImage: "gauge.with.dots.needle.67percent")
+                    .font(.subheadline.weight(.semibold))
                 LabeledContent("Thermal pressure", value: model.pressure.displayName)
                 LabeledContent("Approx. active load") {
                     Text(SensorFormatting.percent(model.cpuLoadPercent / 100))
@@ -31,9 +34,13 @@ struct StoreMenuBarView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.top, 4)
+                }
             }
 
-            GroupBox("Hot processes") {
+            GlassCard {
+                VStack(alignment: .leading, spacing: 8) {
+                Label("Hot processes", systemImage: "flame")
+                    .font(.subheadline.weight(.semibold))
                 if model.hotProcesses.isEmpty {
                     Text("No notable hot processes")
                         .font(.caption)
@@ -54,6 +61,7 @@ struct StoreMenuBarView: View {
                         }
                     }
                 }
+                }
             }
 
             if let status = model.statusMessage {
@@ -71,16 +79,7 @@ struct StoreMenuBarView: View {
         }
         .padding(14)
         .frame(width: 320)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(nsColor: .windowBackgroundColor),
-                    Color(red: 0.95, green: 0.97, blue: 0.94)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
+        .background(GlassBackdrop())
         .onAppear { model.refresh() }
         .onChange(of: settings.settings.sampleIntervalSeconds) { _, _ in model.startPolling() }
         .onChange(of: settings.settings.launchAtLogin) { _, _ in model.applyLaunchAtLogin() }

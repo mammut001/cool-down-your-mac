@@ -1,6 +1,6 @@
 import Foundation
 
-public let coolDownHelperMachServiceName = "com.cooldown.CoolDownPro.Helper"
+public let coolDownHelperMachServiceName = "com.cooldown.CoolDownPro.PrivilegedHelper"
 
 @objc public protocol CoolDownHelperProtocol {
     func ping(reply: @escaping (Bool) -> Void)

@@ -4,7 +4,7 @@
 
 | Product | Bundle ID | Channel |
 |---------|-----------|---------|
-| Cool Down Pro | `com.cooldown.CoolDownPro` | Website DMG + Notarization + Sparkle |
+| Cool Down Pro | `com.cooldown.CoolDownPro` | Website download + notarization |
 | Cool Down (Store) | `com.cooldown.CoolDown` | Mac App Store (sandboxed, no fan writes) |
 
 ## Requirements
@@ -27,10 +27,7 @@ xcrun notarytool store-credentials cooldown-notary \
   --password "app-specific-password"
 ```
 
-4. Replace placeholders:
-   - `Pro/Helper/HelperSecurity.swift` → `allowedTeamIDs`
-   - `Apps/CoolDownPro/Info.plist` → `SUFeedURL`, `SUPublicEDKey`
-   - `Packaging/Sparkle/appcast-template.xml` → enclosure URL + edSignature
+4. Configure the trusted signing team in `Pro/Helper/HelperSecurity.swift`.
 
 ## Build Pro (Release)
 
@@ -40,30 +37,20 @@ xcrun notarytool store-credentials cooldown-notary \
 ./Packaging/scripts/make-dmg.sh dist/build/Build/Products/Release/CoolDownPro.app dist/CoolDownPro.dmg
 ```
 
-## Sparkle
+## Updates
 
-1. Add [Sparkle 2](https://github.com/sparkle-project/Sparkle) via SPM to the CoolDownPro target.
-2. Generate keys: `./bin/generate_keys`
-3. Put public key in `SUPublicEDKey`.
-4. Sign the DMG/zip: `./bin/sign_update CoolDownPro.dmg`
-5. Publish `appcast.xml` and the DMG on HTTPS.
-
-Optional Sparkle wiring (after adding the package):
-
-```swift
-import Sparkle
-// In AppDelegate:
-let updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
-```
+Cool Down Pro does not perform automatic update checks. Publish each notarized
+release manually through GitHub Releases or your download page.
 
 ## Helper installation (Pro)
 
-Pro uses `SMAppService` (`macOS 13+`) with:
+Pro installs its built-in privileged helper using `SMJobBless` after the user
+authenticates with macOS:
 
-- Helper binary: `Contents/MacOS/com.cooldown.CoolDownPro.Helper`
-- LaunchDaemon plist: `Contents/Library/LaunchDaemons/com.cooldown.CoolDownPro.Helper.plist`
+- Helper label: `com.cooldown.CoolDownPro.PrivilegedHelper`
+- Installed location: `/Library/PrivilegedHelperTools/`
 
-Users approve the daemon under **System Settings → General → Login Items & Extensions**.
+The helper is code-signed and validates trusted callers before fan writes.
 
 ## App Store (Cool Down)
 

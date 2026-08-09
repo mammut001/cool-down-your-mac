@@ -1,5 +1,6 @@
 import Foundation
 import ServiceManagement
+import Security
 import CoolDownKit
 
 @MainActor
@@ -14,18 +15,40 @@ public final class HelperClient: ObservableObject {
     private init() {}
 
     public var helperStatus: SMAppService.Status {
-        SMAppService.daemon(plistName: "com.cooldown.CoolDownPro.Helper.plist").status
+        FileManager.default.fileExists(atPath: "/Library/PrivilegedHelperTools/\(coolDownHelperMachServiceName)")
+            ? .enabled : .notRegistered
     }
 
     public func installHelper() throws {
-        let service = SMAppService.daemon(plistName: "com.cooldown.CoolDownPro.Helper.plist")
-        try service.register()
+        var authorization: AuthorizationRef?
+        guard AuthorizationCreate(nil, nil, [], &authorization) == errAuthorizationSuccess,
+              let authorization else {
+            throw CoolDownXPCError.helperUnavailable.nsError
+        }
+        defer { AuthorizationFree(authorization, []) }
+
+        var item = AuthorizationItem(
+            name: kSMRightBlessPrivilegedHelper,
+            valueLength: 0,
+            value: nil,
+            flags: 0
+        )
+        var rights = AuthorizationRights(count: 1, items: &item)
+        let flags: AuthorizationFlags = [.interactionAllowed, .preAuthorize, .extendRights]
+        guard AuthorizationCopyRights(authorization, &rights, nil, flags, nil) == errAuthorizationSuccess else {
+            throw CoolDownXPCError.helperUnavailable.nsError
+        }
+
+        var blessingError: Unmanaged<CFError>?
+        guard SMJobBless(kSMDomainSystemLaunchd, coolDownHelperMachServiceName as CFString, authorization, &blessingError) else {
+            throw (blessingError?.takeRetainedValue() as Error?) ?? CoolDownXPCError.helperUnavailable.nsError
+        }
         reconnect()
     }
 
     public func uninstallHelper() throws {
-        let service = SMAppService.daemon(plistName: "com.cooldown.CoolDownPro.Helper.plist")
-        try service.unregister()
+        // SMJobBless replaces an installed tool atomically, so callers can
+        // repair or upgrade it by blessing again without a second prompt.
         connection?.invalidate()
         connection = nil
         isConnected = false

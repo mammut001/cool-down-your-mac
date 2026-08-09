@@ -21,24 +21,27 @@ struct ProMenuBarView: View {
             .tint(CoolDownTheme.accent)
             .controlSize(.regular)
 
-            SnapshotHeaderView(
-                maxTemp: model.snapshot.maxTemperatureC,
-                modeLabel: settings.settings.mode.displayName,
-                helperOK: model.helper.isConnected || model.snapshot.helperAvailable
-            )
+            GlassCard {
+                SnapshotHeaderView(
+                    maxTemp: model.snapshot.maxTemperatureC,
+                    modeLabel: settings.settings.mode.displayName
+                )
+            }
 
-            ModePickerView(
-                mode: Binding(
-                    get: { settings.settings.mode },
-                    set: { model.setMode($0) }
-                ),
-                enabledModes: model.snapshot.canControlFans || model.helper.isConnected
-                    ? ControlMode.allCases
-                    : [.systemAuto, .smartCurve, .manual]
-            )
-            .disabled(!(model.helper.isConnected || model.snapshot.canControlFans))
+            GlassCard {
+                ModePickerView(
+                    mode: Binding(
+                        get: { settings.settings.mode },
+                        set: { model.setMode($0) }
+                    ),
+                    enabledModes: model.helperControlIsReady
+                        ? ControlMode.allCases
+                        : [.systemAuto]
+                )
+                .disabled(!model.helperControlIsReady)
+            }
 
-            if settings.settings.mode == .manual {
+            if settings.settings.mode == .manual && model.helperControlIsReady {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text("Manual speed")
@@ -57,9 +60,14 @@ struct ProMenuBarView: View {
                 }
             }
 
-            GroupBox("Fans") {
+            GlassCard {
+                VStack(alignment: .leading, spacing: 8) {
+                Label("Fans", systemImage: "fanblades")
+                    .font(.subheadline.weight(.semibold))
                 if model.snapshot.fans.isEmpty {
-                    Text("No fans detected")
+                    Text(model.fanControlUnavailableOnThisMac
+                         ? "Fan controller not supported yet"
+                         : "No fans detected")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
@@ -67,9 +75,19 @@ struct ProMenuBarView: View {
                         FanRowView(fan: fan)
                     }
                 }
+                }
             }
 
-            GroupBox {
+            GlassCard {
+                VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label("Sensors", systemImage: "thermometer.medium")
+                        .font(.subheadline.weight(.semibold))
+                    Spacer()
+                    Text("\(model.snapshot.temperatures.count)")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
                 if model.snapshot.temperatures.isEmpty {
                     Text("No sensors available")
                         .font(.caption)
@@ -80,13 +98,6 @@ struct ProMenuBarView: View {
                     }
                     .frame(maxHeight: 140)
                 }
-            } label: {
-                HStack {
-                    Text("Sensors")
-                    Spacer()
-                    Text("\(model.snapshot.temperatures.count)")
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.secondary)
                 }
             }
 
@@ -98,8 +109,13 @@ struct ProMenuBarView: View {
             }
 
             HStack {
-                Button("Install Helper") { model.installHelper() }
+                if model.helperNeedsSetup {
+                    Button(model.helperActionTitle) {
+                        openDashboard()
+                        model.requestHelperSetup()
+                    }
                     .disabled(model.isBusy)
+                }
                 Button("Settings…") { openSettings() }
                 Spacer()
                 Button("Quit") { NSApplication.shared.terminate(nil) }
@@ -109,16 +125,7 @@ struct ProMenuBarView: View {
         }
         .padding(14)
         .frame(width: 340)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(nsColor: .windowBackgroundColor),
-                    Color(red: 0.93, green: 0.97, blue: 0.98)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
+        .background(GlassBackdrop())
         .onAppear {
             Task { await model.tick() }
         }

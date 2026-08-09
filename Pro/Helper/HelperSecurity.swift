@@ -4,8 +4,7 @@ import Security
 enum HelperSecurity {
     /// Accept connections from Cool Down Pro (and development ad-hoc builds with matching bundle id).
     static let allowedTeamIDs: Set<String> = [
-        // Replace with your Apple Team ID before release.
-        "TEAMIDXXXX"
+        "Z5D5N7CU6L"
     ]
 
     static let allowedBundleIDs: Set<String> = [
@@ -25,7 +24,7 @@ enum HelperSecurity {
 
         let bundleOK = allowedBundleIDs.contains(codesign.bundleID ?? "")
         if let team = codesign.teamID, !team.isEmpty {
-            return bundleOK && (allowedTeamIDs.contains(team) || allowedTeamIDs.contains("TEAMIDXXXX"))
+            return bundleOK && allowedTeamIDs.contains(team)
         }
         return bundleOK
     }

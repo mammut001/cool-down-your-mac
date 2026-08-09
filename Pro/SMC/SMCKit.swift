@@ -9,6 +9,7 @@ final class SMCKit {
         case openFailed
         case keyNotFound(String)
         case ioFailed(String)
+        case noControllableFans
 
         var errorDescription: String? {
             switch self {
@@ -16,6 +17,8 @@ final class SMCKit {
             case .openFailed: return "Failed to open AppleSMC connection"
             case .keyNotFound(let key): return "SMC key not found: \(key)"
             case .ioFailed(let key): return "SMC I/O failed: \(key)"
+            case .noControllableFans:
+                return "Fan control is not available on this Mac yet"
             }
         }
     }
@@ -23,14 +26,25 @@ final class SMCKit {
     private var connection: io_connect_t = 0
 
     init() throws {
-        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSMC"))
-        guard service != 0 else { throw SMCError.serviceNotFound }
-        defer { IOObjectRelease(service) }
-        var conn: io_connect_t = 0
-        guard IOServiceOpen(service, mach_task_self_, 0, &conn) == KERN_SUCCESS else {
-            throw SMCError.openFailed
+        // Apple Silicon exposes both services. KeysEndpoint is useful for
+        // telemetry, but on this Mac it accepts F*Tg writes without applying
+        // them. Fan control must go through the AppleSMC connection itself.
+        // Keep KeysEndpoint only as a read fallback for future hardware.
+        let candidates = ["AppleSMC", "AppleSMCKeysEndpoint"]
+        var lastOpenFailed = false
+        for name in candidates {
+            let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching(name))
+            guard service != 0 else { continue }
+            defer { IOObjectRelease(service) }
+            var conn: io_connect_t = 0
+            let kr = IOServiceOpen(service, mach_task_self_, 0, &conn)
+            if kr == KERN_SUCCESS, conn != 0 {
+                connection = conn
+                return
+            }
+            lastOpenFailed = true
         }
-        connection = conn
+        throw lastOpenFailed ? SMCError.openFailed : SMCError.serviceNotFound
     }
 
     deinit {
@@ -40,13 +54,17 @@ final class SMCKit {
     }
 
     func fanCount() throws -> Int {
-        Int(try readBytes(key: "FNum")[0])
+        let declared = Int(try readBytes(key: "FNum")[0])
+        if declared > 0 { return declared }
+        // Newer Apple Silicon models can expose per-fan keys while reporting
+        // zero (or an unavailable value) for the legacy FNum key.
+        return discoverFanIndices().count
     }
 
     func readFans() throws -> [SMCFanReading] {
-        let count = try fanCount()
+        let indices = try fanIndices()
         var fans: [SMCFanReading] = []
-        for index in 0..<count {
+        for index in indices {
             let name = (try? fanName(index: index)) ?? "Fan \(index)"
             let minRPM = Double((try? readFloat(key: "F\(index)Mn")) ?? 1000)
             let maxRPM = Double((try? readFloat(key: "F\(index)Mx")) ?? 6000)
@@ -94,30 +112,97 @@ final class SMCKit {
     func setFanManual(index: Int, enabled: Bool) throws {
         var bytes = [UInt8](repeating: 0, count: 32)
         bytes[0] = enabled ? 1 : 0
-        try writeBytes(key: "F\(index)Md", bytes: bytes, type: "ui8 ", size: 1)
+        // M5 models use a lowercase `md` suffix; earlier Apple Silicon uses
+        // `Md`. A target write without a successful mode switch is ignored by
+        // thermalmonitord, so probe both and never silently pretend it worked.
+        let keys = ["F\(index)Md", "F\(index)md"]
+        var lastError: Error?
+        for key in keys {
+            do {
+                try writeBytes(key: key, bytes: bytes, type: "ui8 ", size: 1)
+                return
+            } catch {
+                lastError = error
+            }
+        }
+        throw lastError ?? SMCError.keyNotFound("F\(index)Md/F\(index)md")
     }
 
     func setFanRPM(index: Int, rpm: Double) throws {
+        let minRPM = Double((try? readFloat(key: "F\(index)Mn")) ?? 1350)
+        let maxRPM = Double((try? readFloat(key: "F\(index)Mx")) ?? 6000)
+        let lo = minRPM > 200 ? minRPM : 1350
+        let hi = maxRPM > lo ? maxRPM : max(lo + 1000, 6000)
+        let clamped = min(max(rpm, lo), hi)
         try setFanManual(index: index, enabled: true)
-        try writeFloat(key: "F\(index)Tg", value: Float(rpm))
+        try writeFloat(key: "F\(index)Tg", value: Float(clamped))
     }
 
     func setAllFansAuto() throws {
-        let count = try fanCount()
-        for index in 0..<count {
-            try setFanManual(index: index, enabled: false)
+        let indices = try fanIndices()
+        guard !indices.isEmpty else { throw SMCError.noControllableFans }
+        var restored = false
+        for index in indices {
+            do {
+                try setFanManual(index: index, enabled: false)
+                restored = true
+            } catch {
+                continue
+            }
+        }
+        // If mode keys are absent, clear targets so firmware resumes automatic control.
+        if !restored {
+            for index in indices {
+                try? writeFloat(key: "F\(index)Tg", value: 0)
+            }
         }
     }
 
     func setAllFansPercent(_ percent: Double) throws {
         let p = min(max(percent, 0), 1)
-        for fan in try readFans() {
-            try setFanRPM(index: fan.index, rpm: fan.minRPM + (fan.maxRPM - fan.minRPM) * p)
+        let fans = try readFans()
+        // Never report a successful manual change when discovery found no
+        // writable fans. On newer Macs that would make the slider a no-op.
+        guard !fans.isEmpty else { throw SMCError.noControllableFans }
+        for fan in fans {
+            let lo = fan.minRPM > 200 ? fan.minRPM : 1350
+            let hi = fan.maxRPM > lo ? fan.maxRPM : max(lo + 1000, 6000)
+            try setFanRPM(index: fan.index, rpm: lo + (hi - lo) * p)
         }
     }
 
     var canControlFans: Bool {
-        (try? fanCount()).map { $0 > 0 } ?? false
+        guard let indices = try? fanIndices() else { return false }
+        return !indices.isEmpty
+    }
+
+    /// Diagnostics used to select the correct write encoding on each Mac.
+    func fanKeyDescriptions() -> [String] {
+        let indices = (try? fanIndices()) ?? []
+        return indices.flatMap { index in
+            ["F\(index)Ac", "F\(index)Tg", "F\(index)Mn", "F\(index)Mx", "F\(index)Md", "F\(index)md"].map { key in
+                if let info = try? readInfo(key: key) {
+                    return "\(key) type=\(info.type) size=\(info.size)"
+                }
+                return "\(key) unavailable"
+            }
+        }
+    }
+
+    private func fanIndices() throws -> [Int] {
+        let declared = Int(try readBytes(key: "FNum")[0])
+        if declared > 0 { return Array(0..<declared) }
+        return discoverFanIndices()
+    }
+
+    /// Macs Fan Control confirms this machine has two fans, but the M5 Pro's
+    /// legacy FNum key reports zero. Probe the standard per-fan actual-RPM
+    /// keys as a safe fallback; a key must be readable before we offer writes.
+    private func discoverFanIndices() -> [Int] {
+        (0..<8).filter { index in
+            guard let rpm = try? readFloat(key: "F\(index)Ac") else { return false }
+            return rpm.isFinite && rpm >= 0
+        }
     }
 
     // MARK: Private
