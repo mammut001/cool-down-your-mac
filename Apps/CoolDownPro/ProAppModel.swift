@@ -189,6 +189,7 @@ final class ProAppModel: ObservableObject {
                 targetFanPercent = 0
                 loadBoostPercent = 0
                 curveEngine.reset()
+                loadMonitor.resetFanBoost()
                 try await applyFanWrite(
                     commandKey: "auto",
                     remote: { try await helper.setFansAuto() }
@@ -196,6 +197,8 @@ final class ProAppModel: ObservableObject {
             case .manual:
                 loadBoostPercent = 0
                 targetFanPercent = settings.settings.manualPercent
+                curveEngine.reset()
+                loadMonitor.resetFanBoost()
                 let percent = settings.settings.manualPercent
                 try await applyFanWrite(
                     commandKey: String(format: "manual-%.3f", percent),
@@ -208,12 +211,12 @@ final class ProAppModel: ObservableObject {
                     boostMax: settings.settings.loadBoostMax
                 )
                 loadBoostPercent = boost
-                let smoothedBase = curveEngine.targetPercent(
+                let percent = curveEngine.targetPercent(
                     temperatureC: temp,
-                    profile: settings.settings.curve
+                    profile: settings.settings.curve,
+                    loadBoost: boost
                 )
-                targetFanPercent = (smoothedBase + boost).clamped(to: 0...1)
-                let percent = targetFanPercent
+                targetFanPercent = percent
                 try await applyFanWrite(
                     commandKey: String(format: "smart-%.3f", percent),
                     remote: { try await helper.setFansPercent(percent) }
@@ -306,8 +309,9 @@ final class ProAppModel: ObservableObject {
     func setMode(_ mode: ControlMode) {
         settings.settings.mode = mode
         lastAppliedFanCommand = nil
-        if mode == .systemAuto {
+        if mode != .smartCurve {
             curveEngine.reset()
+            loadMonitor.resetFanBoost()
         }
         Task { await applyControlPolicy() }
     }
@@ -315,6 +319,8 @@ final class ProAppModel: ObservableObject {
     func setManualPercent(_ percent: Double) {
         settings.settings.manualPercent = percent
         settings.settings.mode = .manual
+        curveEngine.reset()
+        loadMonitor.resetFanBoost()
         lastAppliedFanCommand = nil // force write on slider changes
         Task { await applyControlPolicy() }
     }
