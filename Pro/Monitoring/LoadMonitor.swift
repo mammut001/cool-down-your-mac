@@ -2,13 +2,22 @@ import Foundation
 import CoolDownKit
 import Darwin
 
-/// Lightweight CPU load sampler used to boost fan speed under heavy work.
+/// Lightweight CPU load sampler used to boost fan speed under sustained work.
 @MainActor
 final class LoadMonitor: ObservableObject {
     @Published private(set) var cpuLoadPercent: Double = 0
     @Published private(set) var hottestProcessPercent: Double = 0
     @Published private(set) var hottestProcessName: String = "—"
+
     private var previousCPUTicks: [UInt64]?
+    private var loadAboveThresholdSince: TimeInterval?
+    private var smoothedFanBoost: Double = 0
+    private var lastBoostUpdateUptime: TimeInterval?
+
+    private let boostActivationSeconds: TimeInterval = 4
+    private let boostReleaseHysteresisPercent = 8.0
+    private let boostRiseTimeConstant: TimeInterval = 4
+    private let boostFallTimeConstant: TimeInterval = 12
 
     func refresh() {
         let (_, procs) = Self.sampleProcesses(limit: 8)
@@ -20,6 +29,12 @@ final class LoadMonitor: ObservableObject {
             hottestProcessPercent = 0
             hottestProcessName = "—"
         }
+    }
+
+    func resetFanBoost() {
+        loadAboveThresholdSince = nil
+        smoothedFanBoost = 0
+        lastBoostUpdateUptime = nil
     }
 
     /// Uses kernel CPU tick deltas rather than `p_estcpu`, which is a stale
@@ -63,13 +78,56 @@ final class LoadMonitor: ObservableObject {
         return (Double(busy) / Double(total) * 100).clamped(to: 0...100)
     }
 
-    /// Returns 0...boostMax based on load vs threshold.
+    /// Returns a smoothed 0...boostMax value based on sustained *system* CPU
+    /// load. Per-process estimates remain useful for the UI, but are too noisy
+    /// to directly drive fan commands.
     func fanBoost(threshold: Double, boostMax: Double) -> Double {
-        let load = max(cpuLoadPercent, hottestProcessPercent)
-        guard load > threshold, boostMax > 0 else { return 0 }
-        let span = max(100 - threshold, 1)
-        let t = ((load - threshold) / span).clamped(to: 0...1)
-        return boostMax * t
+        let now = ProcessInfo.processInfo.systemUptime
+        let dt = elapsedBoostSeconds(now: now)
+        let threshold = threshold.clamped(to: 20...95)
+        let boostMax = boostMax.clamped(to: 0...0.4)
+
+        guard boostMax > 0 else {
+            resetFanBoost()
+            return 0
+        }
+
+        let load = cpuLoadPercent.clamped(to: 0...100)
+        if load > threshold {
+            if loadAboveThresholdSince == nil {
+                loadAboveThresholdSince = now
+            }
+        } else if load < threshold - boostReleaseHysteresisPercent {
+            loadAboveThresholdSince = nil
+        }
+
+        let sustained = loadAboveThresholdSince.map { now - $0 >= boostActivationSeconds } ?? false
+        let desired: Double
+        if sustained, load > threshold {
+            let span = max(100 - threshold, 1)
+            let t = ((load - threshold) / span).clamped(to: 0...1)
+            desired = boostMax * t
+        } else {
+            desired = 0
+        }
+
+        // Approach boost slowly and release even more slowly so short-lived CPU
+        // bursts do not translate into audible fan pulses.
+        let timeConstant = desired > smoothedFanBoost
+            ? boostRiseTimeConstant
+            : boostFallTimeConstant
+        let alpha = 1 - exp(-dt / timeConstant)
+        smoothedFanBoost += (desired - smoothedFanBoost) * alpha
+        if smoothedFanBoost < 0.001 {
+            smoothedFanBoost = 0
+        }
+        return smoothedFanBoost.clamped(to: 0...boostMax)
+    }
+
+    private func elapsedBoostSeconds(now: TimeInterval) -> TimeInterval {
+        defer { lastBoostUpdateUptime = now }
+        guard let lastBoostUpdateUptime else { return 2 }
+        return (now - lastBoostUpdateUptime).clamped(to: 0.25...10)
     }
 
     private static func sampleProcesses(limit: Int) -> (Double, [HotProcess]) {
