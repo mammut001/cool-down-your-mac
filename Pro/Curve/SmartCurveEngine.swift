@@ -8,6 +8,42 @@ import CoolDownKit
 /// how quickly the final fan command can move. This prevents the classic
 /// heat -> fan burst -> temperature drop -> fan drop oscillation.
 public final class SmartCurveEngine: @unchecked Sendable {
+    #if DEBUG
+    public struct Diagnostics: Sendable {
+        public let rawTemperatureC: Double
+        public let filteredTemperatureC: Double?
+        public let curvePercent: Double
+        public let loadBoostPercent: Double
+        public let desiredPercent: Double
+        public let finalPercent: Double
+        public let cooldownRemainingSeconds: TimeInterval
+        public let isHotResponse: Bool
+        public let isEmergency: Bool
+
+        public init(
+            rawTemperatureC: Double,
+            filteredTemperatureC: Double?,
+            curvePercent: Double,
+            loadBoostPercent: Double,
+            desiredPercent: Double,
+            finalPercent: Double,
+            cooldownRemainingSeconds: TimeInterval,
+            isHotResponse: Bool,
+            isEmergency: Bool
+        ) {
+            self.rawTemperatureC = rawTemperatureC
+            self.filteredTemperatureC = filteredTemperatureC
+            self.curvePercent = curvePercent
+            self.loadBoostPercent = loadBoostPercent
+            self.desiredPercent = desiredPercent
+            self.finalPercent = finalPercent
+            self.cooldownRemainingSeconds = cooldownRemainingSeconds
+            self.isHotResponse = isHotResponse
+            self.isEmergency = isEmergency
+        }
+    }
+    #endif
+
     private let lock = NSLock()
 
     private var filteredTemperatureC: Double?
@@ -16,6 +52,9 @@ public final class SmartCurveEngine: @unchecked Sendable {
     private var lastAppliedPercent: Double?
     private var lastUpdateUptime: TimeInterval?
     private var cooldownRemainingSeconds: TimeInterval = 0
+    #if DEBUG
+    private var lastDiagnostics: Diagnostics?
+    #endif
 
     // Tuned for a calm acoustic response while still reacting quickly to heat.
     private let temperatureRiseAlphaAtTwoSeconds = 0.35
@@ -30,6 +69,24 @@ public final class SmartCurveEngine: @unchecked Sendable {
 
     public init() {}
 
+    #if DEBUG
+    public var diagnostics: Diagnostics {
+        lock.lock()
+        defer { lock.unlock() }
+        return Diagnostics(
+            rawTemperatureC: lastDiagnostics?.rawTemperatureC ?? filteredTemperatureC ?? 0,
+            filteredTemperatureC: lastDiagnostics?.filteredTemperatureC ?? filteredTemperatureC,
+            curvePercent: lastDiagnostics?.curvePercent ?? lastCurvePercent ?? 0,
+            loadBoostPercent: lastDiagnostics?.loadBoostPercent ?? 0,
+            desiredPercent: lastDiagnostics?.desiredPercent ?? lastAppliedPercent ?? 0,
+            finalPercent: lastDiagnostics?.finalPercent ?? lastAppliedPercent ?? 0,
+            cooldownRemainingSeconds: lastDiagnostics?.cooldownRemainingSeconds ?? cooldownRemainingSeconds,
+            isHotResponse: lastDiagnostics?.isHotResponse ?? false,
+            isEmergency: lastDiagnostics?.isEmergency ?? false
+        )
+    }
+    #endif
+
     public func reset() {
         lock.lock()
         defer { lock.unlock() }
@@ -39,6 +96,9 @@ public final class SmartCurveEngine: @unchecked Sendable {
         lastAppliedPercent = nil
         lastUpdateUptime = nil
         cooldownRemainingSeconds = 0
+        #if DEBUG
+        lastDiagnostics = nil
+        #endif
     }
 
     /// Returns the final fan percentage after thermal filtering, hysteresis,
@@ -56,20 +116,48 @@ public final class SmartCurveEngine: @unchecked Sendable {
         let filtered = filterTemperature(temperatureC, elapsedSeconds: dt)
         let curvePercent = stabilizedCurvePercent(temperatureC: filtered, profile: profile)
         var desired = (curvePercent + loadBoost).clamped(to: 0...1)
+        let isEmergency = temperatureC >= emergencyTemperatureC
+        let isHotResponse = temperatureC >= hotTemperatureC
 
         // Safety bypasses: do not let smoothing make the machine sluggish at
         // genuinely high temperatures. 92C goes straight to full fan.
-        if temperatureC >= emergencyTemperatureC {
+        if isEmergency {
             lastAppliedPercent = 1
             cooldownRemainingSeconds = decreaseHoldSeconds
+            #if DEBUG
+            lastDiagnostics = Diagnostics(
+                rawTemperatureC: temperatureC,
+                filteredTemperatureC: filtered,
+                curvePercent: curvePercent,
+                loadBoostPercent: loadBoost,
+                desiredPercent: 1,
+                finalPercent: 1,
+                cooldownRemainingSeconds: cooldownRemainingSeconds,
+                isHotResponse: true,
+                isEmergency: true
+            )
+            #endif
             return 1
         }
-        if temperatureC >= hotTemperatureC {
+        if isHotResponse {
             desired = max(desired, 0.85)
         }
 
         guard let last = lastAppliedPercent else {
             lastAppliedPercent = desired
+            #if DEBUG
+            lastDiagnostics = Diagnostics(
+                rawTemperatureC: temperatureC,
+                filteredTemperatureC: filtered,
+                curvePercent: curvePercent,
+                loadBoostPercent: loadBoost,
+                desiredPercent: desired,
+                finalPercent: desired,
+                cooldownRemainingSeconds: cooldownRemainingSeconds,
+                isHotResponse: isHotResponse,
+                isEmergency: false
+            )
+            #endif
             return desired
         }
 
@@ -79,6 +167,19 @@ public final class SmartCurveEngine: @unchecked Sendable {
         // so a meaningful accumulated difference will still be applied later.
         if abs(delta) < percentDeadband {
             cooldownRemainingSeconds = max(0, cooldownRemainingSeconds - dt)
+            #if DEBUG
+            lastDiagnostics = Diagnostics(
+                rawTemperatureC: temperatureC,
+                filteredTemperatureC: filtered,
+                curvePercent: curvePercent,
+                loadBoostPercent: loadBoost,
+                desiredPercent: desired,
+                finalPercent: last,
+                cooldownRemainingSeconds: cooldownRemainingSeconds,
+                isHotResponse: isHotResponse,
+                isEmergency: false
+            )
+            #endif
             return last
         }
 
@@ -89,16 +190,55 @@ public final class SmartCurveEngine: @unchecked Sendable {
             let rate = temperatureC >= hotTemperatureC ? hotRisePerSecond : normalRisePerSecond
             let next = min(desired, last + rate * dt)
             lastAppliedPercent = next
+            #if DEBUG
+            lastDiagnostics = Diagnostics(
+                rawTemperatureC: temperatureC,
+                filteredTemperatureC: filtered,
+                curvePercent: curvePercent,
+                loadBoostPercent: loadBoost,
+                desiredPercent: desired,
+                finalPercent: next,
+                cooldownRemainingSeconds: cooldownRemainingSeconds,
+                isHotResponse: isHotResponse,
+                isEmergency: false
+            )
+            #endif
             return next
         }
 
         cooldownRemainingSeconds = max(0, cooldownRemainingSeconds - dt)
         guard cooldownRemainingSeconds <= 0 else {
+            #if DEBUG
+            lastDiagnostics = Diagnostics(
+                rawTemperatureC: temperatureC,
+                filteredTemperatureC: filtered,
+                curvePercent: curvePercent,
+                loadBoostPercent: loadBoost,
+                desiredPercent: desired,
+                finalPercent: last,
+                cooldownRemainingSeconds: cooldownRemainingSeconds,
+                isHotResponse: isHotResponse,
+                isEmergency: false
+            )
+            #endif
             return last
         }
 
         let next = max(desired, last - fallPerSecond * dt)
         lastAppliedPercent = next
+        #if DEBUG
+        lastDiagnostics = Diagnostics(
+            rawTemperatureC: temperatureC,
+            filteredTemperatureC: filtered,
+            curvePercent: curvePercent,
+            loadBoostPercent: loadBoost,
+            desiredPercent: desired,
+            finalPercent: next,
+            cooldownRemainingSeconds: cooldownRemainingSeconds,
+            isHotResponse: isHotResponse,
+            isEmergency: false
+        )
+        #endif
         return next
     }
 

@@ -182,6 +182,26 @@ public struct SensorSnapshot: Codable, Hashable, Sendable {
         controlTemperatures.map(\.celsius).max() ?? temperatures.map(\.celsius).max()
     }
 
+    /// User-facing temperature: prefer the calculated CPU average so the
+    /// menu bar reflects the general chip temperature rather than a single
+    /// transient hotspot.
+    public var displayTemperatureC: Double? {
+        if let average = temperatures.first(where: { $0.key == "calc.cpu.avg" || $0.key == "hid.cpu.avg" }) {
+            return average.celsius
+        }
+        let cpuTemperatures = temperatures.filter { $0.group == .cpu }
+        if !cpuTemperatures.isEmpty {
+            return cpuTemperatures.map(\.celsius).reduce(0, +) / Double(cpuTemperatures.count)
+        }
+        return maxTemperatureC
+    }
+
+    /// Thermal-control temperature: use the hottest valid CPU/GPU reading so
+    /// a local hotspot cannot be hidden by the display average.
+    public var thermalControlTemperatureC: Double? {
+        controlTemperatures.map(\.celsius).max() ?? temperatures.map(\.celsius).max()
+    }
+
     public var controlTemperatures: [TemperatureReading] {
         let control = temperatures.filter(\.group.affectsThermalControl)
         return control.isEmpty ? temperatures : control
