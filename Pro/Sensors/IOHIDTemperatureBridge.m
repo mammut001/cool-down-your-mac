@@ -81,10 +81,5 @@ NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
         [results addObject:@{@"name": name, @"celsius": @(avg)}];
     }
 
-    // Debug breadcrumb for diagnosing empty UI states.
-    NSString *path = [NSTemporaryDirectory() stringByAppendingPathComponent:@"cooldown-hid-debug.txt"];
-    NSString *line = [NSString stringWithFormat:@"count=%lu\n", (unsigned long)results.count];
-    [line writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
-
     return results;
 }

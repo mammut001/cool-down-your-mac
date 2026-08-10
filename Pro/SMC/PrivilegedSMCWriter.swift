@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 
 /// Fallback fan writer when the SMAppService helper cannot spawn (common with ad-hoc debug signing).
@@ -47,3 +48,5 @@ enum PrivilegedSMCWriter {
             .replacingOccurrences(of: "\"", with: "\\\"")
     }
 }
+
+#endif

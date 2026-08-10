@@ -1,15 +1,15 @@
-# Privacy Policy — Cool Down / Cool Down Pro
+# Privacy Policy — Cool Down Pro
 
-Last updated: 2026-07-31
+Last updated: 2026-08-10
 
 ## Summary
 
-Cool Down and Cool Down Pro run locally on your Mac. They do not require an account and do not sell personal data.
+Cool Down Pro runs locally on your Mac. It does not require an account and does not sell personal data.
 
 ## Data we process on device
 
-- Temperature / fan sensor values (Pro) or thermal pressure (Store)
-- Process names and PIDs you view for cool-down suggestions
+- Temperature / fan sensor values and thermal control state
+- Process names and PIDs you view for load monitoring
 - App preferences stored in UserDefaults on your Mac
 
 ## Data we do not collect
@@ -20,12 +20,13 @@ Cool Down and Cool Down Pro run locally on your Mac. They do not require an acco
 
 ## Notifications
 
-If enabled, the apps may show local notifications when heat thresholds or thermal pressure warrants attention. Notifications stay on device.
+If enabled, the app may show local notifications when heat thresholds warrant attention. Notifications stay on device.
 
-## Updates (Pro)
+## Updates
 
 Cool Down Pro does not perform automatic update checks. It does not contact an
-update server.
+update server. Diagnostics (e.g. smart-curve CSV / `os_log`) are only written
+in DEBUG builds.
 
 ## Contact
 

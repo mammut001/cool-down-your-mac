@@ -52,6 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        ProAppModel.performSyncRestoreIfNeeded()
         Task { @MainActor in
             await ProAppModel.sharedOnTerminate?()
         }

@@ -13,9 +13,9 @@ if [[ -z "${APP_PATH}" || ! -d "${APP_PATH}" ]]; then
 fi
 
 echo "==> Codesign helper"
-HELPER="${APP_PATH}/Contents/MacOS/com.cooldown.CoolDownPro.Helper"
+HELPER="${APP_PATH}/Contents/Library/LaunchServices/com.cooldown.CoolDownPro.PrivilegedHelper"
 if [[ -f "${HELPER}" ]]; then
-  codesign --force --options runtime --timestamp --sign "${IDENTITY}" "${HELPER}"
+  codesign --force --options runtime --timestamp --entitlements "${ROOT}/Pro/Helper/CoolDownHelper.entitlements" --sign "${IDENTITY}" "${HELPER}"
 fi
 
 echo "==> Codesign frameworks"

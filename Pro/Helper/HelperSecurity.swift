@@ -2,7 +2,6 @@ import Foundation
 import Security
 
 enum HelperSecurity {
-    /// Accept connections from Cool Down Pro (and development ad-hoc builds with matching bundle id).
     static let allowedTeamIDs: Set<String> = [
         "Z5D5N7CU6L"
     ]
@@ -12,14 +11,13 @@ enum HelperSecurity {
     ]
 
     static func isTrustedCaller(connection: NSXPCConnection) -> Bool {
-        // During local development, allow same-user connections; tighten for release signing.
+#if DEBUG
         if ProcessInfo.processInfo.environment["COOLDOWN_HELPER_DEV"] == "1" {
             return true
         }
-
+#endif
         guard let codesign = try? auditTokenCodesign(connection: connection) else {
-            // Fallback: require peer to be signed when possible; allow if we cannot inspect in unsigned builds.
-            return true
+            return false
         }
 
         let bundleOK = allowedBundleIDs.contains(codesign.bundleID ?? "")

@@ -13,6 +13,10 @@ final class ProAppModel: ObservableObject {
     private let smartCurveCSV = SmartCurveCSVWriter()
     #endif
     static var sharedOnTerminate: (() async -> Void)?
+    static weak var sharedInstance: ProAppModel?
+    static func performSyncRestoreIfNeeded() {
+        sharedInstance?.restoreAutoOnExitSync()
+    }
 
     @Published var snapshot = SensorSnapshot()
     @Published var allTemperatures: [TemperatureReading] = []
@@ -67,6 +71,7 @@ final class ProAppModel: ObservableObject {
     }
 
     init() {
+        Self.sharedInstance = self
         Self.sharedOnTerminate = { [weak self] in
             await self?.restoreAutoOnExit()
         }
@@ -362,7 +367,29 @@ final class ProAppModel: ObservableObject {
 
     func restoreAutoOnExit() async {
         guard settings.settings.mode != .systemAuto else { return }
+        // Best-effort async restore. applicationWillTerminate now also calls
+        // the synchronous fallback so the fan does not stay pinned if the
+        // process is killed before this task completes.
         try? await helper.setFansAuto()
+    }
+
+    /// Synchronous best-effort restore for applicationWillTerminate, where
+    /// async work may be killed before it completes. Uses a short semaphore
+    /// wait and a direct SMC fallback if XPC is unavailable.
+    func restoreAutoOnExitSync(timeoutSeconds: TimeInterval = 1.2) {
+        guard settings.settings.mode != .systemAuto else { return }
+        let sema = DispatchSemaphore(value: 0)
+        var finished = false
+        Task {
+            try? await helper.setFansAuto()
+            finished = true
+            sema.signal()
+        }
+        if sema.wait(timeout: .now() + timeoutSeconds) == .timedOut, !finished {
+            // Last resort: if we still have local SMC access, clear targets
+            // locally rather than leaving the fan pinned in manual mode.
+            _ = DirectSMCReader.setFansAuto()
+        }
     }
 
     func applyLaunchAtLogin() {

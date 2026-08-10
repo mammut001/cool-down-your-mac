@@ -23,8 +23,6 @@ enum IOHIDTemperatureReader {
         }
 
         let mapped = SensorNameMapper.map(rawReadings: raw)
-        let path = NSTemporaryDirectory() + "cooldown-hid-mapped.txt"
-        try? "raw=\(raw.count) mapped=\(mapped.count)\n".write(toFile: path, atomically: true, encoding: .utf8)
         return mapped
     }
 }

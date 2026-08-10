@@ -1,9 +1,10 @@
-# Cool Down Your Mac
+# Cool Down Pro
 
-Dual-product macOS menu bar utilities:
+macOS menu bar utility with smart thermal fan control.
 
-- **Cool Down Pro** — independent distribution with SMC fan control, privileged helper, smart curves, and notarized releases
-- **Cool Down** — Mac App Store edition that monitors thermal pressure and helps quit hot processes (no fan writes)
+- **SMC fan control** via privileged helper (`SMJobBless` + XPC), hardened runtime, notarized DMG
+- **Smart Curve** — hysteresis, asymmetric EWMA filtering, cooldown hold, and hot/emergency bypass
+- **HID + SMC sensor fusion** — curated CPU/GPU/Battery/Storage/Other views
 
 ## Requirements
 
@@ -19,7 +20,6 @@ open CoolDownYourMac.xcodeproj
 
 # or
 xcodebuild -project CoolDownYourMac.xcodeproj -scheme CoolDownPro -configuration Debug build
-xcodebuild -project CoolDownYourMac.xcodeproj -scheme CoolDownStore -configuration Debug build
 ```
 
 Release packaging:
@@ -28,19 +28,19 @@ Release packaging:
 ./Packaging/scripts/build-release.sh
 ```
 
-See [Docs/DISTRIBUTION.md](Docs/DISTRIBUTION.md) for notarization and App Store steps.
+See [Docs/DISTRIBUTION.md](Docs/DISTRIBUTION.md) for notarization steps.
 
 ## Screenshots
 
-### Cool Down Pro — Overview
+### Overview
 
 ![Cool Down Pro overview](Docs/images/cool-down-pro-overview.jpg)
 
-### Cool Down Pro — Smart Fan Curve
+### Smart Fan Curve
 
 ![Cool Down Pro smart fan curve](Docs/images/cool-down-pro-fan-curve.jpg)
 
-## Architecture (Pro)
+## Architecture
 
 ```
 CoolDownPro.app  --XPC-->  Privileged Helper  --IOKit-->  AppleSMC

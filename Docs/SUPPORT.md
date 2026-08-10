@@ -1,29 +1,23 @@
-# Support — Cool Down Your Mac
+# Support — Cool Down Pro
 
-## Cool Down Pro
+## Install
 
 1. Install from the notarized DMG.
-2. Open the menu bar fan icon → **Install Helper**.
+2. Open the menu bar fan icon → **Enable Fan Control…**.
 3. Approve the helper in System Settings → General → Login Items.
 4. Choose **Smart Curve** or **Manual**.
 
-### Fans stay on Auto
+## Fans stay on Auto
 
 - Confirm helper status shows Connected in Settings.
-- Apple Silicon models vary; if SMC write keys are unavailable, Pro stays read-only and shows a status message.
+- Apple Silicon models vary; if SMC write keys are unavailable, the app stays read-only and shows a status message.
 - Quit and reopen the app after approving Login Items.
 
-### Fans too loud / too quiet
+## Fans too loud / too quiet
 
-- Edit the curve under Settings → Curve.
+- Edit the curve under Fan Curve.
 - Increase hysteresis if RPM chatters.
 - Switch to System Auto to hand control back to macOS.
-
-## Cool Down (App Store)
-
-- Shows thermal pressure and hot processes only.
-- Does not control fans.
-- Use **Quit** next to a process to reduce load (requires permission where applicable).
 
 ## Contact
 
