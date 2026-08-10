@@ -4,9 +4,14 @@ import SwiftUI
 import CoolDownKit
 import ServiceManagement
 import UserNotifications
+import os
 
 @MainActor
 final class ProAppModel: ObservableObject {
+    #if DEBUG
+    private let smartCurveLogger = Logger(subsystem: "com.cooldown.CoolDownPro", category: "SmartCurve")
+    private let smartCurveCSV = SmartCurveCSVWriter()
+    #endif
     static var sharedOnTerminate: (() async -> Void)?
 
     @Published var snapshot = SensorSnapshot()
@@ -32,7 +37,7 @@ final class ProAppModel: ObservableObject {
 
     var menuBarTitle: String {
         SensorFormatting.menuBarTitle(
-            temp: snapshot.maxTemperatureC,
+            temp: snapshot.displayTemperatureC,
             mode: settings.settings.mode,
             showTemp: settings.settings.showTemperatureInMenuBar
         )
@@ -137,7 +142,7 @@ final class ProAppModel: ObservableObject {
             applyLocalSnapshot(localSMC: localSMC, temperatures: displayTemps, helperError: nil)
         }
 
-        controlTemperatureC = snapshot.primaryTemperature?.celsius ?? snapshot.maxTemperatureC
+        controlTemperatureC = snapshot.thermalControlTemperatureC
     }
 
     private func preferredFans(remote: [FanInfo], local: [FanInfo]) -> [FanInfo] {
@@ -189,6 +194,7 @@ final class ProAppModel: ObservableObject {
                 targetFanPercent = 0
                 loadBoostPercent = 0
                 curveEngine.reset()
+                loadMonitor.resetFanBoost()
                 try await applyFanWrite(
                     commandKey: "auto",
                     remote: { try await helper.setFansAuto() }
@@ -196,6 +202,8 @@ final class ProAppModel: ObservableObject {
             case .manual:
                 loadBoostPercent = 0
                 targetFanPercent = settings.settings.manualPercent
+                curveEngine.reset()
+                loadMonitor.resetFanBoost()
                 let percent = settings.settings.manualPercent
                 try await applyFanWrite(
                     commandKey: String(format: "manual-%.3f", percent),
@@ -208,16 +216,46 @@ final class ProAppModel: ObservableObject {
                     boostMax: settings.settings.loadBoostMax
                 )
                 loadBoostPercent = boost
-                let smoothedBase = curveEngine.targetPercent(
+                let percent = curveEngine.targetPercent(
                     temperatureC: temp,
-                    profile: settings.settings.curve
+                    profile: settings.settings.curve,
+                    loadBoost: boost
                 )
-                targetFanPercent = (smoothedBase + boost).clamped(to: 0...1)
-                let percent = targetFanPercent
+                targetFanPercent = percent
                 try await applyFanWrite(
                     commandKey: String(format: "smart-%.3f", percent),
                     remote: { try await helper.setFansPercent(percent) }
                 )
+                #if DEBUG
+                let diagnostics = curveEngine.diagnostics
+                smartCurveLogger.info(
+                    "[SmartCurve] rawTemp=\(diagnostics.rawTemperatureC, format: .fixed(precision: 1)) filteredTemp=\((diagnostics.filteredTemperatureC ?? temp), format: .fixed(precision: 1)) curve=\(diagnostics.curvePercent * 100, format: .fixed(precision: 1))% cpuLoad=\(self.loadMonitor.cpuLoadPercent, format: .fixed(precision: 1))% boost=\(diagnostics.loadBoostPercent * 100, format: .fixed(precision: 1))% desired=\(diagnostics.desiredPercent * 100, format: .fixed(precision: 1))% final=\(diagnostics.finalPercent * 100, format: .fixed(precision: 1))% hold=\(diagnostics.cooldownRemainingSeconds, format: .fixed(precision: 1))s hot=\(diagnostics.isHotResponse) emergency=\(diagnostics.isEmergency) mode=\(mode.rawValue)"
+                )
+                let fans = snapshot.fans.isEmpty ? [FanInfo(index: -1, name: "unknown", minRPM: 0, maxRPM: 0, currentRPM: 0)] : snapshot.fans
+                let rows = fans.map { fan in
+                    SmartCurveCSVRow(
+                        timestamp: Date(),
+                        uptimeSeconds: ProcessInfo.processInfo.systemUptime,
+                        mode: mode.rawValue,
+                        rawTemperatureC: diagnostics.rawTemperatureC,
+                        filteredTemperatureC: diagnostics.filteredTemperatureC ?? temp,
+                        cpuLoadPercent: loadMonitor.cpuLoadPercent,
+                        curvePercent: diagnostics.curvePercent,
+                        loadBoostPercent: diagnostics.loadBoostPercent,
+                        desiredPercent: diagnostics.desiredPercent,
+                        finalPercent: diagnostics.finalPercent,
+                        targetRPM: fan.targetRPM,
+                        actualRPM: fan.currentRPM,
+                        holdRemainingSeconds: diagnostics.cooldownRemainingSeconds,
+                        emergencyState: diagnostics.isEmergency ? "emergency" : (diagnostics.isHotResponse ? "hot" : "normal"),
+                        sampleIntervalSeconds: settings.settings.sampleIntervalSeconds,
+                        hottestProcessName: loadMonitor.hottestProcessName,
+                        hottestProcessPercent: loadMonitor.hottestProcessPercent,
+                        fanIndex: fan.index
+                    )
+                }
+                smartCurveCSV.append(rows)
+                #endif
             }
         } catch {
             statusMessage = error.localizedDescription
@@ -306,8 +344,9 @@ final class ProAppModel: ObservableObject {
     func setMode(_ mode: ControlMode) {
         settings.settings.mode = mode
         lastAppliedFanCommand = nil
-        if mode == .systemAuto {
+        if mode != .smartCurve {
             curveEngine.reset()
+            loadMonitor.resetFanBoost()
         }
         Task { await applyControlPolicy() }
     }
@@ -315,6 +354,8 @@ final class ProAppModel: ObservableObject {
     func setManualPercent(_ percent: Double) {
         settings.settings.manualPercent = percent
         settings.settings.mode = .manual
+        curveEngine.reset()
+        loadMonitor.resetFanBoost()
         lastAppliedFanCommand = nil // force write on slider changes
         Task { await applyControlPolicy() }
     }
@@ -355,3 +396,85 @@ final class ProAppModel: ObservableObject {
         UNUserNotificationCenter.current().add(req)
     }
 }
+
+#if DEBUG
+private struct SmartCurveCSVRow: Sendable {
+    let timestamp: Date
+    let uptimeSeconds: TimeInterval
+    let mode: String
+    let rawTemperatureC: Double
+    let filteredTemperatureC: Double
+    let cpuLoadPercent: Double
+    let curvePercent: Double
+    let loadBoostPercent: Double
+    let desiredPercent: Double
+    let finalPercent: Double
+    let targetRPM: Double?
+    let actualRPM: Double
+    let holdRemainingSeconds: TimeInterval
+    let emergencyState: String
+    let sampleIntervalSeconds: Double
+    let hottestProcessName: String
+    let hottestProcessPercent: Double
+    let fanIndex: Int
+}
+
+private final class SmartCurveCSVWriter: @unchecked Sendable {
+    private let queue = DispatchQueue(label: "com.cooldown.CoolDownPro.smartcurve-csv", qos: .utility)
+    private let url = URL(fileURLWithPath: "/tmp/cooldown-smartcurve.csv")
+    private let header = "timestamp,uptime_seconds,mode,raw_temp_c,filtered_temp_c,cpu_load_percent,curve_percent,load_boost_percent,desired_percent,final_percent,target_rpm,actual_rpm,hold_remaining_seconds,emergency_state,sample_interval_seconds,hottest_process_name,hottest_process_percent,fan_index\n"
+
+    init() {}
+
+    func append(_ rows: [SmartCurveCSVRow]) {
+        guard !rows.isEmpty else { return }
+        queue.async { [url, header] in
+            do {
+                let formatter = ISO8601DateFormatter()
+                let manager = FileManager.default
+                let fileSize = (try? manager.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.intValue ?? 0
+                if !manager.fileExists(atPath: url.path) || fileSize == 0 {
+                    try header.data(using: .utf8)?.write(to: url, options: .atomic)
+                }
+                guard let handle = try? FileHandle(forWritingTo: url) else { return }
+                defer { try? handle.close() }
+                try handle.seekToEnd()
+                let lines = rows.map { row in
+                    [
+                        formatter.string(from: row.timestamp),
+                        self.format(row.uptimeSeconds),
+                        self.csv(row.mode),
+                        self.format(row.rawTemperatureC),
+                        self.format(row.filteredTemperatureC),
+                        self.format(row.cpuLoadPercent),
+                        self.format(row.curvePercent * 100),
+                        self.format(row.loadBoostPercent * 100),
+                        self.format(row.desiredPercent * 100),
+                        self.format(row.finalPercent * 100),
+                        row.targetRPM.map { self.format($0) } ?? "",
+                        self.format(row.actualRPM),
+                        self.format(row.holdRemainingSeconds),
+                        self.csv(row.emergencyState),
+                        self.format(row.sampleIntervalSeconds),
+                        self.csv(row.hottestProcessName),
+                        self.format(row.hottestProcessPercent),
+                        String(row.fanIndex)
+                    ].joined(separator: ",")
+                }.joined(separator: "\n") + "\n"
+                try handle.write(contentsOf: Data(lines.utf8))
+            } catch {
+                // Telemetry must never affect fan-control behavior.
+            }
+        }
+    }
+
+    private func format(_ value: Double) -> String {
+        String(format: "%.3f", value)
+    }
+
+    private func csv(_ value: String) -> String {
+        let escaped = value.replacingOccurrences(of: "\"", with: "\"\"")
+        return "\"\(escaped)\""
+    }
+}
+#endif
