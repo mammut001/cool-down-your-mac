@@ -78,7 +78,7 @@ struct ProSettingsView: View {
                     }
                 }
                 Section("About") {
-                    LabeledContent("Version", value: "1.0.0")
+                    LabeledContent("Version", value: AppMarketingVersion.string(from: .main))
                     LabeledContent("Product", value: "Cool Down Pro")
                     Text("Independent build with SMC fan control. Not affiliated with Apple.")
                         .font(.caption)

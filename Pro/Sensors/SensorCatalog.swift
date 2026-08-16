@@ -4,7 +4,8 @@ import CoolDownKit
 /// Builds a screenshot-style curated sensor list from SMC + HID readings.
 enum SensorCatalog {
     static func curated(smc: [TemperatureReading], hid: [TemperatureReading]) -> [TemperatureReading] {
-        var byKey = Dictionary(uniqueKeysWithValues: smc.map { ($0.key, $0) })
+        let uniqueSMC = lastWriteWinsByKey(smc)
+        var byKey = uniqueSMC
         for item in hid { byKey[item.key] = item }
 
         var list: [TemperatureReading] = []
@@ -29,8 +30,8 @@ enum SensorCatalog {
             addSMC("TB1T", name: "Battery Gas Gauge", group: .battery)
         }
 
-        // CPU cores: Tp00-style keys around SoC temps.
-        let cpuKeys = smc
+        // CPU cores: Tp00-style keys around SoC temps (deduped; last write wins).
+        let cpuKeys = uniqueSMC.values
             .filter { $0.key.hasPrefix("Tp") && $0.key.count == 4 }
             .filter { $0.celsius > 20 && $0.celsius < 110 }
             .sorted { $0.key < $1.key }
@@ -75,8 +76,8 @@ enum SensorCatalog {
             )
         }
 
-        // GPU clusters: pick 4 evenly spaced Tg* samples.
-        let gpuKeys = smc
+        // GPU clusters: pick 4 evenly spaced Tg* samples (deduped; last write wins).
+        let gpuKeys = uniqueSMC.values
             .filter { $0.key.hasPrefix("Tg") && $0.key.count == 4 }
             .filter { $0.celsius > 15 && $0.celsius < 110 }
             .sorted { $0.key < $1.key }
@@ -120,13 +121,13 @@ enum SensorCatalog {
             list.append(
                 TemperatureReading(
                     key: nand.key,
-                    name: "APPLE SSD AP1024Z",
+                    name: storageDisplayName(from: nand.name),
                     celsius: nand.celsius,
                     group: .storage
                 )
             )
         } else {
-            addSMC("TN00", name: "APPLE SSD AP1024Z", group: .storage)
+            addSMC("TN00", name: "SSD", group: .storage)
         }
 
         // Stable display order matching the reference app.
@@ -146,6 +147,21 @@ enum SensorCatalog {
 
     static func allMerged(smc: [TemperatureReading], hid: [TemperatureReading]) -> [TemperatureReading] {
         SensorMerge.merge(smc: smc, hid: hid)
+    }
+
+    /// Last write wins so a duplicate SMC key cannot trap `Dictionary(uniqueKeysWithValues:)`.
+    static func lastWriteWinsByKey(_ readings: [TemperatureReading]) -> [String: TemperatureReading] {
+        var map: [String: TemperatureReading] = [:]
+        map.reserveCapacity(readings.count)
+        for reading in readings {
+            map[reading.key] = reading
+        }
+        return map
+    }
+
+    static func storageDisplayName(from sourceName: String) -> String {
+        let trimmed = sourceName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "SSD" : trimmed
     }
 
     private static func evenlyPick(_ items: [TemperatureReading], count: Int) -> [TemperatureReading] {

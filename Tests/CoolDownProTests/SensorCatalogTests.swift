@@ -1,0 +1,73 @@
+import XCTest
+import CoolDownKit
+
+final class SensorCatalogTests: XCTestCase {
+    func testCuratedListDeduplicatesSMCKeysWithoutTrapping() {
+        let first = TemperatureReading(key: "TW0P", name: "Airport A", celsius: 31, group: .wireless)
+        let second = TemperatureReading(key: "TW0P", name: "Airport B", celsius: 44, group: .wireless)
+        let extra = TemperatureReading(key: "TB0T", name: "Battery", celsius: 28, group: .battery)
+
+        let curated = SensorCatalog.curated(smc: [first, second, extra], hid: [])
+
+        let airportKeys = curated.filter { $0.key == "TW0P" }
+        XCTAssertEqual(airportKeys.count, 1)
+        XCTAssertEqual(airportKeys.first!.celsius, 44, accuracy: 0.0001)
+
+        let uniqueKeys = Set(curated.map(\.key))
+        XCTAssertEqual(uniqueKeys.count, curated.count)
+    }
+
+    func testCuratedListDeduplicatesDuplicateTp00Readings() {
+        let first = TemperatureReading(key: "Tp00", name: "CPU first", celsius: 41, group: .cpu)
+        let second = TemperatureReading(key: "Tp00", name: "CPU second", celsius: 62, group: .cpu)
+        let other = TemperatureReading(key: "Tp01", name: "CPU other", celsius: 50, group: .cpu)
+
+        let curated = SensorCatalog.curated(smc: [first, second, other], hid: [])
+        let matches = curated.filter { $0.key == "Tp00" }
+
+        XCTAssertEqual(matches.count, 1)
+        XCTAssertEqual(matches.first!.celsius, 62, accuracy: 0.0001)
+
+        let uniqueKeys = Set(curated.map(\.key))
+        XCTAssertEqual(uniqueKeys.count, curated.count)
+    }
+
+    func testLastWriteWinsByKeyKeepsLatestDuplicate() {
+        let readings = [
+            TemperatureReading(key: "TN00", name: "first", celsius: 20, group: .storage),
+            TemperatureReading(key: "TN00", name: "second", celsius: 33, group: .storage),
+            TemperatureReading(key: "TB0T", name: "Battery", celsius: 27, group: .battery)
+        ]
+        let map = SensorCatalog.lastWriteWinsByKey(readings)
+        XCTAssertEqual(map.count, 2)
+        XCTAssertEqual(map["TN00"]?.celsius, 33)
+        XCTAssertEqual(map["TN00"]?.name, "second")
+    }
+
+    func testStorageLabelUsesSourceNameNotHardcodedAP1024Z() {
+        let nand = TemperatureReading(
+            key: "hid.storage.ap0512",
+            name: "APPLE SSD AP0512M",
+            celsius: 36,
+            group: .storage
+        )
+
+        let curated = SensorCatalog.curated(smc: [], hid: [nand])
+        let storage = curated.filter { $0.group == .storage }
+
+        XCTAssertFalse(storage.isEmpty)
+        XCTAssertFalse(storage.contains { $0.name == "APPLE SSD AP1024Z" })
+        XCTAssertEqual(storage.first?.name, "APPLE SSD AP0512M")
+        XCTAssertEqual(SensorCatalog.storageDisplayName(from: "APPLE SSD AP0512M"), "APPLE SSD AP0512M")
+        XCTAssertEqual(SensorCatalog.storageDisplayName(from: "   "), "SSD")
+    }
+
+    func testMergedListAlsoDeduplicatesSharedKeys() {
+        let a = TemperatureReading(key: "Tp01", name: "CPU A", celsius: 40, group: .cpu)
+        let b = TemperatureReading(key: "Tp01", name: "CPU B", celsius: 55, group: .cpu)
+        let merged = SensorCatalog.allMerged(smc: [a, b], hid: [])
+        let matches = merged.filter { $0.key == "Tp01" }
+        XCTAssertEqual(matches.count, 1)
+        XCTAssertEqual(matches.first!.celsius, 55, accuracy: 0.0001)
+    }
+}

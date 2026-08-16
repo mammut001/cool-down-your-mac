@@ -16,8 +16,8 @@ settings:
     OTHER_CODE_SIGN_FLAGS: ["--timestamp"]
     DEVELOPMENT_TEAM: "Z5D5N7CU6L"
     ENABLE_HARDENED_RUNTIME: YES
-    CURRENT_PROJECT_VERSION: 14
-    MARKETING_VERSION: "1.0.4"
+    CURRENT_PROJECT_VERSION: 15
+    MARKETING_VERSION: "1.0.5"
 targets:
   CoolDownKit:
     type: framework
@@ -71,6 +71,7 @@ targets:
       - path: Pro/SMC/smc_cli_main.swift
       - path: Pro/SMC/SMCKit.swift
       - path: Pro/SMC/SMCTypes.swift
+      - path: Pro/SMC/SMCKnownNames.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.cooldown.CoolDownPro.SMCCLI
@@ -138,5 +139,27 @@ targets:
           fi
         basedOnDependencyAnalysis: false
     scheme:
-      testTargets: []
+      testTargets:
+        - CoolDownProTests
+
+  CoolDownProTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests/CoolDownProTests
+      - path: Pro/Curve/SmartCurveEngine.swift
+      - path: Pro/Sensors/SensorCatalog.swift
+      - path: Pro/Sensors/SensorMerge.swift
+      - path: Pro/SMC/SMCKnownNames.swift
+    dependencies:
+      - target: CoolDownKit
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cooldown.CoolDownProTests
+        PRODUCT_NAME: CoolDownProTests
+        GENERATE_INFOPLIST_FILE: YES
+        ENABLE_HARDENED_RUNTIME: NO
+        CODE_SIGN_INJECT_BASE_ENTITLEMENTS: YES
+        LD_RUNPATH_SEARCH_PATHS: ["$(inherited)", "@executable_path/../Frameworks", "@loader_path/../Frameworks"]
 

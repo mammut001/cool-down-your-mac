@@ -39,6 +39,17 @@
          </BuildableReference>
       </MacroExpansion>
       <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "C6DC4D7B8B4CFC260569FB47"
+               BuildableName = "CoolDownProTests.xctest"
+               BlueprintName = "CoolDownProTests"
+               ReferencedContainer = "container:CoolDownYourMac.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>
