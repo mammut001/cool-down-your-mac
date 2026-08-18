@@ -6,7 +6,8 @@ public enum CoolDownTheme {
     public static let danger = Color(red: 0.86, green: 0.28, blue: 0.24)
     public static let calm = Color(red: 0.22, green: 0.70, blue: 0.48)
 
-    public static func temperatureColor(_ celsius: Double) -> Color {
+    public static func temperatureColor(_ celsius: Double?) -> Color {
+        guard let celsius, celsius.isFinite else { return .secondary }
         switch celsius {
         case ..<60: return calm
         case ..<75: return accent

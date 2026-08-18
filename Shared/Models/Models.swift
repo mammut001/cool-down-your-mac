@@ -111,6 +111,17 @@ public struct CurvePoint: Identifiable, Codable, Hashable, Sendable {
         self.temperatureC = temperatureC
         self.fanPercent = fanPercent.clamped(to: 0...1)
     }
+
+    enum CodingKeys: String, CodingKey {
+        case id, temperatureC, fanPercent
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        temperatureC = try c.decode(Double.self, forKey: .temperatureC)
+        fanPercent = (try c.decode(Double.self, forKey: .fanPercent)).clamped(to: 0...1)
+    }
 }
 
 public struct CurveProfile: Codable, Hashable, Sendable {
@@ -154,6 +165,18 @@ public struct CurveProfile: Codable, Hashable, Sendable {
             }
         }
         return last.fanPercent
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name, points, hysteresisC
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decodeIfPresent(String.self, forKey: .name) ?? "Default"
+        let decoded = try c.decodeIfPresent([CurvePoint].self, forKey: .points) ?? CurveProfile.defaultPoints
+        points = decoded.sorted { $0.temperatureC < $1.temperatureC }
+        hysteresisC = try c.decodeIfPresent(Double.self, forKey: .hysteresisC) ?? 2.0
     }
 }
 
@@ -199,12 +222,14 @@ public struct SensorSnapshot: Codable, Hashable, Sendable {
     /// Thermal-control temperature: use the hottest valid CPU/GPU reading so
     /// a local hotspot cannot be hidden by the display average.
     public var thermalControlTemperatureC: Double? {
-        controlTemperatures.map(\.celsius).max() ?? temperatures.map(\.celsius).max()
+        let temps = controlTemperatures.map(\.celsius).filter { $0.isFinite && $0 > 0 && $0 < 150 }
+        if let hottest = temps.max() { return hottest }
+        return temperatures.map(\.celsius).filter { $0.isFinite && $0 > 0 && $0 < 150 }.max()
     }
 
     public var controlTemperatures: [TemperatureReading] {
-        let control = temperatures.filter(\.group.affectsThermalControl)
-        return control.isEmpty ? temperatures : control
+        let control = temperatures.filter { $0.group.affectsThermalControl && $0.celsius.isFinite }
+        return control.isEmpty ? temperatures.filter { $0.celsius.isFinite } : control
     }
 
     public var primaryTemperature: TemperatureReading? {

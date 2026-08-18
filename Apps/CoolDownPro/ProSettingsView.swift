@@ -6,6 +6,7 @@ struct ProSettingsView: View {
     @EnvironmentObject private var settings: SettingsStore
 
     var body: some View {
+        VStack(spacing: 0) {
         TabView {
             Form {
                 Section("General") {
@@ -21,16 +22,13 @@ struct ProSettingsView: View {
                 }
                 Section("Helper") {
                     LabeledContent("Status") {
-                        Text(model.helperControlIsReady ? "Enabled" : "Needs approval")
+                        Text(model.helperStatusText)
                     }
                     Button(model.helperActionTitle) {
-                        if model.helperIsRegistered && !model.helperControlIsReady {
-                            model.reinstallHelper()
-                        } else {
-                            model.requestHelperSetup()
-                        }
+                        model.performHelperAction()
                     }
-                    Text("You only need to approve fan control once. macOS may show a separate confirmation.")
+                    .disabled(!model.helperActionIsEnabled)
+                    Text("macOS asks for an administrator password on first install and explicit repairs only.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -89,5 +87,18 @@ struct ProSettingsView: View {
             .tabItem { Label("Alerts", systemImage: "bell") }
         }
         .padding()
+        .onChange(of: settings.settings.sampleIntervalSeconds) { _, _ in
+            model.startPolling()
+        }
+        .onChange(of: settings.settings.launchAtLogin) { _, _ in
+            model.applyLaunchAtLogin()
+        }
+        if let status = model.statusMessage {
+            Text(status)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding([.horizontal, .bottom])
+        }
+        }
     }
 }

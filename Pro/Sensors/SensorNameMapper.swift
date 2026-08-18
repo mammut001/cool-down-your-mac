@@ -60,6 +60,10 @@ enum SensorNameMapper {
         }
 
         for (raw, value) in indexed where !consumed.contains(raw) {
+            let lower = raw.lowercased()
+            if !tdie.isEmpty && (lower.contains("pacc") || lower.contains("eacc") || lower.contains("performance") || lower.contains("efficiency") || lower.contains("super")) {
+                continue
+            }
             let mapped = friendly(raw: raw, value: value)
             readings.append(mapped)
         }
@@ -77,7 +81,11 @@ enum SensorNameMapper {
             )
         }
 
-        return readings.sorted { lhs, rhs in
+        var unique: [String: TemperatureReading] = [:]
+        for reading in readings {
+            unique[reading.key] = reading
+        }
+        return unique.values.sorted { lhs, rhs in
             if lhs.group.sortOrder != rhs.group.sortOrder {
                 return lhs.group.sortOrder < rhs.group.sortOrder
             }
@@ -94,7 +102,7 @@ enum SensorNameMapper {
         let lower = raw.lowercased()
 
         if lower.contains("gas gauge") || lower == "battery" {
-            return TemperatureReading(key: "hid.battery.gauge", name: "Battery Gas Gauge", celsius: value, group: .battery)
+            return TemperatureReading(key: "hid.battery.\(slug(raw))", name: "Battery Gas Gauge", celsius: value, group: .battery)
         }
         if lower.contains("nand") || lower.contains("ssd") {
             return TemperatureReading(key: "hid.storage.\(slug(raw))", name: storageName(raw), celsius: value, group: .storage)
@@ -107,7 +115,7 @@ enum SensorNameMapper {
             return TemperatureReading(key: "hid.input.\(slug(raw))", name: name, celsius: value, group: .other)
         }
         if raw.hasPrefix("PMU tcal") {
-            return TemperatureReading(key: "hid.pmu.tcal", name: "Power Manager Die Average", celsius: value, group: .other)
+            return TemperatureReading(key: "hid.pmu.tcal.\(slug(raw))", name: "Power Manager Die Average", celsius: value, group: .other)
         }
         if lower.contains("gpu") {
             return TemperatureReading(key: "hid.gpu.\(slug(raw))", name: gpuName(raw), celsius: value, group: .gpu)
@@ -125,13 +133,14 @@ enum SensorNameMapper {
         return TemperatureReading(key: "hid.\(slug(raw))", name: titleCase(raw), celsius: value, group: .other)
     }
 
-    private static func storageName(_ raw: String) -> String {
-        if raw.uppercased().contains("AP1024") { return "APPLE SSD AP1024Z" }
-        if let range = raw.range(of: "NAND", options: .caseInsensitive) {
-            return String(raw[range.lowerBound...]).replacingOccurrences(of: "temp", with: "", options: .caseInsensitive)
+    static func storageName(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return "SSD" }
+        if let range = trimmed.range(of: "NAND", options: .caseInsensitive) {
+            return String(trimmed[range.lowerBound...]).replacingOccurrences(of: "temp", with: "", options: .caseInsensitive)
                 .trimmingCharacters(in: .whitespaces)
         }
-        return "SSD"
+        return trimmed
     }
 
     private static func gpuName(_ raw: String) -> String {

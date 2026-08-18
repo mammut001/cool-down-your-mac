@@ -6,18 +6,41 @@ final class HelperService: NSObject, CoolDownHelperProtocol {
     private var smc: SMCKit?
     private static let log = Logger(subsystem: "com.cooldown.CoolDownPro.PrivilegedHelper", category: "SMC")
 
+    static func restoreFansBestEffort() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                try SMCKit(allowKeysEndpointFallback: false).setAllFansAuto()
+                log.info("client gone — fans restored to auto")
+            } catch {
+                log.error("client-gone restore failed: \(String(describing: error), privacy: .public)")
+            }
+        }
+    }
+
     private func withSMC<T>(_ body: (SMCKit) throws -> T) throws -> T {
         if smc == nil {
             do {
-                smc = try SMCKit()
+                smc = try SMCKit(allowKeysEndpointFallback: false)
                 Self.log.info("SMC open OK")
             } catch {
                 Self.log.error("SMC open failed: \(String(describing: error), privacy: .public)")
                 throw error
             }
         }
-        guard let smc else { throw CoolDownXPCError.smcFailed.nsError }
-        return try body(smc)
+        guard let open = smc else { throw CoolDownXPCError.smcFailed.nsError }
+        do {
+            return try body(open)
+        } catch {
+            smc = nil
+            do {
+                smc = try SMCKit(allowKeysEndpointFallback: false)
+                Self.log.info("SMC reopened after I/O failure")
+                return try body(smc!)
+            } catch {
+                Self.log.error("SMC reopen failed: \(String(describing: error), privacy: .public)")
+                throw error
+            }
+        }
     }
 
     func ping(reply: @escaping (Bool) -> Void) {

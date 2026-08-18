@@ -17,7 +17,9 @@ enum SensorCatalog {
 
         addSMC("TW0P", name: "Airport Proximity", group: .wireless)
         addSMC("TB0T", name: "Battery", group: .battery)
-        if let gauge = hid.first(where: { $0.name == "Battery Gas Gauge" || $0.key.contains("battery") }) {
+        if let gauge = hid.first(where: {
+            $0.name == "Battery Gas Gauge" || $0.key.hasPrefix("hid.battery.")
+        }) {
             list.append(
                 TemperatureReading(
                     key: "hid.battery.gauge",
@@ -30,14 +32,17 @@ enum SensorCatalog {
             addSMC("TB1T", name: "Battery Gas Gauge", group: .battery)
         }
 
-        // CPU cores: Tp00-style keys around SoC temps (deduped; last write wins).
+        // CPU cores: Tp/TC/Te keys around SoC temps (deduped; last write wins).
         let cpuKeys = uniqueSMC.values
-            .filter { $0.key.hasPrefix("Tp") && $0.key.count == 4 }
-            .filter { $0.celsius > 20 && $0.celsius < 110 }
-            .sorted { $0.key < $1.key }
+            .filter { isCPUKey($0.key) && $0.key.count == 4 }
+            .filter { $0.celsius.isFinite && $0.celsius > 5 && $0.celsius < 150 }
+            .sorted { $0.key.localizedCaseInsensitiveCompare($1.key) == .orderedAscending }
 
         // Prefer the dense Tp0* block first (Performance + Super on M-series Pro).
-        let primaryCPU = cpuKeys.filter { $0.key.hasPrefix("Tp0") || ($0.key.hasPrefix("Tp1") && $0.key <= "Tp1g") }
+        let primaryCPU = cpuKeys.filter {
+            $0.key.hasPrefix("Tp0") || $0.key.hasPrefix("TC") || $0.key.hasPrefix("Te")
+                || ($0.key.hasPrefix("Tp1") && $0.key <= "Tp1g")
+        }
         let orderedCPU = primaryCPU.isEmpty ? Array(cpuKeys.prefix(18)) : Array(primaryCPU.prefix(18))
 
         let performanceCount = min(12, orderedCPU.count)
@@ -63,6 +68,11 @@ enum SensorCatalog {
             }
         }
 
+        if orderedCPU.isEmpty {
+            let hidCPU = hid.filter { $0.group == .cpu && $0.celsius.isFinite && $0.celsius > 5 && $0.celsius < 150 }
+            list.append(contentsOf: hidCPU.prefix(18))
+        }
+
         let cpuValues = list.filter { $0.group == .cpu }.map(\.celsius)
         if !cpuValues.isEmpty {
             list.insert(
@@ -76,12 +86,15 @@ enum SensorCatalog {
             )
         }
 
-        // GPU clusters: pick 4 evenly spaced Tg* samples (deduped; last write wins).
+        // GPU clusters: pick 4 evenly spaced Tg/TG samples (deduped; last write wins).
         let gpuKeys = uniqueSMC.values
-            .filter { $0.key.hasPrefix("Tg") && $0.key.count == 4 }
-            .filter { $0.celsius > 15 && $0.celsius < 110 }
-            .sorted { $0.key < $1.key }
-        if !gpuKeys.isEmpty {
+            .filter { isGPUKey($0.key) && $0.key.count == 4 }
+            .filter { $0.celsius.isFinite && $0.celsius > 5 && $0.celsius < 150 }
+            .sorted { $0.key.localizedCaseInsensitiveCompare($1.key) == .orderedAscending }
+        if gpuKeys.isEmpty {
+            let hidGPU = hid.filter { $0.group == .gpu && $0.celsius.isFinite && $0.celsius > 5 && $0.celsius < 150 }
+            list.append(contentsOf: hidGPU.prefix(4))
+        } else if !gpuKeys.isEmpty {
             let picks = evenlyPick(gpuKeys, count: min(4, gpuKeys.count))
             for (index, reading) in picks.enumerated() {
                 list.append(
@@ -147,6 +160,31 @@ enum SensorCatalog {
 
     static func allMerged(smc: [TemperatureReading], hid: [TemperatureReading]) -> [TemperatureReading] {
         SensorMerge.merge(smc: smc, hid: hid)
+    }
+
+    /// CPU/GPU readings used for fan decisions. Independent of the curated UI list
+    /// and of the "show all sensors" toggle.
+    static func controlReadings(smc: [TemperatureReading], hid: [TemperatureReading]) -> [TemperatureReading] {
+        let uniqueSMC = lastWriteWinsByKey(smc)
+        var readings = uniqueSMC.values.filter { reading in
+            reading.celsius.isFinite
+                && reading.celsius > 5
+                && reading.celsius < 150
+                && (isCPUKey(reading.key) || isGPUKey(reading.key) || reading.group.affectsThermalControl)
+        }
+        for item in hid where item.group.affectsThermalControl {
+            guard item.celsius.isFinite, item.celsius > 5, item.celsius < 150 else { continue }
+            readings.append(item)
+        }
+        return readings
+    }
+
+    private static func isCPUKey(_ key: String) -> Bool {
+        key.hasPrefix("Tp") || key.hasPrefix("TC") || key.hasPrefix("Te") || key.hasPrefix("tp")
+    }
+
+    private static func isGPUKey(_ key: String) -> Bool {
+        key.hasPrefix("Tg") || key.hasPrefix("TG") || key.hasPrefix("tg")
     }
 
     /// Last write wins so a duplicate SMC key cannot trap `Dictionary(uniqueKeysWithValues:)`.

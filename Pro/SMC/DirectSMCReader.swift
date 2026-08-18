@@ -6,7 +6,7 @@ import CoolDownKit
 enum DirectSMCReader {
     static func readSnapshot() -> SensorSnapshot? {
         do {
-            let kit = try SMCKit()
+            let kit = try SMCKit(allowKeysEndpointFallback: true)
             let fans = try kit.readFans().map {
                 FanInfo(
                     index: $0.index,
@@ -35,7 +35,7 @@ enum DirectSMCReader {
     @discardableResult
     static func setFansAuto() -> Bool {
         do {
-            try SMCKit().setAllFansAuto()
+            try SMCKit(allowKeysEndpointFallback: false).setAllFansAuto()
             return true
         } catch {
             return false
@@ -45,7 +45,7 @@ enum DirectSMCReader {
     @discardableResult
     static func setFansPercent(_ percent: Double) -> Bool {
         do {
-            try SMCKit().setAllFansPercent(percent)
+            try SMCKit(allowKeysEndpointFallback: false).setAllFansPercent(percent)
             return true
         } catch {
             return false

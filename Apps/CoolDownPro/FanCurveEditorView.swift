@@ -59,7 +59,7 @@ struct FanCurveEditorView: View {
                     get: { settings.settings.mode },
                     set: { model.setMode($0) }
                 ),
-                enabledModes: model.helperControlIsReady ? ControlMode.allCases : [.systemAuto]
+                enabledModes: ControlMode.allCases
             )
             .disabled(!model.helperControlIsReady)
             Text(modeHint)
@@ -183,15 +183,17 @@ struct FanCurveEditorView: View {
                         )
                     }
 
-                    let targetY = pad + fanToY(model.targetFanPercent, height: plot.height)
-                    var h = Path()
-                    h.move(to: CGPoint(x: pad, y: targetY))
-                    h.addLine(to: CGPoint(x: pad + plot.width, y: targetY))
-                    context.stroke(
-                        h,
-                        with: .color(CoolDownTheme.calm.opacity(0.9)),
-                        style: StrokeStyle(lineWidth: 1, dash: [4, 3])
-                    )
+                    if settings.settings.mode != .systemAuto, model.helperControlIsReady {
+                        let targetY = pad + fanToY(model.targetFanPercent, height: plot.height)
+                        var h = Path()
+                        h.move(to: CGPoint(x: pad, y: targetY))
+                        h.addLine(to: CGPoint(x: pad + plot.width, y: targetY))
+                        context.stroke(
+                            h,
+                            with: .color(CoolDownTheme.calm.opacity(0.9)),
+                            style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+                        )
+                    }
 
                     context.draw(
                         Text("30°C").font(.caption2).foregroundColor(.secondary),

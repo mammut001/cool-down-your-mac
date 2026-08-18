@@ -10,29 +10,39 @@ enum HelperSecurity {
         "com.cooldown.CoolDownPro"
     ]
 
+    /// Developer ID Application requirement for the GUI client.
+    static let clientRequirement =
+        "identifier \"com.cooldown.CoolDownPro\" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = Z5D5N7CU6L"
+
+    /// Developer ID Application requirement for the privileged helper.
+    static let helperRequirement =
+        "identifier \"com.cooldown.CoolDownPro.PrivilegedHelper\" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = Z5D5N7CU6L"
+
     static func isTrustedCaller(connection: NSXPCConnection) -> Bool {
 #if DEBUG
         if ProcessInfo.processInfo.environment["COOLDOWN_HELPER_DEV"] == "1" {
             return true
         }
 #endif
-        guard let codesign = try? auditTokenCodesign(connection: connection) else {
+        guard let codesign = try? guestCodesign(connection: connection) else {
             return false
         }
-
-        let bundleOK = allowedBundleIDs.contains(codesign.bundleID ?? "")
-        if let team = codesign.teamID, !team.isEmpty {
-            return bundleOK && allowedTeamIDs.contains(team)
+        guard let team = codesign.teamID, !team.isEmpty, allowedTeamIDs.contains(team) else {
+            return false
         }
-        return bundleOK
+        guard let bundleID = codesign.bundleID, allowedBundleIDs.contains(bundleID) else {
+            return false
+        }
+        return codesign.signatureValid
     }
 
     private struct CodesignInfo {
         var bundleID: String?
         var teamID: String?
+        var signatureValid: Bool
     }
 
-    private static func auditTokenCodesign(connection: NSXPCConnection) throws -> CodesignInfo {
+    private static func guestCodesign(connection: NSXPCConnection) throws -> CodesignInfo {
         var code: SecCode?
         var err = SecCodeCopyGuestWithAttributes(
             nil,
@@ -43,6 +53,14 @@ enum HelperSecurity {
         guard err == errSecSuccess, let code else {
             throw NSError(domain: NSOSStatusErrorDomain, code: Int(err))
         }
+
+        var requirement: SecRequirement?
+        err = SecRequirementCreateWithString(clientRequirement as CFString, [], &requirement)
+        guard err == errSecSuccess, let requirement else {
+            throw NSError(domain: NSOSStatusErrorDomain, code: Int(err))
+        }
+
+        let validity = SecCodeCheckValidity(code, [], requirement)
 
         var staticCode: SecStaticCode?
         err = SecCodeCopyStaticCode(code, [], &staticCode)
@@ -58,6 +76,10 @@ enum HelperSecurity {
 
         let identifiers = info[kSecCodeInfoIdentifier as String] as? String
         let team = info[kSecCodeInfoTeamIdentifier as String] as? String
-        return CodesignInfo(bundleID: identifiers, teamID: team)
+        return CodesignInfo(
+            bundleID: identifiers,
+            teamID: team,
+            signatureValid: validity == errSecSuccess
+        )
     }
 }

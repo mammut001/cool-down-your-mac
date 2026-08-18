@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 APP_PATH="${1:-}"
-IDENTITY="${CODE_SIGN_IDENTITY:-Developer ID Application: YOUR NAME (TEAMID)}"
+IDENTITY="${CODE_SIGN_IDENTITY:-Developer ID Application: DONG PEI (Z5D5N7CU6L)}"
 PROFILE="${NOTARY_PROFILE:-cooldown-notary}"
 
 if [[ -z "${APP_PATH}" || ! -d "${APP_PATH}" ]]; then
@@ -12,21 +12,32 @@ if [[ -z "${APP_PATH}" || ! -d "${APP_PATH}" ]]; then
   exit 1
 fi
 
+sign() {
+  codesign --force --options runtime --timestamp --sign "${IDENTITY}" "$@"
+}
+
 echo "==> Codesign helper"
 HELPER="${APP_PATH}/Contents/Library/LaunchServices/com.cooldown.CoolDownPro.PrivilegedHelper"
-if [[ -f "${HELPER}" ]]; then
-  codesign --force --options runtime --timestamp --entitlements "${ROOT}/Pro/Helper/CoolDownHelper.entitlements" --sign "${IDENTITY}" "${HELPER}"
+if [[ ! -f "${HELPER}" ]]; then
+  echo "error: privileged helper missing at ${HELPER}" >&2
+  exit 1
+fi
+sign --entitlements "${ROOT}/Pro/Helper/CoolDownHelper.entitlements" "${HELPER}"
+
+echo "==> Codesign CLI"
+CLI="${APP_PATH}/Contents/MacOS/cooldown-smc"
+if [[ -f "${CLI}" ]]; then
+  sign "${CLI}"
 fi
 
 echo "==> Codesign frameworks"
 find "${APP_PATH}/Contents/Frameworks" -name "*.framework" -maxdepth 1 2>/dev/null | while read -r fw; do
-  codesign --force --options runtime --timestamp --sign "${IDENTITY}" "${fw}"
+  sign "${fw}"
 done
 
 echo "==> Codesign app"
-codesign --force --deep --options runtime --timestamp \
-  --entitlements "${ROOT}/Apps/CoolDownPro/CoolDownPro.entitlements" \
-  --sign "${IDENTITY}" "${APP_PATH}"
+# Sign the bundle last, without --deep, so nested Mach-Os keep their own identity.
+sign --entitlements "${ROOT}/Apps/CoolDownPro/CoolDownPro.entitlements" "${APP_PATH}"
 
 echo "==> Verify signature"
 codesign --verify --deep --strict --verbose=2 "${APP_PATH}"

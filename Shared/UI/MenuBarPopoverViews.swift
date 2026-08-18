@@ -12,7 +12,7 @@ public struct SnapshotHeaderView: View {
     public var body: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Cool Down")
+                Text("Cool Down Pro")
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                 Text(modeLabel)
                     .font(.caption)
@@ -21,7 +21,7 @@ public struct SnapshotHeaderView: View {
             Spacer()
             Text(SensorFormatting.temperature(maxTemp))
                 .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundStyle(CoolDownTheme.temperatureColor(maxTemp ?? 0))
+                .foregroundStyle(CoolDownTheme.temperatureColor(maxTemp))
                 .contentTransition(.numericText())
         }
         .padding(.bottom, 4)
@@ -101,7 +101,7 @@ public struct TemperatureListView: View {
     private func icon(for group: SensorGroup) -> String {
         switch group {
         case .cpu: return "cpu"
-        case .gpu: return "cloud"
+        case .gpu: return "rectangle.3.group.fill"
         case .battery: return "battery.100"
         case .storage: return "internaldrive"
         case .wireless: return "wifi"

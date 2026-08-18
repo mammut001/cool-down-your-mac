@@ -38,6 +38,9 @@ final class ProAppModel: ObservableObject {
     private let helperSetupPromptShownKey = "hasShownHelperSetupPrompt"
     /// Avoid re-prompting admin auth / rewriting the same fan command every poll tick.
     private var lastAppliedFanCommand: String?
+    private var controlGeneration = 0
+    private var isTicking = false
+    private var cancellables = Set<AnyCancellable>()
 
     var menuBarTitle: String {
         SensorFormatting.menuBarTitle(
@@ -47,10 +50,11 @@ final class ProAppModel: ObservableObject {
         )
     }
 
-    /// Registration is the reliable source of truth here. An XPC connection can
-    /// be briefly unavailable while launchd starts an already-installed helper.
+    /// An XPC connection can be briefly unavailable while launchd starts an
+    /// already-installed helper, so installation and readiness are kept as two
+    /// separate states.
     var helperIsRegistered: Bool {
-        helper.helperStatus == .enabled
+        helper.isHelperInstalled
     }
 
     var helperControlIsReady: Bool {
@@ -62,8 +66,37 @@ final class ProAppModel: ObservableObject {
     }
 
     var helperActionTitle: String {
-        if helperIsRegistered && !helperControlIsReady { return "Repair Fan Control…" }
-        return helper.helperStatus == .requiresApproval ? "Approve Fan Control…" : "Enable Fan Control…"
+        if !helperIsRegistered { return "Enable Fan Control…" }
+        if helperLaunchFailed { return "Repair Fan Control…" }
+        if !helperControlIsReady { return "Reconnect Fan Control" }
+        return "Fan Control Enabled"
+    }
+
+    var helperActionIsEnabled: Bool {
+        !helperControlIsReady && !fanControlUnavailableOnThisMac
+    }
+
+    var helperStatusText: String {
+        if helperControlIsReady { return "Enabled" }
+        if !helperIsRegistered { return "Not installed" }
+        if helperLaunchFailed { return "Needs repair" }
+        if fanControlUnavailableOnThisMac { return "Unavailable on this Mac" }
+        return "Connecting…"
+    }
+
+    var helperSetupTitle: String {
+        helperIsRegistered ? "Repair fan control?" : "Enable fan control?"
+    }
+
+    var helperSetupConfirmTitle: String {
+        helperIsRegistered ? "Repair" : "Continue"
+    }
+
+    var helperSetupMessage: String {
+        if helperIsRegistered {
+            return "Cool Down Pro will replace its fan-control helper. macOS will ask for an administrator password. Only repair it when the installed helper cannot connect."
+        }
+        return "Cool Down Pro needs your approval once to install its fan-control helper. macOS will ask for an administrator password next."
     }
 
     var fanControlUnavailableOnThisMac: Bool {
@@ -79,11 +112,33 @@ final class ProAppModel: ObservableObject {
         applyLaunchAtLogin()
         startPolling()
         requestNotificationPermission()
+        helper.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                if !self.helper.isConnected {
+                    self.lastAppliedFanCommand = nil
+                }
+                self.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+        settings.$settings
+            .map(\.sampleIntervalSeconds)
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in self?.startPolling() }
+            .store(in: &cancellables)
+        settings.$settings
+            .map(\.launchAtLogin)
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in self?.applyLaunchAtLogin() }
+            .store(in: &cancellables)
         // Make setup a one-time, explicit decision instead of leaving a
         // persistent warning in the interface.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
             guard let self,
-                  self.helperNeedsSetup,
+                  !self.helperIsRegistered,
                   !UserDefaults.standard.bool(forKey: self.helperSetupPromptShownKey) else { return }
             UserDefaults.standard.set(true, forKey: self.helperSetupPromptShownKey)
             self.shouldPresentHelperSetup = true
@@ -102,6 +157,9 @@ final class ProAppModel: ObservableObject {
     }
 
     func tick() async {
+        guard !isTicking else { return }
+        isTicking = true
+        defer { isTicking = false }
         loadMonitor.refresh()
         await refreshSnapshot()
         await applyControlPolicy()
@@ -114,6 +172,7 @@ final class ProAppModel: ObservableObject {
         let smcTemps = (localSMC?.temperatures ?? []).map(SensorMerge.annotateSMC)
         let curated = SensorCatalog.curated(smc: smcTemps, hid: hidTemps)
         let mergedAll = SensorCatalog.allMerged(smc: smcTemps, hid: hidTemps)
+        let controlTemps = SensorCatalog.controlReadings(smc: smcTemps, hid: hidTemps)
         allTemperatures = mergedAll
         let displayTemps = showAllSensors ? mergedAll : curated
 
@@ -121,7 +180,7 @@ final class ProAppModel: ObservableObject {
         // so a stale/broken helper snapshot cannot force the UI to show 0 RPM.
         let localFans = localSMC?.fans ?? []
 
-        if helper.isConnected || helper.helperStatus == .enabled {
+        if helper.isConnected || helper.isHelperInstalled {
             do {
                 var remote = try await helper.fetchSnapshot()
                 remote.temperatures = displayTemps
@@ -129,9 +188,6 @@ final class ProAppModel: ObservableObject {
                 snapshot = remote
                 helperLaunchFailed = false
                 if fanControlUnavailableOnThisMac {
-                    // Do not leave the app in Manual/Smart Curve after the helper
-                    // has explicitly reported that it cannot address a fan.
-                    settings.settings.mode = .systemAuto
                     targetFanPercent = 0
                     loadBoostPercent = 0
                     lastAppliedFanCommand = nil
@@ -147,7 +203,8 @@ final class ProAppModel: ObservableObject {
             applyLocalSnapshot(localSMC: localSMC, temperatures: displayTemps, helperError: nil)
         }
 
-        controlTemperatureC = snapshot.thermalControlTemperatureC
+        let finite = controlTemps.map(\.celsius).filter { $0.isFinite && $0 > 0 && $0 < 150 }
+        controlTemperatureC = finite.max()
     }
 
     private func preferredFans(remote: [FanInfo], local: [FanInfo]) -> [FanInfo] {
@@ -176,17 +233,20 @@ final class ProAppModel: ObservableObject {
             )
             statusMessage = "Sensors available — install helper to control fans"
         } else if let helperError {
+            lastAppliedFanCommand = nil
             statusMessage = helperError.localizedDescription
         }
     }
 
     func applyControlPolicy() async {
-        let mode = settings.settings.mode
+        controlGeneration += 1
+        let generation = controlGeneration
+        let mode = fanControlUnavailableOnThisMac ? .systemAuto : settings.settings.mode
         // Fan writes are deliberately helper-only. Falling back to an
         // administrator AppleScript here makes a timer look like repeated user
         // authorization requests, which is both surprising and disruptive.
         guard helperControlIsReady else {
-            if mode != .systemAuto {
+            if settings.settings.mode != .systemAuto {
                 statusMessage = fanControlUnavailableOnThisMac
                     ? "Manual fan control is unavailable on this Mac."
                     : "Enable fan control once to use Manual or Smart Curve."
@@ -202,6 +262,7 @@ final class ProAppModel: ObservableObject {
                 loadMonitor.resetFanBoost()
                 try await applyFanWrite(
                     commandKey: "auto",
+                    generation: generation,
                     remote: { try await helper.setFansAuto() }
                 )
             case .manual:
@@ -212,10 +273,18 @@ final class ProAppModel: ObservableObject {
                 let percent = settings.settings.manualPercent
                 try await applyFanWrite(
                     commandKey: String(format: "manual-%.3f", percent),
+                    generation: generation,
                     remote: { try await helper.setFansPercent(percent) }
                 )
             case .smartCurve:
-                guard let temp = controlTemperatureC else { return }
+                guard let temp = controlTemperatureC, temp.isFinite else {
+                    try await applyFanWrite(
+                        commandKey: "auto-failsafe",
+                        generation: generation,
+                        remote: { try await helper.setFansAuto() }
+                    )
+                    return
+                }
                 let boost = loadMonitor.fanBoost(
                     threshold: settings.settings.loadBoostThreshold,
                     boostMax: settings.settings.loadBoostMax
@@ -229,6 +298,7 @@ final class ProAppModel: ObservableObject {
                 targetFanPercent = percent
                 try await applyFanWrite(
                     commandKey: String(format: "smart-%.3f", percent),
+                    generation: generation,
                     remote: { try await helper.setFansPercent(percent) }
                 )
                 #if DEBUG
@@ -270,12 +340,14 @@ final class ProAppModel: ObservableObject {
     /// The registered helper owns all fan writes after the one-time macOS approval.
     private func applyFanWrite(
         commandKey: String,
+        generation: Int,
         remote: () async throws -> Void
     ) async throws {
         if lastAppliedFanCommand == commandKey {
             return
         }
         try await remote()
+        guard generation == controlGeneration else { return }
         lastAppliedFanCommand = commandKey
         statusMessage = nil
     }
@@ -284,46 +356,28 @@ final class ProAppModel: ObservableObject {
         isBusy = true
         defer { isBusy = false }
         do {
-            // Never unregister an existing daemon merely because the user
-            // opened this screen. Re-registering a service that is already
-            // pending approval resets macOS's authorization state and causes
-            // an unnecessary password prompt on every launch.
-            switch helper.helperStatus {
-            case .enabled:
-                // SMJobBless atomically replaces an existing tool. This keeps
-                // the privileged SMC implementation in sync with app updates.
-                try helper.installHelper()
-                helperLaunchFailed = false
-                statusMessage = "Fan control helper updated"
-            case .requiresApproval:
-                // A new app bundle version can inherit a stale Service
-                // Management record. Replace it once so launchd receives the
-                // helper path and signing requirement from this release.
-                try? helper.uninstallHelper()
-                try helper.installHelper()
-                helperLaunchFailed = false
-                statusMessage = "Fan control is ready for approval"
-            case .notRegistered, .notFound:
-                try helper.installHelper()
-                helperLaunchFailed = false
-                statusMessage = "Fan control is ready for approval"
-            @unknown default:
-                try helper.installHelper()
-                helperLaunchFailed = false
-                statusMessage = "Fan control is ready for approval"
+            // Never acquire administrator rights merely because an installed
+            // helper is still starting. Repair is a separate, explicit action.
+            guard !helper.isHelperInstalled else {
+                helper.reconnect()
+                statusMessage = "Fan control helper is already installed"
+                Task { await refreshSnapshot() }
+                return
             }
+            try helper.installHelper()
+            helperLaunchFailed = false
+            statusMessage = "Fan control helper installed"
             helper.reconnect()
             Task {
                 // launchd may need a moment before the first XPC request.
                 try? await Task.sleep(for: .milliseconds(600))
                 await refreshSnapshot()
                 if !helperIsRegistered {
-                    statusMessage = "Allow fan control in System Settings, then reopen Cool Down Pro."
+                    statusMessage = "Fan control helper was not installed. Try again and check the administrator password."
                 }
             }
         } catch {
             statusMessage = error.localizedDescription
-            shouldPresentHelperSetup = true
         }
     }
 
@@ -331,16 +385,41 @@ final class ProAppModel: ObservableObject {
         shouldPresentHelperSetup = true
     }
 
-    /// Unregister + register to force launchd to load a newly built helper binary.
+    func performHelperSetup() {
+        if helperIsRegistered {
+            reinstallHelper()
+        } else {
+            installHelper()
+        }
+    }
+
+    func performHelperAction() {
+        if !helperIsRegistered || helperLaunchFailed {
+            requestHelperSetup()
+        } else {
+            helper.reconnect()
+            statusMessage = "Reconnecting to fan control…"
+            Task {
+                try? await Task.sleep(for: .milliseconds(600))
+                await refreshSnapshot()
+            }
+        }
+    }
+
+    /// Explicitly replace the installed helper so launchd loads the bundled copy.
     func reinstallHelper() {
         isBusy = true
         defer { isBusy = false }
         do {
-            try? helper.uninstallHelper()
-            try helper.installHelper()
-            statusMessage = "Helper reinstalled — toggle CoolDownPro in Login Items if it does not start"
+            helper.disconnect()
+            try helper.installHelper(replacingExisting: true)
+            helperLaunchFailed = false
+            statusMessage = "Fan control helper repaired"
             helper.reconnect()
-            Task { await refreshSnapshot() }
+            Task {
+                try? await Task.sleep(for: .milliseconds(600))
+                await refreshSnapshot()
+            }
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -367,29 +446,14 @@ final class ProAppModel: ObservableObject {
 
     func restoreAutoOnExit() async {
         guard settings.settings.mode != .systemAuto else { return }
-        // Best-effort async restore. applicationWillTerminate now also calls
-        // the synchronous fallback so the fan does not stay pinned if the
-        // process is killed before this task completes.
         try? await helper.setFansAuto()
     }
 
-    /// Synchronous best-effort restore for applicationWillTerminate, where
-    /// async work may be killed before it completes. Uses a short semaphore
-    /// wait and a direct SMC fallback if XPC is unavailable.
+    /// Synchronous restore for applicationWillTerminate. Must not wait on a
+    /// MainActor Task — that deadlocks the terminate callback.
     func restoreAutoOnExitSync(timeoutSeconds: TimeInterval = 1.2) {
         guard settings.settings.mode != .systemAuto else { return }
-        let sema = DispatchSemaphore(value: 0)
-        var finished = false
-        Task {
-            try? await helper.setFansAuto()
-            finished = true
-            sema.signal()
-        }
-        if sema.wait(timeout: .now() + timeoutSeconds) == .timedOut, !finished {
-            // Last resort: if we still have local SMC access, clear targets
-            // locally rather than leaving the fan pinned in manual mode.
-            _ = DirectSMCReader.setFansAuto()
-        }
+        HelperClient.setFansAutoBlocking(timeout: timeoutSeconds)
     }
 
     func applyLaunchAtLogin() {

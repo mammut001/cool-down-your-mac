@@ -62,6 +62,7 @@ NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
                 continue;
             }
             double value = getFloat(event, 15u << 16);
+            CFRelease(event);
             if (!isfinite(value) || value <= -20.0 || value >= 120.0) {
                 continue;
             }
@@ -69,6 +70,7 @@ NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
             sums[product] = @((sums[product].doubleValue) + value);
             counts[product] = @((counts[product].integerValue) + 1);
         }
+        CFRelease(services);
     }
 
     NSMutableArray<NSDictionary<NSString *, id> *> *results = [NSMutableArray array];
@@ -81,5 +83,6 @@ NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
         [results addObject:@{@"name": name, @"celsius": @(avg)}];
     }
 
+    CFRelease(client);
     return results;
 }

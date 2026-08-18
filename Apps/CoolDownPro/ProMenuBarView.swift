@@ -34,9 +34,7 @@ struct ProMenuBarView: View {
                         get: { settings.settings.mode },
                         set: { model.setMode($0) }
                     ),
-                    enabledModes: model.helperControlIsReady
-                        ? ControlMode.allCases
-                        : [.systemAuto]
+                    enabledModes: ControlMode.allCases
                 )
                 .disabled(!model.helperControlIsReady)
             }
@@ -109,10 +107,10 @@ struct ProMenuBarView: View {
             }
 
             HStack {
-                if model.helperNeedsSetup {
+                if model.helperActionIsEnabled {
                     Button(model.helperActionTitle) {
                         openDashboard()
-                        model.requestHelperSetup()
+                        model.performHelperAction()
                     }
                     .disabled(model.isBusy)
                 }

@@ -32,6 +32,28 @@ final class SmartCurveEngineTests: XCTestCase {
         let engine = SmartCurveEngine()
         let percent = engine.targetPercent(temperatureC: 91.9, profile: profile)
         XCTAssertGreaterThanOrEqual(percent, 0.85)
-        XCTAssertLessThan(percent, 1.0 + 0.0001)
+        XCTAssertLessThan(percent, 1.0)
+    }
+
+    func testLaterHotSampleSnapsToFloorNotSlew() {
+        let engine = SmartCurveEngine()
+        _ = engine.targetPercent(temperatureC: 50, profile: profile)
+        let percent = engine.targetPercent(temperatureC: 88, profile: profile)
+        XCTAssertGreaterThanOrEqual(percent, 0.85)
+    }
+
+    func testHysteresisHoldsSmallTemperatureWiggle() {
+        let sticky = CurveProfile(
+            name: "Sticky",
+            points: [
+                CurvePoint(temperatureC: 45, fanPercent: 0.20),
+                CurvePoint(temperatureC: 85, fanPercent: 0.80)
+            ],
+            hysteresisC: 3
+        )
+        let engine = SmartCurveEngine()
+        let first = engine.targetPercent(temperatureC: 70, profile: sticky)
+        let second = engine.targetPercent(temperatureC: 71, profile: sticky)
+        XCTAssertEqual(first, second, accuracy: 0.0001)
     }
 }

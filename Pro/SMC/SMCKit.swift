@@ -25,12 +25,14 @@ final class SMCKit {
 
     private var connection: io_connect_t = 0
 
-    init() throws {
-        // Apple Silicon exposes both services. KeysEndpoint is useful for
-        // telemetry, but on this Mac it accepts F*Tg writes without applying
-        // them. Fan control must go through the AppleSMC connection itself.
-        // Keep KeysEndpoint only as a read fallback for future hardware.
-        let candidates = ["AppleSMC", "AppleSMCKeysEndpoint"]
+    init(allowKeysEndpointFallback: Bool = false) throws {
+        // Apple Silicon exposes both services. KeysEndpoint accepts F*Tg
+        // writes without applying them, so fan control must use AppleSMC.
+        // Telemetry-only callers may fall back to KeysEndpoint.
+        var candidates = ["AppleSMC"]
+        if allowKeysEndpointFallback {
+            candidates.append("AppleSMCKeysEndpoint")
+        }
         var lastOpenFailed = false
         for name in candidates {
             let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching(name))
@@ -54,7 +56,7 @@ final class SMCKit {
     }
 
     func fanCount() throws -> Int {
-        let declared = Int(try readBytes(key: "FNum")[0])
+        let declared = min(8, max(0, Int(try readBytes(key: "FNum")[0])))
         if declared > 0 { return declared }
         // Newer Apple Silicon models can expose per-fan keys while reporting
         // zero (or an unavailable value) for the legacy FNum key.
@@ -135,26 +137,28 @@ final class SMCKit {
         let hi = maxRPM > lo ? maxRPM : max(lo + 1000, 6000)
         let clamped = min(max(rpm, lo), hi)
         try setFanManual(index: index, enabled: true)
-        try writeFloat(key: "F\(index)Tg", value: Float(clamped))
+        try writeTypedFanTarget(key: "F\(index)Tg", rpm: clamped)
     }
 
     func setAllFansAuto() throws {
         let indices = try fanIndices()
         guard !indices.isEmpty else { throw SMCError.noControllableFans }
-        var restored = false
+        var failures: [Error] = []
         for index in indices {
             do {
                 try setFanManual(index: index, enabled: false)
-                restored = true
             } catch {
-                continue
+                failures.append(error)
             }
         }
-        // If mode keys are absent, clear targets so firmware resumes automatic control.
-        if !restored {
+        if failures.count == indices.count {
             for index in indices {
-                try? writeFloat(key: "F\(index)Tg", value: 0)
+                try writeTypedFanTarget(key: "F\(index)Tg", rpm: 0)
             }
+            throw SMCError.ioFailed("setAllFansAuto")
+        }
+        if !failures.isEmpty {
+            throw SMCError.ioFailed("setAllFansAuto")
         }
     }
 
@@ -172,8 +176,10 @@ final class SMCKit {
     }
 
     var canControlFans: Bool {
-        guard let indices = try? fanIndices() else { return false }
-        return !indices.isEmpty
+        guard let indices = try? fanIndices(), !indices.isEmpty else { return false }
+        return indices.contains { index in
+            (try? readInfo(key: "F\(index)Md")) != nil || (try? readInfo(key: "F\(index)md")) != nil
+        }
     }
 
     /// Diagnostics used to select the correct write encoding on each Mac.
@@ -190,7 +196,7 @@ final class SMCKit {
     }
 
     private func fanIndices() throws -> [Int] {
-        let declared = Int(try readBytes(key: "FNum")[0])
+        let declared = min(8, max(0, Int(try readBytes(key: "FNum")[0])))
         if declared > 0 { return Array(0..<declared) }
         return discoverFanIndices()
     }
@@ -210,7 +216,7 @@ final class SMCKit {
     private func keyCount() throws -> Int {
         let bytes = try readBytes(key: "#KEY")
         let count = (UInt32(bytes[0]) << 24) | (UInt32(bytes[1]) << 16) | (UInt32(bytes[2]) << 8) | UInt32(bytes[3])
-        return Int(count)
+        return min(Int(count), 512)
     }
 
     private func keyAt(index: Int) throws -> String {
@@ -231,18 +237,43 @@ final class SMCKit {
 
     private func readTemperatureValue(key: String) throws -> Double {
         let (type, size, bytes) = try readInfo(key: key)
-        if type == "flt " || type == "ioft" || size == 4 {
+        if type == "ioft", size >= 8 {
+            let raw = bytes.prefix(8).enumerated().reduce(UInt64(0)) { acc, item in
+                acc | (UInt64(item.element) << (56 - item.offset * 8))
+            }
+            return Double(raw) / 65536.0
+        }
+        if type == "flt " || type == "ioft" {
             return Double(nativeFloat(bytes))
         }
-        if type.hasPrefix("sp") || size == 2 {
+        if type == "fpe2", size >= 2 {
+            return Double(decodeFPE2(bytes))
+        }
+        if type.hasPrefix("sp"), size >= 2 {
             let hi = Int8(bitPattern: bytes[0])
             return Double(hi) + Double(bytes[1]) / 256.0
         }
-        return Double(nativeFloat(bytes))
+        throw SMCError.ioFailed(key)
     }
 
     private func readFloat(key: String) throws -> Float {
-        nativeFloat(try readBytes(key: key))
+        let info = try readInfo(key: key)
+        if info.type == "fpe2" {
+            return decodeFPE2(info.bytes)
+        }
+        return nativeFloat(info.bytes)
+    }
+
+    private func writeTypedFanTarget(key: String, rpm: Double) throws {
+        if let info = try? readInfo(key: key), info.type == "fpe2" {
+            var bytes = [UInt8](repeating: 0, count: 32)
+            let encoded = encodeFPE2(Float(rpm))
+            bytes[0] = encoded.0
+            bytes[1] = encoded.1
+            try writeBytes(key: key, bytes: bytes, type: "fpe2", size: 2)
+            return
+        }
+        try writeFloat(key: key, value: Float(rpm))
     }
 
     private func writeFloat(key: String, value: Float) throws {
@@ -252,6 +283,17 @@ final class SMCKit {
             for i in 0..<4 { bytes[i] = buf[i] }
         }
         try writeBytes(key: key, bytes: bytes, type: "flt ", size: 4)
+    }
+
+    private func decodeFPE2(_ bytes: [UInt8]) -> Float {
+        guard bytes.count >= 2 else { return 0 }
+        let raw = (UInt16(bytes[0]) << 8) | UInt16(bytes[1])
+        return Float(raw) / 4
+    }
+
+    private func encodeFPE2(_ value: Float) -> (UInt8, UInt8) {
+        let raw = UInt16(min(max(value * 4, 0), Float(UInt16.max)))
+        return (UInt8(raw >> 8), UInt8(raw & 0xff))
     }
 
     private func readBytes(key: String) throws -> [UInt8] {
@@ -326,8 +368,10 @@ final class SMCKit {
     }
 
     private func fourCC(_ string: String) -> UInt32 {
+        var padded = string
+        while padded.utf8.count < 4 { padded.append(" ") }
         var result: UInt32 = 0
-        for scalar in string.utf8.prefix(4) {
+        for scalar in padded.utf8.prefix(4) {
             result = (result << 8) | UInt32(scalar)
         }
         return result

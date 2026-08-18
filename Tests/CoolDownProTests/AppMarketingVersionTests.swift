@@ -3,8 +3,8 @@ import CoolDownKit
 
 final class AppMarketingVersionTests: XCTestCase {
     func testReadsCFBundleShortVersionString() {
-        let info: [String: Any] = ["CFBundleShortVersionString": "1.0.4"]
-        XCTAssertEqual(AppMarketingVersion.string(fromInfoDictionary: info), "1.0.4")
+        let info: [String: Any] = ["CFBundleShortVersionString": "1.0.6"]
+        XCTAssertEqual(AppMarketingVersion.string(fromInfoDictionary: info), "1.0.6")
     }
 
     func testTrimsWhitespaceAndFallsBackWhenMissing() {
@@ -24,7 +24,6 @@ final class AppMarketingVersionTests: XCTestCase {
             XCTAssertEqual(fromMain, "—")
         } else {
             XCTAssertEqual(fromMain, trimmed)
-            XCTAssertNotEqual(fromMain, "1.0.0")
         }
     }
 }

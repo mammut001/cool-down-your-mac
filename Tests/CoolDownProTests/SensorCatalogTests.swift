@@ -62,6 +62,30 @@ final class SensorCatalogTests: XCTestCase {
         XCTAssertEqual(SensorCatalog.storageDisplayName(from: "   "), "SSD")
     }
 
+    func testMapperStorageNameUsesActualModelNotAP1024Z() {
+        XCTAssertEqual(SensorNameMapper.storageName("APPLE SSD AP0512M"), "APPLE SSD AP0512M")
+        XCTAssertEqual(SensorNameMapper.storageName("APPLE SSD AP1024R"), "APPLE SSD AP1024R")
+        XCTAssertFalse(SensorNameMapper.storageName("APPLE SSD AP0512M").contains("AP1024Z"))
+        let mapped = SensorNameMapper.map(rawReadings: [("APPLE SSD AP0512M", 36)])
+        XCTAssertEqual(mapped.first?.name, "APPLE SSD AP0512M")
+        XCTAssertFalse(mapped.contains { $0.name == "APPLE SSD AP1024Z" })
+    }
+
+    func testControlReadingsIncludeHIDCPUAndIgnoreDisplayToggleSource() {
+        let hid = [
+            TemperatureReading(key: "hid.cpu.perf.1", name: "CPU Performance Core 1", celsius: 97, group: .cpu)
+        ]
+        let control = SensorCatalog.controlReadings(smc: [], hid: hid)
+        XCTAssertEqual(control.map(\.key), ["hid.cpu.perf.1"])
+        XCTAssertEqual(control.first!.celsius, 97, accuracy: 0.0001)
+    }
+
+    func testCuratedIncludesUppercaseTGKeys() {
+        let gpu = TemperatureReading(key: "TG0P", name: "GPU", celsius: 48, group: .gpu)
+        let curated = SensorCatalog.curated(smc: [gpu], hid: [])
+        XCTAssertTrue(curated.contains { $0.key == "TG0P" })
+    }
+
     func testMergedListAlsoDeduplicatesSharedKeys() {
         let a = TemperatureReading(key: "Tp01", name: "CPU A", celsius: 40, group: .cpu)
         let b = TemperatureReading(key: "Tp01", name: "CPU B", celsius: 55, group: .cpu)

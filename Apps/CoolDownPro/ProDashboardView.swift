@@ -18,11 +18,11 @@ struct ProDashboardView: View {
         }
         .frame(minWidth: 640, minHeight: 700)
         .background(GlassBackdrop())
-        .alert("Enable fan control?", isPresented: $model.shouldPresentHelperSetup) {
+        .alert(model.helperSetupTitle, isPresented: $model.shouldPresentHelperSetup) {
             Button("Not Now", role: .cancel) {}
-            Button("Continue") { model.installHelper() }
+            Button(model.helperSetupConfirmTitle) { model.performHelperSetup() }
         } message: {
-            Text("Cool Down Pro needs your approval once to install its privileged helper. macOS will show its own confirmation next. After approval, fan control is ready to use.")
+            Text(model.helperSetupMessage)
         }
         .onAppear {
             NSApp.activate(ignoringOtherApps: true)
@@ -35,6 +35,12 @@ struct ProDashboardView: View {
             VStack(spacing: 16) {
                 sensorsHeader
                 liveMetrics
+                if let status = model.statusMessage {
+                    Text(status)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
                 sensorTable
             }
             .padding(20)
@@ -64,7 +70,7 @@ struct ProDashboardView: View {
                 Text(SensorFormatting.temperature(model.snapshot.maxTemperatureC))
                     .font(.system(size: 42, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(CoolDownTheme.temperatureColor(model.snapshot.maxTemperatureC ?? 0))
+                    .foregroundStyle(CoolDownTheme.temperatureColor(model.snapshot.maxTemperatureC))
                 Text("hottest component")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -76,9 +82,9 @@ struct ProDashboardView: View {
     private var liveMetrics: some View {
         HStack(spacing: 12) {
             metricCard("Control", value: settings.settings.mode.displayName, icon: "slider.horizontal.3", tint: CoolDownTheme.accent)
-            metricCard("Fan target", value: settings.settings.mode == .systemAuto ? "Auto" : SensorFormatting.percent(model.targetFanPercent), icon: "fanblades", tint: CoolDownTheme.calm)
+            metricCard("Fan target", value: fanTargetLabel, icon: "fanblades", tint: CoolDownTheme.calm)
             metricCard("CPU load", value: String(format: "%.0f%%", model.loadMonitor.cpuLoadPercent), icon: "cpu", tint: CoolDownTheme.warning)
-            metricCard("Fan control", value: model.helperControlIsReady ? "Ready" : "Needs approval", icon: "checkmark.shield", tint: model.helperControlIsReady ? CoolDownTheme.calm : CoolDownTheme.warning)
+            metricCard("Fan control", value: model.helperStatusText, icon: "checkmark.shield", tint: model.helperControlIsReady ? CoolDownTheme.calm : CoolDownTheme.warning)
         }
     }
 
@@ -132,7 +138,7 @@ struct ProDashboardView: View {
                                     Text(reading.name)
                                         .font(.body)
                                     Spacer()
-                                    Text(String(format: "%.0f°C", reading.celsius))
+                                    Text(SensorFormatting.temperature(reading.celsius))
                                         .font(.body.monospacedDigit().weight(.medium))
                                         .foregroundStyle(CoolDownTheme.temperatureColor(reading.celsius))
                                         .frame(width: 72, alignment: .trailing)
@@ -149,6 +155,12 @@ struct ProDashboardView: View {
             }
         }
         }
+    }
+
+    private var fanTargetLabel: String {
+        if settings.settings.mode == .systemAuto { return "Auto" }
+        if !model.helperControlIsReady { return "—" }
+        return SensorFormatting.percent(model.targetFanPercent)
     }
 
     private var groupedSensors: [(group: SensorGroup, items: [TemperatureReading])] {

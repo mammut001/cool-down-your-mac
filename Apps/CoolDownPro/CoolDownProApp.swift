@@ -13,7 +13,9 @@ struct CoolDownProApp: App {
                 .environmentObject(appModel)
                 .environmentObject(appModel.settings)
         } label: {
-            DashboardLaunchLabel(title: appModel.menuBarTitle)
+            DashboardLaunchLabel()
+                .environmentObject(appModel)
+                .environmentObject(appModel.settings)
         }
         .menuBarExtraStyle(.window)
 
@@ -22,7 +24,7 @@ struct CoolDownProApp: App {
                 .environmentObject(appModel)
                 .environmentObject(appModel.settings)
         }
-        .defaultSize(width: 560, height: 680)
+        .defaultSize(width: 640, height: 700)
         .windowResizability(.contentMinSize)
 
         Settings {
@@ -53,9 +55,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         ProAppModel.performSyncRestoreIfNeeded()
-        Task { @MainActor in
-            await ProAppModel.sharedOnTerminate?()
-        }
     }
 }
 
@@ -77,11 +76,12 @@ struct ProMenuBarLabel: View {
 
 /// Always-mounted menu bar label so launch/reopen can open the dashboard window.
 private struct DashboardLaunchLabel: View {
+    @EnvironmentObject private var model: ProAppModel
+    @EnvironmentObject private var settings: SettingsStore
     @Environment(\.openWindow) private var openWindow
-    let title: String
 
     var body: some View {
-        ProMenuBarLabel(title: title)
+        ProMenuBarLabel(title: model.menuBarTitle)
             .onReceive(NotificationCenter.default.publisher(for: .coolDownOpenDashboard)) { _ in
                 openWindow(id: "dashboard")
                 NSApp.activate(ignoringOtherApps: true)

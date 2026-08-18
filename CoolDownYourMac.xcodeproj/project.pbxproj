@@ -39,6 +39,7 @@
 		9808577511EFB5A39E1AA24D /* FanCurveEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C17F1BD5681F50B327E7B2 /* FanCurveEditorView.swift */; };
 		99647B3DBFA1913EF8298DFB /* ProMenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1383D7E486179FD83A499919 /* ProMenuBarView.swift */; };
 		9B2F3DC0643FFDBEC6C86315 /* MenuBarPopoverViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52F1D9382B347259919F1D09 /* MenuBarPopoverViews.swift */; };
+		9B5F951B3BE9959C0C0FB508 /* SensorNameMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 600CB849C51BC30B7D73FB14 /* SensorNameMapper.swift */; };
 		A2761F6AAB51547C0D82A9DE /* ProDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26A81CFBA85D8DD9DF880EFD /* ProDashboardView.swift */; };
 		A2FD84C75DA7189FED977E6B /* SensorCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5736AFC158D743FCCDFC670D /* SensorCatalog.swift */; };
 		A6479DF4DEC2325DDF4D7FA9 /* SMCTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A495F20E2BAC3D09A61D2EDE /* SMCTypes.swift */; };
@@ -570,7 +571,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -euo pipefail\nAPP=\"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nmkdir -p \"${APP}/Contents/MacOS\"\nmkdir -p \"${APP}/Contents/Resources\"\nHELPER_SRC=\"${BUILT_PRODUCTS_DIR}/com.cooldown.CoolDownPro.PrivilegedHelper\"\nif [[ -f \"${HELPER_SRC}\" ]]; then\n  mkdir -p \"${APP}/Contents/Library/LaunchServices\"\n  cp -f \"${HELPER_SRC}\" \"${APP}/Contents/Library/LaunchServices/com.cooldown.CoolDownPro.PrivilegedHelper\"\n  chmod 755 \"${APP}/Contents/Library/LaunchServices/com.cooldown.CoolDownPro.PrivilegedHelper\"\nfi\nCLI_SRC=\"${BUILT_PRODUCTS_DIR}/cooldown-smc\"\nif [[ -f \"${CLI_SRC}\" ]]; then\n  cp -f \"${CLI_SRC}\" \"${APP}/Contents/MacOS/cooldown-smc\"\n  chmod 755 \"${APP}/Contents/MacOS/cooldown-smc\"\nfi\n";
+			shellScript = "set -euo pipefail\nAPP=\"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nmkdir -p \"${APP}/Contents/MacOS\"\nmkdir -p \"${APP}/Contents/Resources\"\nHELPER_SRC=\"${BUILT_PRODUCTS_DIR}/com.cooldown.CoolDownPro.PrivilegedHelper\"\nif [[ ! -f \"${HELPER_SRC}\" ]]; then\n  echo \"error: privileged helper missing at ${HELPER_SRC}\" >&2\n  exit 1\nfi\nmkdir -p \"${APP}/Contents/Library/LaunchServices\"\nHELPER_DST=\"${APP}/Contents/Library/LaunchServices/com.cooldown.CoolDownPro.PrivilegedHelper\"\ncp -f \"${HELPER_SRC}\" \"${HELPER_DST}\"\nchmod 755 \"${HELPER_DST}\"\nif [[ -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" && \"${EXPANDED_CODE_SIGN_IDENTITY}\" != \"-\" ]]; then\n  codesign --force --options runtime --timestamp --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" \\\n    --entitlements \"${SRCROOT}/Pro/Helper/CoolDownHelper.entitlements\" \\\n    \"${HELPER_DST}\"\nfi\nCLI_SRC=\"${BUILT_PRODUCTS_DIR}/cooldown-smc\"\nif [[ ! -f \"${CLI_SRC}\" ]]; then\n  echo \"error: cooldown-smc missing at ${CLI_SRC}\" >&2\n  exit 1\nfi\ncp -f \"${CLI_SRC}\" \"${APP}/Contents/MacOS/cooldown-smc\"\nchmod 755 \"${APP}/Contents/MacOS/cooldown-smc\"\nif [[ -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" && \"${EXPANDED_CODE_SIGN_IDENTITY}\" != \"-\" ]]; then\n  codesign --force --options runtime --timestamp --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" \\\n    \"${APP}/Contents/MacOS/cooldown-smc\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -627,6 +628,7 @@
 				887FCB9A949E402D9F506279 /* SensorCatalog.swift in Sources */,
 				3AE55911BF6A35B5721DD437 /* SensorCatalogTests.swift in Sources */,
 				EB4E383C27A9A2B045B0597B /* SensorMerge.swift in Sources */,
+				9B5F951B3BE9959C0C0FB508 /* SensorNameMapper.swift in Sources */,
 				310C043C9D19FB7B45A65E31 /* SmartCurveEngine.swift in Sources */,
 				7E295A6637E0369ED2788136 /* SmartCurveEngineTests.swift in Sources */,
 			);
@@ -698,9 +700,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
-				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_IDENTITY = 4ECF07C42DD3995B5A117F3420C14166393978E5;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 16;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -711,6 +713,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MARKETING_VERSION = 1.0.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.cooldown.CoolDownKit;
 				PRODUCT_NAME = CoolDownKit;
 				SDKROOT = macosx;
@@ -743,7 +746,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Apps/CoolDownPro/CoolDownPro.entitlements;
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 16;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				HEADER_SEARCH_PATHS = (
@@ -755,6 +760,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MARKETING_VERSION = 1.0.6;
 				OTHER_LDFLAGS = (
 					"-framework",
 					ServiceManagement,
@@ -826,9 +832,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
-				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_IDENTITY = 4ECF07C42DD3995B5A117F3420C14166393978E5;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 16;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -839,6 +845,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MARKETING_VERSION = 1.0.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.cooldown.CoolDownKit;
 				PRODUCT_NAME = CoolDownKit;
 				SDKROOT = macosx;
@@ -885,7 +892,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Apps/CoolDownPro/CoolDownPro.entitlements;
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 16;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				HEADER_SEARCH_PATHS = (
@@ -897,6 +906,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MARKETING_VERSION = 1.0.6;
 				OTHER_LDFLAGS = (
 					"-framework",
 					ServiceManagement,
@@ -948,7 +958,7 @@
 				CODE_SIGN_IDENTITY = 4ECF07C42DD3995B5A117F3420C14166393978E5;
 				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 16;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = Z5D5N7CU6L;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -963,7 +973,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.5;
+				MARKETING_VERSION = 1.0.6;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				OTHER_CODE_SIGN_FLAGS = (
@@ -1067,7 +1077,7 @@
 				CODE_SIGN_IDENTITY = 4ECF07C42DD3995B5A117F3420C14166393978E5;
 				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 16;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = Z5D5N7CU6L;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1088,7 +1098,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.5;
+				MARKETING_VERSION = 1.0.6;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

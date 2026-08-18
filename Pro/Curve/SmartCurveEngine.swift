@@ -145,6 +145,7 @@ public final class SmartCurveEngine: @unchecked Sendable {
 
         guard let last = lastAppliedPercent else {
             lastAppliedPercent = desired
+            cooldownRemainingSeconds = decreaseHoldSeconds
             #if DEBUG
             lastDiagnostics = Diagnostics(
                 rawTemperatureC: temperatureC,
@@ -161,11 +162,32 @@ public final class SmartCurveEngine: @unchecked Sendable {
             return desired
         }
 
+        // Hot floor is a safety snap, not a slewed target.
+        if isHotResponse && last < 0.85 {
+            lastAppliedPercent = desired
+            cooldownRemainingSeconds = decreaseHoldSeconds
+            #if DEBUG
+            lastDiagnostics = Diagnostics(
+                rawTemperatureC: temperatureC,
+                filteredTemperatureC: filtered,
+                curvePercent: curvePercent,
+                loadBoostPercent: loadBoost,
+                desiredPercent: desired,
+                finalPercent: desired,
+                cooldownRemainingSeconds: cooldownRemainingSeconds,
+                isHotResponse: true,
+                isEmergency: false
+            )
+            #endif
+            return desired
+        }
+
         let delta = desired - last
 
         // Ignore tiny target changes. The desired value can continue drifting,
         // so a meaningful accumulated difference will still be applied later.
-        if abs(delta) < percentDeadband {
+        // Do not stall below an active hot floor.
+        if abs(delta) < percentDeadband && !(isHotResponse && last < 0.85) {
             cooldownRemainingSeconds = max(0, cooldownRemainingSeconds - dt)
             #if DEBUG
             lastDiagnostics = Diagnostics(
@@ -275,8 +297,7 @@ public final class SmartCurveEngine: @unchecked Sendable {
         }
 
         let tempDelta = abs(temperatureC - lastTemp)
-        let percentDelta = abs(raw - last)
-        if tempDelta < profile.hysteresisC && percentDelta < 0.03 {
+        if tempDelta < profile.hysteresisC {
             return last
         }
 

@@ -8,9 +8,7 @@ enum SensorMerge {
             map[reading.key] = reading
         }
         for reading in hid {
-            if map[reading.key] == nil {
-                map[reading.key] = reading
-            }
+            map[reading.key] = reading
         }
         return map.values.sorted { lhs, rhs in
             if lhs.group.sortOrder != rhs.group.sortOrder {

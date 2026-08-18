@@ -11,15 +11,28 @@ public final class HelperClient: ObservableObject {
     @Published public private(set) var lastError: String?
 
     private var connection: NSXPCConnection?
+    /// Incremented whenever the live connection is discarded so stale
+    /// invalidation handlers cannot clear a newer session.
+    private var connectionEpoch = 0
 
     private init() {}
 
-    public var helperStatus: SMAppService.Status {
-        FileManager.default.fileExists(atPath: "/Library/PrivilegedHelperTools/\(coolDownHelperMachServiceName)")
-            ? .enabled : .notRegistered
+    public var isHelperInstalled: Bool {
+        FileManager.default.isExecutableFile(
+            atPath: "/Library/PrivilegedHelperTools/\(coolDownHelperMachServiceName)"
+        )
     }
 
-    public func installHelper() throws {
+    /// Installs the helper for the first time, or replaces it after an explicit
+    /// repair request. The guard is important: acquiring the SMJobBless right
+    /// always presents macOS's administrator dialog, even when the existing
+    /// helper is healthy.
+    public func installHelper(replacingExisting: Bool = false) throws {
+        if isHelperInstalled && !replacingExisting {
+            reconnect()
+            return
+        }
+
         var authorization: AuthorizationRef?
         guard AuthorizationCreate(nil, nil, [], &authorization) == errAuthorizationSuccess,
               let authorization else {
@@ -46,26 +59,27 @@ public final class HelperClient: ObservableObject {
         reconnect()
     }
 
-    public func uninstallHelper() throws {
-        // SMJobBless replaces an installed tool atomically, so callers can
-        // repair or upgrade it by blessing again without a second prompt.
-        connection?.invalidate()
-        connection = nil
-        isConnected = false
+    public func disconnect() {
+        dropConnection()
     }
 
     public func reconnect() {
-        connection?.invalidate()
+        dropConnection()
         let conn = NSXPCConnection(machServiceName: coolDownHelperMachServiceName, options: .privileged)
         conn.remoteObjectInterface = NSXPCInterface(with: CoolDownHelperProtocol.self)
+        if #available(macOS 13.0, *) {
+            try? conn.setCodeSigningRequirement(Self.helperPeerRequirement)
+        }
+        connectionEpoch += 1
+        let epoch = connectionEpoch
         conn.invalidationHandler = { [weak self] in
             Task { @MainActor in
-                self?.isConnected = false
+                self?.handleConnectionLoss(epoch: epoch)
             }
         }
         conn.interruptionHandler = { [weak self] in
             Task { @MainActor in
-                self?.isConnected = false
+                self?.handleConnectionLoss(epoch: epoch)
             }
         }
         conn.resume()
@@ -74,7 +88,9 @@ public final class HelperClient: ObservableObject {
     }
 
     public func ping() {
-        guard let proxy = proxy() else {
+        guard let proxy = proxy(onError: { [weak self] _ in
+            self?.isConnected = false
+        }) else {
             isConnected = false
             return
         }
@@ -86,18 +102,14 @@ public final class HelperClient: ObservableObject {
     }
 
     public func fetchSnapshot() async throws -> SensorSnapshot {
-        let data: Data = try await withCheckedThrowingContinuation { continuation in
-            guard let proxy = proxy() else {
-                continuation.resume(throwing: CoolDownXPCError.helperUnavailable.nsError)
-                return
-            }
+        let data: Data = try await invoke { proxy, finish in
             proxy.fetchSnapshot { data, error in
                 if let error {
-                    continuation.resume(throwing: error)
+                    finish(.failure(error))
                 } else if let data {
-                    continuation.resume(returning: data)
+                    finish(.success(data))
                 } else {
-                    continuation.resume(throwing: CoolDownXPCError.encodeFailed.nsError)
+                    finish(.failure(CoolDownXPCError.encodeFailed.nsError))
                 }
             }
         }
@@ -124,51 +136,101 @@ public final class HelperClient: ObservableObject {
     }
 
     public func setFansAuto() async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            guard let proxy = proxy() else {
-                continuation.resume(throwing: CoolDownXPCError.helperUnavailable.nsError)
-                return
-            }
+        try await invoke { (proxy: CoolDownHelperProtocol, finish: @escaping (Result<Void, Error>) -> Void) in
             proxy.setFansAuto { error in
-                if let error { continuation.resume(throwing: error) }
-                else { continuation.resume() }
+                if let error { finish(.failure(error)) }
+                else { finish(.success(())) }
             }
         }
     }
 
     public func setFansPercent(_ percent: Double) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            guard let proxy = proxy() else {
-                continuation.resume(throwing: CoolDownXPCError.helperUnavailable.nsError)
-                return
-            }
+        try await invoke { (proxy: CoolDownHelperProtocol, finish: @escaping (Result<Void, Error>) -> Void) in
             proxy.setFansPercent(percent) { error in
-                if let error { continuation.resume(throwing: error) }
-                else { continuation.resume() }
+                if let error { finish(.failure(error)) }
+                else { finish(.success(())) }
             }
         }
     }
 
     public func setFanRPM(index: Int, rpm: Double) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            guard let proxy = proxy() else {
-                continuation.resume(throwing: CoolDownXPCError.helperUnavailable.nsError)
-                return
-            }
+        try await invoke { (proxy: CoolDownHelperProtocol, finish: @escaping (Result<Void, Error>) -> Void) in
             proxy.setFanRPM(index: index, rpm: rpm) { error in
-                if let error { continuation.resume(throwing: error) }
-                else { continuation.resume() }
+                if let error { finish(.failure(error)) }
+                else { finish(.success(())) }
             }
         }
     }
 
-    private func proxy() -> CoolDownHelperProtocol? {
+    /// Blocking auto-restore for `applicationWillTerminate`. Must not hop to
+    /// the main actor — the terminate callback already owns that thread.
+    nonisolated public static func setFansAutoBlocking(timeout: TimeInterval = 1.0) {
+        let conn = NSXPCConnection(machServiceName: coolDownHelperMachServiceName, options: .privileged)
+        conn.remoteObjectInterface = NSXPCInterface(with: CoolDownHelperProtocol.self)
+        if #available(macOS 13.0, *) {
+            try? conn.setCodeSigningRequirement(helperPeerRequirement)
+        }
+        conn.resume()
+        defer { conn.invalidate() }
+
+        let sema = DispatchSemaphore(value: 0)
+        let proxy = conn.remoteObjectProxyWithErrorHandler { _ in
+            sema.signal()
+        } as? CoolDownHelperProtocol
+        proxy?.setFansAuto { _ in
+            sema.signal()
+        }
+        _ = sema.wait(timeout: .now() + timeout)
+    }
+
+    private func invoke<T>(
+        _ body: (CoolDownHelperProtocol, @escaping (Result<T, Error>) -> Void) -> Void
+    ) async throws -> T {
+        try await withCheckedThrowingContinuation { continuation in
+            let lock = NSLock()
+            var resumed = false
+            func finish(_ result: Result<T, Error>) {
+                lock.lock()
+                defer { lock.unlock() }
+                guard !resumed else { return }
+                resumed = true
+                continuation.resume(with: result)
+            }
+            guard let proxy = proxy(onError: { error in
+                finish(.failure(error))
+            }) else {
+                finish(.failure(CoolDownXPCError.helperUnavailable.nsError))
+                return
+            }
+            body(proxy, finish)
+        }
+    }
+
+    private func proxy(onError: @escaping (Error) -> Void) -> CoolDownHelperProtocol? {
         if connection == nil { reconnect() }
         return connection?.remoteObjectProxyWithErrorHandler { [weak self] error in
             Task { @MainActor in
                 self?.lastError = error.localizedDescription
-                self?.isConnected = false
+                self?.handleConnectionLoss(epoch: self?.connectionEpoch ?? 0)
+                onError(error)
             }
         } as? CoolDownHelperProtocol
     }
+
+    private func handleConnectionLoss(epoch: Int) {
+        guard epoch == connectionEpoch else { return }
+        dropConnection()
+    }
+
+    private func dropConnection() {
+        let existing = connection
+        connection = nil
+        isConnected = false
+        existing?.invalidationHandler = nil
+        existing?.interruptionHandler = nil
+        existing?.invalidate()
+    }
+
+    private static let helperPeerRequirement =
+        "identifier \"com.cooldown.CoolDownPro.PrivilegedHelper\" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = Z5D5N7CU6L"
 }
