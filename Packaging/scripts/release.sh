@@ -15,20 +15,20 @@ mkdir -p "${DIST}"
 rm -f "${DMG}" "${CHECKSUM}"
 
 echo "==> 1/6 Build ${CONFIG}"
-"${ROOT}/Packaging/scripts/build-release.sh" "${CONFIG}"
+bash "${ROOT}/Packaging/scripts/build-release.sh" "${CONFIG}"
 
 echo "==> 2/6 Sign + notarize app"
-"${ROOT}/Packaging/scripts/sign-notarize.sh" "${APP}"
+bash "${ROOT}/Packaging/scripts/sign-notarize.sh" "${APP}"
 
 echo "==> 3/6 Create DMG"
-"${ROOT}/Packaging/scripts/make-dmg.sh" "${APP}" "${DMG}"
+bash "${ROOT}/Packaging/scripts/make-dmg.sh" "${APP}" "${DMG}"
 
 echo "==> 4/6 Notarize + staple DMG"
 xcrun notarytool submit "${DMG}" --keychain-profile "${PROFILE}" --wait
 xcrun stapler staple "${DMG}"
 
 echo "==> 5/6 Verify release artifact"
-"${ROOT}/Packaging/scripts/verify-release.sh" "${APP}" "${DMG}"
+bash "${ROOT}/Packaging/scripts/verify-release.sh" "${APP}" "${DMG}"
 
 echo "==> 6/6 Write SHA-256"
 shasum -a 256 "${DMG}" | tee "${CHECKSUM}"
