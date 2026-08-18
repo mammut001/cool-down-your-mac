@@ -2,9 +2,15 @@
 
 **Smart thermal fan control for macOS without the constant ramp-up / ramp-down cycle.**
 
+[![Latest Release](https://img.shields.io/github/v/release/mammut001/cool-down-your-mac?label=latest)](https://github.com/mammut001/cool-down-your-mac/releases/latest)
+[![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black?logo=apple)](https://github.com/mammut001/cool-down-your-mac/releases/latest)
+[![License GPL-2.0](https://img.shields.io/badge/license-GPL--2.0-blue)](LICENSE)
+
+### [⬇️ Download the latest notarized DMG](https://github.com/mammut001/cool-down-your-mac/releases/latest/download/CoolDownPro.dmg)
+
 Cool Down Pro is a native macOS menu bar utility that combines Apple SMC fan control with filtered thermal signals and a smarter control curve. Instead of reacting to every short temperature spike, it uses hysteresis, asymmetric EWMA filtering, cooldown hold, and hot/emergency bypass logic to stay responsive without causing constant fan-speed oscillation.
 
-[**Releases / Downloads**](https://github.com/mammut001/cool-down-your-mac/releases) · [Distribution guide](Docs/DISTRIBUTION.md) · [License](LICENSE)
+[**Release notes**](https://github.com/mammut001/cool-down-your-mac/releases/latest) · [Distribution guide](Docs/DISTRIBUTION.md) · [License](LICENSE)
 
 ![Cool Down Pro overview](Docs/images/cool-down-pro-overview.jpg)
 
