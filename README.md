@@ -4,6 +4,8 @@
 
 Cool Down Pro is a native macOS menu bar utility that combines Apple SMC fan control with filtered thermal signals and a smarter control curve. Instead of reacting to every short temperature spike, it uses hysteresis, asymmetric EWMA filtering, cooldown hold, and hot/emergency bypass logic to stay responsive without causing constant fan-speed oscillation.
 
+[**Releases / Downloads**](https://github.com/mammut001/cool-down-your-mac/releases) · [Distribution guide](Docs/DISTRIBUTION.md) · [License](LICENSE)
+
 ![Cool Down Pro overview](Docs/images/cool-down-pro-overview.jpg)
 
 ## Why this project exists
@@ -22,7 +24,7 @@ Cool Down Pro adds state and filtering around that feedback loop so short spikes
 - **Smart Curve engine** with hysteresis, asymmetric EWMA filtering, cooldown hold, and hot/emergency bypass
 - **HID + SMC sensor fusion** with curated CPU, GPU, Battery, Storage, and Other sensor groups
 - **Menu bar workflow** designed for quick status checks and fan-curve adjustments
-- **Hardened runtime + release packaging** for a real distributable macOS app
+- **Hardened runtime + notarized DMG pipeline** for website / GitHub distribution
 
 ## Smart Fan Curve
 
@@ -82,13 +84,24 @@ xcodebuild \
   build
 ```
 
-## Package a release
+## Build a distributable release
+
+On a Mac configured with a Developer ID Application identity and a `notarytool` keychain profile:
 
 ```bash
-./Packaging/scripts/build-release.sh
+bash Packaging/scripts/release.sh Release
 ```
 
-Distribution and notarization notes live in [`Docs/DISTRIBUTION.md`](Docs/DISTRIBUTION.md).
+The release pipeline builds, signs, notarizes, creates and notarizes the DMG, verifies Gatekeeper / stapler state, and writes a SHA-256 checksum.
+
+Expected output:
+
+```text
+dist/CoolDownPro.dmg
+dist/CoolDownPro.dmg.sha256
+```
+
+See [`Docs/DISTRIBUTION.md`](Docs/DISTRIBUTION.md) for prerequisites and the complete release checklist.
 
 ## Project focus
 
