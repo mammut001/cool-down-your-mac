@@ -33,23 +33,33 @@ public final class HelperClient: ObservableObject {
             return
         }
 
+        // SMJobBless asks for administrator credentials before it reports a
+        // malformed/ad-hoc build. Validate both peers first so a local debug
+        // build cannot make the user authenticate and then fail installation.
+        try Self.validateBlessingSignatures()
+
         var authorization: AuthorizationRef?
-        guard AuthorizationCreate(nil, nil, [], &authorization) == errAuthorizationSuccess,
-              let authorization else {
-            throw CoolDownXPCError.helperUnavailable.nsError
+        let createStatus = AuthorizationCreate(nil, nil, [], &authorization)
+        guard createStatus == errAuthorizationSuccess, let authorization else {
+            throw Self.authorizationError(createStatus)
         }
         defer { AuthorizationFree(authorization, []) }
 
-        var item = AuthorizationItem(
-            name: kSMRightBlessPrivilegedHelper,
-            valueLength: 0,
-            value: nil,
-            flags: 0
-        )
-        var rights = AuthorizationRights(count: 1, items: &item)
         let flags: AuthorizationFlags = [.interactionAllowed, .preAuthorize, .extendRights]
-        guard AuthorizationCopyRights(authorization, &rights, nil, flags, nil) == errAuthorizationSuccess else {
-            throw CoolDownXPCError.helperUnavailable.nsError
+        let rightsStatus = kSMRightBlessPrivilegedHelper.withCString { rightName in
+            var item = AuthorizationItem(
+                name: rightName,
+                valueLength: 0,
+                value: nil,
+                flags: 0
+            )
+            return withUnsafeMutablePointer(to: &item) { itemPointer in
+                var rights = AuthorizationRights(count: 1, items: itemPointer)
+                return AuthorizationCopyRights(authorization, &rights, nil, flags, nil)
+            }
+        }
+        guard rightsStatus == errAuthorizationSuccess else {
+            throw Self.authorizationError(rightsStatus)
         }
 
         var blessingError: Unmanaged<CFError>?
@@ -68,7 +78,7 @@ public final class HelperClient: ObservableObject {
         let conn = NSXPCConnection(machServiceName: coolDownHelperMachServiceName, options: .privileged)
         conn.remoteObjectInterface = NSXPCInterface(with: CoolDownHelperProtocol.self)
         if #available(macOS 13.0, *) {
-            try? conn.setCodeSigningRequirement(Self.helperPeerRequirement)
+            conn.setCodeSigningRequirement(Self.helperPeerRequirement)
         }
         connectionEpoch += 1
         let epoch = connectionEpoch
@@ -168,7 +178,7 @@ public final class HelperClient: ObservableObject {
         let conn = NSXPCConnection(machServiceName: coolDownHelperMachServiceName, options: .privileged)
         conn.remoteObjectInterface = NSXPCInterface(with: CoolDownHelperProtocol.self)
         if #available(macOS 13.0, *) {
-            try? conn.setCodeSigningRequirement(helperPeerRequirement)
+            conn.setCodeSigningRequirement(helperPeerRequirement)
         }
         conn.resume()
         defer { conn.invalidate() }
@@ -231,6 +241,81 @@ public final class HelperClient: ObservableObject {
         existing?.invalidate()
     }
 
-    private static let helperPeerRequirement =
+    nonisolated private static let helperPeerRequirement =
         "identifier \"com.cooldown.CoolDownPro.PrivilegedHelper\" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = Z5D5N7CU6L"
+
+    private static let clientSelfRequirement =
+        "identifier \"com.cooldown.CoolDownPro\" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = Z5D5N7CU6L"
+
+    private static func validateBlessingSignatures() throws {
+        var clientRequirement: SecRequirement?
+        var status = SecRequirementCreateWithString(
+            clientSelfRequirement as CFString,
+            [],
+            &clientRequirement
+        )
+        guard status == errSecSuccess, let clientRequirement else {
+            throw signingError("The app's signing requirement could not be created.", status: status)
+        }
+
+        var clientCode: SecCode?
+        status = SecCodeCopySelf([], &clientCode)
+        guard status == errSecSuccess, let clientCode else {
+            throw signingError("The app's code signature could not be read.", status: status)
+        }
+        status = SecCodeCheckValidity(clientCode, SecCSFlags(rawValue: kSecCSStrictValidate), clientRequirement)
+        guard status == errSecSuccess else {
+            throw signingError(
+                "This copy of Cool Down Pro is not signed for helper installation. Build and relaunch it with the Developer ID Application certificate for team Z5D5N7CU6L.",
+                status: status
+            )
+        }
+
+        let helperURL = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/Library/LaunchServices")
+            .appendingPathComponent(coolDownHelperMachServiceName)
+        var helperCode: SecStaticCode?
+        status = SecStaticCodeCreateWithPath(helperURL as CFURL, [], &helperCode)
+        guard status == errSecSuccess, let helperCode else {
+            throw signingError("The bundled fan-control helper is missing or unreadable.", status: status)
+        }
+
+        var helperRequirement: SecRequirement?
+        status = SecRequirementCreateWithString(helperPeerRequirement as CFString, [], &helperRequirement)
+        guard status == errSecSuccess, let helperRequirement else {
+            throw signingError("The helper's signing requirement could not be created.", status: status)
+        }
+        status = SecStaticCodeCheckValidity(
+            helperCode,
+            SecCSFlags(rawValue: kSecCSStrictValidate | kSecCSCheckAllArchitectures),
+            helperRequirement
+        )
+        guard status == errSecSuccess else {
+            throw signingError(
+                "The bundled fan-control helper has an invalid signature. Rebuild Cool Down Pro before installing it.",
+                status: status
+            )
+        }
+    }
+
+    private static func signingError(_ message: String, status: OSStatus? = nil) -> NSError {
+        var description = message
+        if let status, let detail = SecCopyErrorMessageString(status, nil) as String? {
+            description += " (\(detail))"
+        }
+        return NSError(
+            domain: "com.cooldown.CoolDownPro.HelperInstall",
+            code: Int(status ?? errSecCSUnsigned),
+            userInfo: [NSLocalizedDescriptionKey: description]
+        )
+    }
+
+    private static func authorizationError(_ status: OSStatus) -> NSError {
+        let detail = SecCopyErrorMessageString(status, nil) as String? ?? "Authorization failed"
+        return NSError(
+            domain: NSOSStatusErrorDomain,
+            code: Int(status),
+            userInfo: [NSLocalizedDescriptionKey: detail]
+        )
+    }
 }

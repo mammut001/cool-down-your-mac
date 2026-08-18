@@ -25,6 +25,9 @@ struct ProDashboardView: View {
             Text(model.helperSetupMessage)
         }
         .onAppear {
+            // Show in the Dock so users can right-click → Quit or press ⌘Q
+            // without using Terminal. The menu-bar extra stays available.
+            NSApp.setActivationPolicy(.regular)
             NSApp.activate(ignoringOtherApps: true)
             Task { await model.tick() }
         }

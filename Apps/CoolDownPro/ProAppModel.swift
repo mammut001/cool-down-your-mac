@@ -15,7 +15,7 @@ final class ProAppModel: ObservableObject {
     static var sharedOnTerminate: (() async -> Void)?
     static weak var sharedInstance: ProAppModel?
     static func performSyncRestoreIfNeeded() {
-        sharedInstance?.restoreAutoOnExitSync()
+        sharedInstance?.prepareForQuit()
     }
 
     @Published var snapshot = SensorSnapshot()
@@ -154,6 +154,21 @@ final class ProAppModel: ObservableObject {
             }
         }
         Task { await tick() }
+    }
+
+    func stopPolling() {
+        timer?.invalidate()
+        timer = nil
+    }
+
+    /// Stop timers, restore system-auto fans, and drop XPC so the process can
+    /// exit and the .app can be moved to Trash without "it's still open".
+    func prepareForQuit() {
+        stopPolling()
+        isTicking = false
+        cancellables.removeAll()
+        restoreAutoOnExitSync()
+        helper.disconnect()
     }
 
     func tick() async {

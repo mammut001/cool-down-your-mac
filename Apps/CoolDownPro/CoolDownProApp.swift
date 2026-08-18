@@ -26,6 +26,14 @@ struct CoolDownProApp: App {
         }
         .defaultSize(width: 640, height: 700)
         .windowResizability(.contentMinSize)
+        .commands {
+            CommandGroup(replacing: .appTermination) {
+                Button("Quit Cool Down Pro") {
+                    NSApp.terminate(nil)
+                }
+                .keyboardShortcut("q")
+            }
+        }
 
         Settings {
             ProSettingsView()
@@ -51,6 +59,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NotificationCenter.default.post(name: .coolDownOpenDashboard, object: nil)
         }
         return true
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        ProAppModel.performSyncRestoreIfNeeded()
+        return .terminateNow
     }
 
     func applicationWillTerminate(_ notification: Notification) {

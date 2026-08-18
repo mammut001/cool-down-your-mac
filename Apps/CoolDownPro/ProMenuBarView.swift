@@ -116,10 +116,17 @@ struct ProMenuBarView: View {
                 }
                 Button("Settings…") { openSettings() }
                 Spacer()
-                Button("Quit") { NSApplication.shared.terminate(nil) }
             }
             .buttonStyle(.borderless)
             .font(.caption)
+
+            Button("Quit Cool Down Pro") {
+                NSApplication.shared.terminate(nil)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .help("Stops background monitoring so the app can be deleted or replaced.")
         }
         .padding(14)
         .frame(width: 340)
