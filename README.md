@@ -2,7 +2,7 @@
 
 **Smart thermal fan control for macOS without the constant ramp-up / ramp-down cycle.**
 
-Cool Down Pro is a native macOS menu bar utility that combines Apple SMC fan control with filtered thermal signals and a smarter control curve. Instead of reacting to every short temperature spike, it uses hysteresis, asymmetric EWMA filtering, cooldown hold, and hot/emergency bypass logic to keep cooling responsive without making fan speed feel constantly “pumpy.”
+Cool Down Pro is a native macOS menu bar utility that combines Apple SMC fan control with filtered thermal signals and a smarter control curve. Instead of reacting to every short temperature spike, it uses hysteresis, asymmetric EWMA filtering, cooldown hold, and hot/emergency bypass logic to stay responsive without causing constant fan-speed oscillation.
 
 ![Cool Down Pro overview](Docs/images/cool-down-pro-overview.jpg)
 
