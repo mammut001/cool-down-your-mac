@@ -4,6 +4,7 @@ import CoolDownKit
 struct ProSettingsView: View {
     @EnvironmentObject private var model: ProAppModel
     @EnvironmentObject private var settings: SettingsStore
+    @ObservedObject private var updateController = UpdateController.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -75,6 +76,25 @@ struct ProSettingsView: View {
                             .frame(width: 40, alignment: .trailing)
                     }
                 }
+            }
+            .formStyle(.grouped)
+            .tabItem { Label("Alerts", systemImage: "bell") }
+
+            Form {
+                Section("Software Update") {
+                    LabeledContent("Installed Version", value: updateController.formattedCurrentVersion)
+                    LabeledContent("Last Checked", value: updateController.formattedLastCheckDate)
+                    Toggle("Automatically check for updates", isOn: $updateController.automaticallyChecksForUpdates)
+                    HStack {
+                        Button("Check for Updates…") {
+                            updateController.checkForUpdates()
+                        }
+                        .disabled(!updateController.canCheckForUpdates)
+                    }
+                    Text("Updates are cryptographically signed via Sparkle EdDSA and verified with Apple Developer ID / Notarization.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Section("About") {
                     LabeledContent("Version", value: AppMarketingVersion.string(from: .main))
                     LabeledContent("Product", value: "Cool Down Pro")
@@ -84,7 +104,7 @@ struct ProSettingsView: View {
                 }
             }
             .formStyle(.grouped)
-            .tabItem { Label("Alerts", systemImage: "bell") }
+            .tabItem { Label("Updates", systemImage: "arrow.triangle.2.circlepath") }
         }
         .padding()
         .onChange(of: settings.settings.sampleIntervalSeconds) { _, _ in

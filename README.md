@@ -31,6 +31,7 @@ Cool Down Pro adds state and filtering around that feedback loop so short spikes
 - **HID + SMC sensor fusion** with curated CPU, GPU, Battery, Storage, and Other sensor groups
 - **Menu bar workflow** designed for quick status checks and fan-curve adjustments
 - **Hardened runtime + notarized DMG pipeline** for website / GitHub distribution
+- **In-app updates via Sparkle 2** with EdDSA cryptographic verification (available starting with v1.0.9)
 
 ## Smart Fan Curve
 

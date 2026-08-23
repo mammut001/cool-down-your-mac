@@ -31,9 +31,20 @@ if [[ -f "${CLI}" ]]; then
 fi
 
 echo "==> Codesign frameworks"
-find "${APP_PATH}/Contents/Frameworks" -name "*.framework" -maxdepth 1 2>/dev/null | while read -r fw; do
-  sign "${fw}"
-done
+if [[ -d "${APP_PATH}/Contents/Frameworks" ]]; then
+  # Sign any nested XPC services and executables inside frameworks (e.g. Sparkle)
+  find "${APP_PATH}/Contents/Frameworks" -type d \( -name "*.xpc" -o -name "*.app" \) 2>/dev/null | while read -r nested; do
+    sign "${nested}"
+  done
+  find "${APP_PATH}/Contents/Frameworks" -type f -perm +111 2>/dev/null | while read -r bin; do
+    if file "${bin}" | grep -q "Mach-O"; then
+      sign "${bin}"
+    fi
+  done
+  find "${APP_PATH}/Contents/Frameworks" -name "*.framework" -maxdepth 1 2>/dev/null | while read -r fw; do
+    sign "${fw}"
+  done
+fi
 
 echo "==> Codesign app"
 # Sign the bundle last, without --deep, so nested Mach-Os keep their own identity.
