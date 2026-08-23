@@ -100,4 +100,59 @@ final class HelperPresentationTests: XCTestCase {
         XCTAssertEqual(state, .unavailable)
         XCTAssertEqual(state.rawValue, "Unavailable on this Mac")
     }
+
+    func testSetupPromptNotPresentedWhenProbeIncomplete() {
+        let shouldPresent = InitialHelperSetupResolver.shouldPresent(
+            probeCompleted: false,
+            isRegistered: false,
+            alreadyShown: false
+        )
+        XCTAssertFalse(shouldPresent)
+    }
+
+    func testSetupPromptPresentedWhenProbeCompletesAndHelperAbsent() {
+        let shouldPresent = InitialHelperSetupResolver.shouldPresent(
+            probeCompleted: true,
+            isRegistered: false,
+            alreadyShown: false
+        )
+        XCTAssertTrue(shouldPresent)
+    }
+
+    func testSetupPromptNotPresentedWhenHelperAlreadyInstalled() {
+        let shouldPresent = InitialHelperSetupResolver.shouldPresent(
+            probeCompleted: true,
+            isRegistered: true,
+            alreadyShown: false
+        )
+        XCTAssertFalse(shouldPresent)
+    }
+
+    func testSetupPromptNotPresentedWhenAlreadyShown() {
+        let shouldPresent = InitialHelperSetupResolver.shouldPresent(
+            probeCompleted: true,
+            isRegistered: false,
+            alreadyShown: true
+        )
+        XCTAssertFalse(shouldPresent)
+    }
+
+    func testSlowProbeStillPresentsSetupWhenItEventuallyCompletes() {
+        // Step 1: During slow probe (e.g. >1.2s), probeCompleted is false
+        let duringProbe = InitialHelperSetupResolver.shouldPresent(
+            probeCompleted: false,
+            isRegistered: false,
+            alreadyShown: false
+        )
+        XCTAssertFalse(duringProbe)
+
+        // Step 2: Once probe finishes, evaluation succeeds without loss
+        let afterSlowProbe = InitialHelperSetupResolver.shouldPresent(
+            probeCompleted: true,
+            isRegistered: false,
+            alreadyShown: false
+        )
+        XCTAssertTrue(afterSlowProbe)
+    }
 }
+

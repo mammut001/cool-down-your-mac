@@ -144,16 +144,6 @@ final class ProAppModel: ObservableObject {
             .dropFirst()
             .sink { [weak self] _ in self?.applyLaunchAtLogin() }
             .store(in: &cancellables)
-        // Make setup a one-time, explicit decision instead of leaving a
-        // persistent warning in the interface.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
-            guard let self,
-                  self.hasCompletedInitialHelperProbe,
-                  !self.helperIsRegistered,
-                  !UserDefaults.standard.bool(forKey: self.helperSetupPromptShownKey) else { return }
-            UserDefaults.standard.set(true, forKey: self.helperSetupPromptShownKey)
-            self.shouldPresentHelperSetup = true
-        }
     }
 
     func startPolling() {
@@ -229,9 +219,21 @@ final class ProAppModel: ObservableObject {
             applyLocalSnapshot(localSMC: localSMC, temperatures: displayTemps, helperError: nil)
         }
         hasCompletedInitialHelperProbe = true
+        presentInitialHelperSetupIfNeeded()
 
         let finite = controlTemps.map(\.celsius).filter { $0.isFinite && $0 > 0 && $0 < 150 }
         controlTemperatureC = finite.max()
+    }
+
+    private func presentInitialHelperSetupIfNeeded() {
+        guard InitialHelperSetupResolver.shouldPresent(
+            probeCompleted: hasCompletedInitialHelperProbe,
+            isRegistered: helperIsRegistered,
+            alreadyShown: UserDefaults.standard.bool(forKey: helperSetupPromptShownKey)
+        ) else { return }
+
+        UserDefaults.standard.set(true, forKey: helperSetupPromptShownKey)
+        shouldPresentHelperSetup = true
     }
 
     private func preferredFans(remote: [FanInfo], local: [FanInfo]) -> [FanInfo] {

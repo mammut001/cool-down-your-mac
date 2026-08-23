@@ -39,3 +39,14 @@ public enum HelperPresentationResolver {
         return .connecting
     }
 }
+
+public enum InitialHelperSetupResolver {
+    public static func shouldPresent(
+        probeCompleted: Bool,
+        isRegistered: Bool,
+        alreadyShown: Bool
+    ) -> Bool {
+        guard probeCompleted, !isRegistered, !alreadyShown else { return false }
+        return true
+    }
+}
