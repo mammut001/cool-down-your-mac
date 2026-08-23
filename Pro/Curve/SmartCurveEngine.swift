@@ -56,16 +56,21 @@ public final class SmartCurveEngine: @unchecked Sendable {
     private var lastDiagnostics: Diagnostics?
     #endif
 
-    // Tuned for a calm acoustic response while still reacting quickly to heat.
+    // Tuned for a calm acoustic response at normal temperatures while moving
+    // decisively before the chassis heat-soaks in a warm ambient environment.
     private let temperatureRiseAlphaAtTwoSeconds = 0.35
     private let temperatureFallAlphaAtTwoSeconds = 0.12
     private let normalRisePerSecond = 0.02
-    private let hotRisePerSecond = 0.08
+    private let warmRisePerSecond = 0.05
+    private let hotRisePerSecond = 0.12
     private let fallPerSecond = 0.0075
     private let decreaseHoldSeconds: TimeInterval = 10
     private let percentDeadband = 0.015
-    private let hotTemperatureC = 88.0
-    private let emergencyTemperatureC = 92.0
+    private let warmTemperatureC = 80.0
+    private let hotTemperatureC = 85.0
+    private let emergencyTemperatureC = 90.0
+    private let warmFanFloor = 0.85
+    private let hotFanFloor = 0.95
 
     public init() {}
 
@@ -118,9 +123,11 @@ public final class SmartCurveEngine: @unchecked Sendable {
         var desired = (curvePercent + loadBoost).clamped(to: 0...1)
         let isEmergency = temperatureC >= emergencyTemperatureC
         let isHotResponse = temperatureC >= hotTemperatureC
+        let isWarmResponse = temperatureC >= warmTemperatureC
 
         // Safety bypasses: do not let smoothing make the machine sluggish at
-        // genuinely high temperatures. 92C goes straight to full fan.
+        // genuinely high temperatures. 90C goes straight to full fan. Warm
+        // and hot floors start building airflow before thermal saturation.
         if isEmergency {
             lastAppliedPercent = 1
             cooldownRemainingSeconds = decreaseHoldSeconds
@@ -140,7 +147,9 @@ public final class SmartCurveEngine: @unchecked Sendable {
             return 1
         }
         if isHotResponse {
-            desired = max(desired, 0.85)
+            desired = max(desired, hotFanFloor)
+        } else if isWarmResponse {
+            desired = max(desired, warmFanFloor)
         }
 
         guard let last = lastAppliedPercent else {
@@ -162,9 +171,11 @@ public final class SmartCurveEngine: @unchecked Sendable {
             return desired
         }
 
-        // Hot floor is a safety snap, not a slewed target.
-        if isHotResponse && last < 0.85 {
-            lastAppliedPercent = desired
+        // At 85C and above, reach the hot floor immediately instead of taking
+        // several polling intervals to slew through a dangerous temperature.
+        if isHotResponse && last < hotFanFloor {
+            let next = max(desired, hotFanFloor)
+            lastAppliedPercent = next
             cooldownRemainingSeconds = decreaseHoldSeconds
             #if DEBUG
             lastDiagnostics = Diagnostics(
@@ -173,21 +184,21 @@ public final class SmartCurveEngine: @unchecked Sendable {
                 curvePercent: curvePercent,
                 loadBoostPercent: loadBoost,
                 desiredPercent: desired,
-                finalPercent: desired,
+                finalPercent: next,
                 cooldownRemainingSeconds: cooldownRemainingSeconds,
                 isHotResponse: true,
                 isEmergency: false
             )
             #endif
-            return desired
+            return next
         }
 
         let delta = desired - last
 
         // Ignore tiny target changes. The desired value can continue drifting,
         // so a meaningful accumulated difference will still be applied later.
-        // Do not stall below an active hot floor.
-        if abs(delta) < percentDeadband && !(isHotResponse && last < 0.85) {
+        // Do not stall below an active thermal floor.
+        if abs(delta) < percentDeadband && !(isHotResponse && last < hotFanFloor) {
             cooldownRemainingSeconds = max(0, cooldownRemainingSeconds - dt)
             #if DEBUG
             lastDiagnostics = Diagnostics(
@@ -209,7 +220,14 @@ public final class SmartCurveEngine: @unchecked Sendable {
             // Any real increase restarts the cooldown timer so we do not undo
             // the cooling response as soon as temperature begins to fall.
             cooldownRemainingSeconds = decreaseHoldSeconds
-            let rate = temperatureC >= hotTemperatureC ? hotRisePerSecond : normalRisePerSecond
+            let rate: Double
+            if isHotResponse {
+                rate = hotRisePerSecond
+            } else if isWarmResponse {
+                rate = warmRisePerSecond
+            } else {
+                rate = normalRisePerSecond
+            }
             let next = min(desired, last + rate * dt)
             lastAppliedPercent = next
             #if DEBUG
