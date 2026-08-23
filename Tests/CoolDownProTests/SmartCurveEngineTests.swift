@@ -12,7 +12,7 @@ final class SmartCurveEngineTests: XCTestCase {
 
     func testEmergencyTemperatureReturnsFullFan() {
         let engine = SmartCurveEngine()
-        let percent = engine.targetPercent(temperatureC: 92, profile: profile)
+        let percent = engine.targetPercent(temperatureC: 90, profile: profile)
         XCTAssertEqual(percent, 1.0, accuracy: 0.0001)
     }
 
@@ -22,24 +22,30 @@ final class SmartCurveEngineTests: XCTestCase {
         XCTAssertEqual(percent, 1.0, accuracy: 0.0001)
     }
 
-    func testFirstSampleHotTemperatureReturnsAtLeastEightyFivePercent() {
+    func testFirstSampleWarmTemperatureGetsSafetyFloor() {
         let engine = SmartCurveEngine()
-        let percent = engine.targetPercent(temperatureC: 88, profile: profile)
+        let percent = engine.targetPercent(temperatureC: 80, profile: profile)
         XCTAssertGreaterThanOrEqual(percent, 0.85)
     }
 
-    func testFirstSampleJustBelowEmergencyIsHotBypass() {
+    func testFirstSampleHotTemperatureReturnsAtLeastNinetyFivePercent() {
         let engine = SmartCurveEngine()
-        let percent = engine.targetPercent(temperatureC: 91.9, profile: profile)
-        XCTAssertGreaterThanOrEqual(percent, 0.85)
+        let percent = engine.targetPercent(temperatureC: 85, profile: profile)
+        XCTAssertGreaterThanOrEqual(percent, 0.95)
+    }
+
+    func testFirstSampleJustBelowEmergencyUsesHotFloor() {
+        let engine = SmartCurveEngine()
+        let percent = engine.targetPercent(temperatureC: 89.9, profile: profile)
+        XCTAssertGreaterThanOrEqual(percent, 0.95)
         XCTAssertLessThan(percent, 1.0)
     }
 
     func testLaterHotSampleSnapsToFloorNotSlew() {
         let engine = SmartCurveEngine()
         _ = engine.targetPercent(temperatureC: 50, profile: profile)
-        let percent = engine.targetPercent(temperatureC: 88, profile: profile)
-        XCTAssertGreaterThanOrEqual(percent, 0.85)
+        let percent = engine.targetPercent(temperatureC: 85, profile: profile)
+        XCTAssertGreaterThanOrEqual(percent, 0.95)
     }
 
     func testHysteresisHoldsSmallTemperatureWiggle() {
