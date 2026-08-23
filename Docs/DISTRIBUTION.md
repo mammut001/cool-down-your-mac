@@ -140,5 +140,10 @@ Debug builds may set `COOLDOWN_HELPER_DEV=1` to relax the check.
 ## Safety
 
 - Restores system auto fans on quit (with a synchronous fast-path so the fan does not stay pinned if the app is killed).
-- Smart Curve uses hysteresis, EWMA filtering, and a 10s cooldown hold to avoid RPM oscillation. 88°C forces ≥85% and 92°C forces 100%.
+- Smart Curve uses hysteresis, asymmetric EWMA temperature filtering, a 10-second cooldown hold, and gradual fan decrease to avoid RPM oscillation.
+- Safety floors:
+  - `≥ 80°C`: immediate minimum 85% fan target
+  - `≥ 85°C`: immediate minimum 95% fan target
+  - `≥ 90°C`: immediate 100% fan target
 - The helper rejects untrusted callers. All XPC fan writes are validated and logged via `os_log`.
+- Intel compatibility: builds universal `arm64` + `x86_64` binaries with optimized polling cadences; full Intel runtime performance remains pending dedicated Intel hardware validation.
