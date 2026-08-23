@@ -33,5 +33,15 @@
 		<key>com.cooldown.CoolDownPro.PrivilegedHelper</key>
 		<string>identifier com.cooldown.CoolDownPro.PrivilegedHelper and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = Z5D5N7CU6L</string>
 	</dict>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/mammut001/cool-down-your-mac/main/Packaging/Sparkle/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>vmOe1t+p1v3JEswzjVmUkECAovISZ6QQ7t6WvhbdEDo=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
+	<key>SUAllowsAutomaticUpdates</key>
+	<false/>
 </dict>
 </plist>

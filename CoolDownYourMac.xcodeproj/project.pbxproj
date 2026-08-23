@@ -13,6 +13,7 @@
 		147C2BF5075FF1A2B630D098 /* LoadMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E563BDFB6C13DEAF2497FC0 /* LoadMonitor.swift */; };
 		19035339C6002921A7E8A28D /* SensorNameMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 600CB849C51BC30B7D73FB14 /* SensorNameMapper.swift */; };
 		1CAD0D41225F3A46CFB784C7 /* CoolDownKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = D659E0B1C0BD93F2C4F46EA5 /* CoolDownKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		1D0E4B9E1A0802F3046F860B /* UpdateState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BC864CD12EA06303C02D38B /* UpdateState.swift */; };
 		21B04F994EA6555277556737 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 89DC9CD1374ADCFE8C14DED1 /* Assets.xcassets */; };
 		2E0FBB0E174B45572C514613 /* CoolDownKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = D659E0B1C0BD93F2C4F46EA5 /* CoolDownKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		310C043C9D19FB7B45A65E31 /* SmartCurveEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA750041E0AA15A1D38D0451 /* SmartCurveEngine.swift */; };
@@ -24,6 +25,7 @@
 		40057656CE9FFBCE40D44651 /* ProSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E85BB2EEB5DCF1B905877FA8 /* ProSettingsView.swift */; };
 		521C5E8FAE847AD28F6BFF18 /* AppMarketingVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05BD3D4A9412CD309C040CC2 /* AppMarketingVersion.swift */; };
 		524392DB56B334D8D68A68C6 /* SMCKnownNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6EC64FC138684DE07E9104A /* SMCKnownNames.swift */; };
+		61408E7A1A70717F646B29EB /* UpdateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B54C83BEEF4E919342ED89 /* UpdateController.swift */; };
 		61AEC91CC2697F2AE3C09549 /* SMCKnownNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6EC64FC138684DE07E9104A /* SMCKnownNames.swift */; };
 		665720AFEA76D59327A0983B /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76D8C21F054C99D0A6F97EF9 /* main.swift */; };
 		79B7D2DAC93294F64B891F1A /* SMCKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DF5BC3A7FEBD06E75E979D2 /* SMCKit.swift */; };
@@ -37,6 +39,7 @@
 		8BABE514354CBD7A0E73B1E2 /* smc_cli_main.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5CB6FAB0508E157FB0B655B /* smc_cli_main.swift */; };
 		938C82D8B9E7B6138CDCE0E5 /* HelperClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B11E196FE00AF46D8E45D3E /* HelperClient.swift */; };
 		9808577511EFB5A39E1AA24D /* FanCurveEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C17F1BD5681F50B327E7B2 /* FanCurveEditorView.swift */; };
+		98B520C28EFA2F479AC2D2D7 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 195BF1AE7C6EC899FFC4CA73 /* Sparkle */; };
 		99647B3DBFA1913EF8298DFB /* ProMenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1383D7E486179FD83A499919 /* ProMenuBarView.swift */; };
 		9B2F3DC0643FFDBEC6C86315 /* MenuBarPopoverViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52F1D9382B347259919F1D09 /* MenuBarPopoverViews.swift */; };
 		9B5F951B3BE9959C0C0FB508 /* SensorNameMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 600CB849C51BC30B7D73FB14 /* SensorNameMapper.swift */; };
@@ -48,6 +51,7 @@
 		B728EB40E8F0E79133380A3B /* CoolDownProApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1999F521A2D837A3A57D50B7 /* CoolDownProApp.swift */; };
 		B9FCB0E44166A687454EC79B /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 713C850A8476463CC249575F /* Models.swift */; };
 		BAC5214E94CF13EC125F1BD7 /* IOHIDTemperatureBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = FBA0ABB1F9F3871DF1BC54F3 /* IOHIDTemperatureBridge.m */; };
+		C3C4787E171335E5FA33D86E /* UpdateFormattingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D67747CC8214BF21404D571 /* UpdateFormattingTests.swift */; };
 		CDB92F6AF882392CBA29FDBE /* SensorFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A80C8DC327953632B6C645 /* SensorFormatting.swift */; };
 		D6F7019AC010F7507BF9714E /* SmartCurveEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA750041E0AA15A1D38D0451 /* SmartCurveEngine.swift */; };
 		E383F2386F33E94FA8A79E0E /* SMCKnownNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6EC64FC138684DE07E9104A /* SMCKnownNames.swift */; };
@@ -124,8 +128,10 @@
 		1383D7E486179FD83A499919 /* ProMenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProMenuBarView.swift; sourceTree = "<group>"; };
 		1657970B6BF454EC7914280E /* CoolDownProTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CoolDownProTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		1999F521A2D837A3A57D50B7 /* CoolDownProApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoolDownProApp.swift; sourceTree = "<group>"; };
+		1BC864CD12EA06303C02D38B /* UpdateState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateState.swift; sourceTree = "<group>"; };
 		26A81CFBA85D8DD9DF880EFD /* ProDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProDashboardView.swift; sourceTree = "<group>"; };
 		379573D118640DA4C7809388 /* IOHIDTemperatureReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOHIDTemperatureReader.swift; sourceTree = "<group>"; };
+		3D67747CC8214BF21404D571 /* UpdateFormattingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateFormattingTests.swift; sourceTree = "<group>"; };
 		48621CC58AAD45AB3B7FBBF2 /* AppMarketingVersionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMarketingVersionTests.swift; sourceTree = "<group>"; };
 		52F1D9382B347259919F1D09 /* MenuBarPopoverViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarPopoverViews.swift; sourceTree = "<group>"; };
 		5736AFC158D743FCCDFC670D /* SensorCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorCatalog.swift; sourceTree = "<group>"; };
@@ -157,6 +163,7 @@
 		C6EC64FC138684DE07E9104A /* SMCKnownNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMCKnownNames.swift; sourceTree = "<group>"; };
 		CA750041E0AA15A1D38D0451 /* SmartCurveEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartCurveEngine.swift; sourceTree = "<group>"; };
 		D659E0B1C0BD93F2C4F46EA5 /* CoolDownKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = CoolDownKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		D9B54C83BEEF4E919342ED89 /* UpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateController.swift; sourceTree = "<group>"; };
 		DADC856427C2F0565439E0F4 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		DEDC53EF9A075DBF202ECC02 /* CoolDownPro.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CoolDownPro.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DEE4767EB79E79CE7C834339 /* ProAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProAppModel.swift; sourceTree = "<group>"; };
@@ -184,6 +191,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				EE027C7789FD8E5C371B13B2 /* CoolDownKit.framework in Frameworks */,
+				98B520C28EFA2F479AC2D2D7 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -206,6 +214,7 @@
 				D2B49BD19918A84D2C21C54D /* Monitoring */,
 				A6D18419146B386DCF707193 /* Sensors */,
 				A49634A4E014D72C08A67002 /* SMC */,
+				C74A03D54B4EEE18065D88A5 /* Updates */,
 				F15249B23E9FD120F1F2C4A2 /* XPC */,
 			);
 			path = Pro;
@@ -218,6 +227,14 @@
 				87D7A9C65112DDBD260AD995 /* Theme.swift */,
 			);
 			path = UI;
+			sourceTree = "<group>";
+		};
+		57DFB4CA2AAA0F0CF03C8C52 /* Updates */ = {
+			isa = PBXGroup;
+			children = (
+				1BC864CD12EA06303C02D38B /* UpdateState.swift */,
+			);
+			path = Updates;
 			sourceTree = "<group>";
 		};
 		636582D6212876547BB0364F /* Products */ = {
@@ -321,8 +338,17 @@
 				F6C7E4DC737078AA0109588F /* CurveProfileTests.swift */,
 				677E2E2BD10AFE4A51DA8C84 /* SensorCatalogTests.swift */,
 				FD358E304D25608848FDA922 /* SmartCurveEngineTests.swift */,
+				3D67747CC8214BF21404D571 /* UpdateFormattingTests.swift */,
 			);
 			path = CoolDownProTests;
+			sourceTree = "<group>";
+		};
+		C74A03D54B4EEE18065D88A5 /* Updates */ = {
+			isa = PBXGroup;
+			children = (
+				D9B54C83BEEF4E919342ED89 /* UpdateController.swift */,
+			);
+			path = Updates;
 			sourceTree = "<group>";
 		};
 		D10E743E6987A9B57247BD9F = {
@@ -360,6 +386,7 @@
 				AEB289619F4CFF7DC6F20CE6 /* Monitoring */,
 				7C02453872FC338F07B73C6D /* Resources */,
 				43DA4457111A8FF1E6547A3E /* UI */,
+				57DFB4CA2AAA0F0CF03C8C52 /* Updates */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -419,6 +446,7 @@
 			);
 			name = CoolDownPro;
 			packageProductDependencies = (
+				195BF1AE7C6EC899FFC4CA73 /* Sparkle */,
 			);
 			productName = CoolDownPro;
 			productReference = DEDC53EF9A075DBF202ECC02 /* CoolDownPro.app */;
@@ -520,6 +548,9 @@
 			);
 			mainGroup = D10E743E6987A9B57247BD9F;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				DFEFD0CF6924D32991646268 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 636582D6212876547BB0364F /* Products */;
 			projectDirPath = "";
@@ -615,6 +646,7 @@
 				E628898E87F26E822E87AE1E /* SensorMerge.swift in Sources */,
 				19035339C6002921A7E8A28D /* SensorNameMapper.swift in Sources */,
 				D6F7019AC010F7507BF9714E /* SmartCurveEngine.swift in Sources */,
+				61408E7A1A70717F646B29EB /* UpdateController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -631,6 +663,7 @@
 				9B5F951B3BE9959C0C0FB508 /* SensorNameMapper.swift in Sources */,
 				310C043C9D19FB7B45A65E31 /* SmartCurveEngine.swift in Sources */,
 				7E295A6637E0369ED2788136 /* SmartCurveEngineTests.swift in Sources */,
+				C3C4787E171335E5FA33D86E /* UpdateFormattingTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -655,6 +688,7 @@
 				CDB92F6AF882392CBA29FDBE /* SensorFormatting.swift in Sources */,
 				3F93F971000B8C5853EBA8DD /* SettingsStore.swift in Sources */,
 				E548458BD603363610AFFFF0 /* Theme.swift in Sources */,
+				1D0E4B9E1A0802F3046F860B /* UpdateState.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1171,6 +1205,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		DFEFD0CF6924D32991646268 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.6.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		195BF1AE7C6EC899FFC4CA73 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DFEFD0CF6924D32991646268 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 00DF75FF26BC884AD0BB207C /* Project object */;
 }

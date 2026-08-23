@@ -114,6 +114,9 @@ struct ProMenuBarView: View {
                     }
                     .disabled(model.isBusy)
                 }
+                Button("Check for Updates…") {
+                    UpdateController.shared.checkForUpdates()
+                }
                 Button("Settings…") { openSettings() }
                 Spacer()
             }

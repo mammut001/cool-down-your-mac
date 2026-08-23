@@ -27,6 +27,11 @@ struct CoolDownProApp: App {
         .defaultSize(width: 640, height: 700)
         .windowResizability(.contentMinSize)
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") {
+                    UpdateController.shared.checkForUpdates()
+                }
+            }
             CommandGroup(replacing: .appTermination) {
                 Button("Quit Cool Down Pro") {
                     NSApp.terminate(nil)
