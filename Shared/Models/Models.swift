@@ -168,6 +168,12 @@ public struct CurveProfile: Codable, Hashable, Sendable {
         }
     }
 
+    public var isUntouchedLegacyDefault: Bool {
+        guard name == "Default" else { return false }
+        guard abs(hysteresisC - 2.0) < 0.0001 else { return false }
+        return usesLegacyDefaultPoints
+    }
+
     public func fanPercent(for temperatureC: Double) -> Double {
         let sorted = points.sorted { $0.temperatureC < $1.temperatureC }
         guard let first = sorted.first else { return 0.3 }
@@ -318,9 +324,9 @@ public struct AppSettings: Codable, Hashable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         mode = try c.decodeIfPresent(ControlMode.self, forKey: .mode) ?? .smartCurve
         let decodedCurve = try c.decodeIfPresent(CurveProfile.self, forKey: .curve) ?? CurveProfile()
-        // Migrate only the exact old built-in shape. User-edited/custom curves
-        // remain untouched even if their profile name is still "Default".
-        curve = decodedCurve.usesLegacyDefaultPoints ? CurveProfile() : decodedCurve
+        // Migrate only an untouched legacy default profile. User-customized
+        // curves (custom points, custom hysteresis, or custom name) remain untouched.
+        curve = decodedCurve.isUntouchedLegacyDefault ? CurveProfile() : decodedCurve
         manualPercent = (try c.decodeIfPresent(Double.self, forKey: .manualPercent) ?? 0.4).clamped(to: 0...1)
         sampleIntervalSeconds = try c.decodeIfPresent(Double.self, forKey: .sampleIntervalSeconds) ?? 2.0
         launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
@@ -378,5 +384,33 @@ public struct HotProcess: Identifiable, Hashable, Sendable {
 public extension Comparable {
     func clamped(to range: ClosedRange<Self>) -> Self {
         min(max(self, range.lowerBound), range.upperBound)
+    }
+}
+
+public enum CPULoadCalculator {
+    /// Computes system-wide CPU load percentage from Mach PROCESSOR_CPU_LOAD_INFO tick deltas.
+    /// Expected format for each core: [USER (0), SYSTEM (1), IDLE (2), NICE (3)].
+    public static func computeSystemLoadPercent(
+        currentTicks: [UInt32],
+        previousTicks: [UInt32]
+    ) -> Double? {
+        guard currentTicks.count == previousTicks.count,
+              !currentTicks.isEmpty,
+              currentTicks.count % 4 == 0 else {
+            return nil
+        }
+
+        var busy: UInt64 = 0
+        var total: UInt64 = 0
+        for offset in stride(from: 0, to: currentTicks.count, by: 4) {
+            let user = currentTicks[offset + 0] &- previousTicks[offset + 0]
+            let system = currentTicks[offset + 1] &- previousTicks[offset + 1]
+            let idle = currentTicks[offset + 2] &- previousTicks[offset + 2]
+            let nice = currentTicks[offset + 3] &- previousTicks[offset + 3]
+            busy += UInt64(user) + UInt64(system) + UInt64(nice)
+            total += UInt64(user) + UInt64(system) + UInt64(nice) + UInt64(idle)
+        }
+        guard total > 0 else { return nil }
+        return (Double(busy) / Double(total) * 100.0).clamped(to: 0...100)
     }
 }

@@ -9,7 +9,7 @@ final class LoadMonitor: ObservableObject {
     @Published private(set) var hottestProcessPercent: Double = 0
     @Published private(set) var hottestProcessName: String = "—"
 
-    private var previousCPUTicks: [UInt64]?
+    private var previousCPUTicks: [UInt32]?
     private var loadAboveThresholdSince: TimeInterval?
     private var smoothedFanBoost: Double = 0
     private var lastBoostUpdateUptime: TimeInterval?
@@ -71,22 +71,10 @@ final class LoadMonitor: ObservableObject {
             )
         }
 
-        let ticks = UnsafeBufferPointer(start: info, count: Int(infoCount)).map { UInt64($0) }
+        let ticks = UnsafeBufferPointer(start: info, count: Int(infoCount)).map { UInt32(bitPattern: $0) }
         defer { previousCPUTicks = ticks }
-        guard let previous = previousCPUTicks, previous.count == ticks.count else { return 0 }
-
-        var busy: UInt64 = 0
-        var total: UInt64 = 0
-        for offset in stride(from: 0, to: ticks.count, by: Int(CPU_STATE_MAX)) {
-            let user = ticks[offset + Int(CPU_STATE_USER)] - previous[offset + Int(CPU_STATE_USER)]
-            let system = ticks[offset + Int(CPU_STATE_SYSTEM)] - previous[offset + Int(CPU_STATE_SYSTEM)]
-            let nice = ticks[offset + Int(CPU_STATE_NICE)] - previous[offset + Int(CPU_STATE_NICE)]
-            let idle = ticks[offset + Int(CPU_STATE_IDLE)] - previous[offset + Int(CPU_STATE_IDLE)]
-            busy += user + system + nice
-            total += user + system + nice + idle
-        }
-        guard total > 0 else { return cpuLoadPercent }
-        return (Double(busy) / Double(total) * 100).clamped(to: 0...100)
+        guard let previous = previousCPUTicks else { return 0 }
+        return CPULoadCalculator.computeSystemLoadPercent(currentTicks: ticks, previousTicks: previous) ?? cpuLoadPercent
     }
 
     /// Returns a smoothed 0...boostMax value based on sustained *system* CPU

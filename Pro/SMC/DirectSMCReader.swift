@@ -11,11 +11,7 @@ enum DirectSMCReader {
     }
 
     private static let cache = SnapshotCache()
-    #if arch(x86_64)
-    private static let cacheLifetimeSeconds: TimeInterval = 4
-    #else
     private static let cacheLifetimeSeconds: TimeInterval = 2
-    #endif
 
     static func readSnapshot() -> SensorSnapshot? {
         let now = ProcessInfo.processInfo.systemUptime

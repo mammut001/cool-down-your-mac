@@ -111,12 +111,13 @@ public final class SmartCurveEngine: @unchecked Sendable {
     public func targetPercent(
         temperatureC: Double,
         profile: CurveProfile,
-        loadBoost: Double = 0
+        loadBoost: Double = 0,
+        uptime: TimeInterval? = nil
     ) -> Double {
         lock.lock()
         defer { lock.unlock() }
 
-        let now = ProcessInfo.processInfo.systemUptime
+        let now = uptime ?? ProcessInfo.processInfo.systemUptime
         let dt = elapsedSeconds(now: now)
         let filtered = filterTemperature(temperatureC, elapsedSeconds: dt)
         let curvePercent = stabilizedCurvePercent(temperatureC: filtered, profile: profile)
@@ -146,6 +147,13 @@ public final class SmartCurveEngine: @unchecked Sendable {
             #endif
             return 1
         }
+
+        if isWarmResponse || isHotResponse {
+            let rawCurvePercent = profile.fanPercent(for: temperatureC)
+            let rawDesired = (rawCurvePercent + loadBoost).clamped(to: 0...1)
+            desired = max(desired, rawDesired)
+        }
+
         if isHotResponse {
             desired = max(desired, hotFanFloor)
         } else if isWarmResponse {
@@ -173,8 +181,8 @@ public final class SmartCurveEngine: @unchecked Sendable {
 
         // At 85C and above, reach the hot floor immediately instead of taking
         // several polling intervals to slew through a dangerous temperature.
-        if isHotResponse && last < hotFanFloor {
-            let next = max(desired, hotFanFloor)
+        if isHotResponse && last < desired {
+            let next = desired
             lastAppliedPercent = next
             cooldownRemainingSeconds = decreaseHoldSeconds
             #if DEBUG
@@ -187,6 +195,28 @@ public final class SmartCurveEngine: @unchecked Sendable {
                 finalPercent: next,
                 cooldownRemainingSeconds: cooldownRemainingSeconds,
                 isHotResponse: true,
+                isEmergency: false
+            )
+            #endif
+            return next
+        }
+
+        // At 80C and above, reach the warm floor immediately instead of taking
+        // several polling intervals to slew from a low previous target.
+        if isWarmResponse && last < desired {
+            let next = desired
+            lastAppliedPercent = next
+            cooldownRemainingSeconds = decreaseHoldSeconds
+            #if DEBUG
+            lastDiagnostics = Diagnostics(
+                rawTemperatureC: temperatureC,
+                filteredTemperatureC: filtered,
+                curvePercent: curvePercent,
+                loadBoostPercent: loadBoost,
+                desiredPercent: desired,
+                finalPercent: next,
+                cooldownRemainingSeconds: cooldownRemainingSeconds,
+                isHotResponse: false,
                 isEmergency: false
             )
             #endif
