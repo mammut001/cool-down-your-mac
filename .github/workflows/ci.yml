@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: macos-15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Environment Information
+        run: |
+          echo "macOS version: $(sw_vers -productVersion)"
+          echo "Xcode version: $(xcodebuild -version)"
+          echo "Swift version: $(swift --version)"
+
+      - name: Install XcodeGen
+        run: |
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+          xcodegen --version
+
+      - name: Generate Xcode Project
+        run: |
+          xcodegen generate
+
+      - name: Validate Shell Script Syntax
+        run: |
+          set -euo pipefail
+          echo "Checking shell scripts..."
+          find Packaging/scripts -name "*.sh" -type f | while read -r script; do
+            echo "Validating syntax: ${script}"
+            bash -n "${script}"
+          done
+          echo "All shell scripts passed syntax validation."
+
+      - name: Build Cool Down Pro (Debug, Unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project CoolDownYourMac.xcodeproj \
+            -scheme CoolDownPro \
+            -configuration Debug \
+            -derivedDataPath "${RUNNER_TEMP}/CoolDownDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Run Unit Tests
+        run: |
+          set -o pipefail
+          xcodebuild \
+            test \
+            -project CoolDownYourMac.xcodeproj \
+            -scheme CoolDownPro \
+            -destination 'platform=macOS' \
+            -derivedDataPath "${RUNNER_TEMP}/CoolDownDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
