@@ -139,13 +139,34 @@ public struct CurveProfile: Codable, Hashable, Sendable {
         self.hysteresisC = hysteresisC
     }
 
+    /// Balanced preset biased toward earlier airflow so sustained work in a
+    /// warm room does not wait for the chassis to heat-soak before reaching
+    /// maximum fan speed.
     public static let defaultPoints: [CurvePoint] = [
-        CurvePoint(temperatureC: 45, fanPercent: 0.15),
-        CurvePoint(temperatureC: 55, fanPercent: 0.30),
-        CurvePoint(temperatureC: 65, fanPercent: 0.50),
-        CurvePoint(temperatureC: 75, fanPercent: 0.75),
-        CurvePoint(temperatureC: 85, fanPercent: 1.00)
+        CurvePoint(temperatureC: 45, fanPercent: 0.20),
+        CurvePoint(temperatureC: 55, fanPercent: 0.35),
+        CurvePoint(temperatureC: 65, fanPercent: 0.55),
+        CurvePoint(temperatureC: 72, fanPercent: 0.75),
+        CurvePoint(temperatureC: 78, fanPercent: 0.90),
+        CurvePoint(temperatureC: 82, fanPercent: 1.00)
     ]
+
+    private static let legacyDefaultShape: [(Double, Double)] = [
+        (45, 0.15),
+        (55, 0.30),
+        (65, 0.50),
+        (75, 0.75),
+        (85, 1.00)
+    ]
+
+    public var usesLegacyDefaultPoints: Bool {
+        let sorted = points.sorted { $0.temperatureC < $1.temperatureC }
+        guard sorted.count == Self.legacyDefaultShape.count else { return false }
+        return zip(sorted, Self.legacyDefaultShape).allSatisfy { point, legacy in
+            abs(point.temperatureC - legacy.0) < 0.0001
+                && abs(point.fanPercent - legacy.1) < 0.0001
+        }
+    }
 
     public func fanPercent(for temperatureC: Double) -> Double {
         let sorted = points.sorted { $0.temperatureC < $1.temperatureC }
@@ -296,7 +317,10 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         mode = try c.decodeIfPresent(ControlMode.self, forKey: .mode) ?? .smartCurve
-        curve = try c.decodeIfPresent(CurveProfile.self, forKey: .curve) ?? CurveProfile()
+        let decodedCurve = try c.decodeIfPresent(CurveProfile.self, forKey: .curve) ?? CurveProfile()
+        // Migrate only the exact old built-in shape. User-edited/custom curves
+        // remain untouched even if their profile name is still "Default".
+        curve = decodedCurve.usesLegacyDefaultPoints ? CurveProfile() : decodedCurve
         manualPercent = (try c.decodeIfPresent(Double.self, forKey: .manualPercent) ?? 0.4).clamped(to: 0...1)
         sampleIntervalSeconds = try c.decodeIfPresent(Double.self, forKey: .sampleIntervalSeconds) ?? 2.0
         launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
