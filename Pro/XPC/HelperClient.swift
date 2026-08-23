@@ -18,7 +18,7 @@ public final class HelperClient: ObservableObject {
     private init() {}
 
     public var isHelperInstalled: Bool {
-        FileManager.default.isExecutableFile(
+        FileManager.default.fileExists(
             atPath: "/Library/PrivilegedHelperTools/\(coolDownHelperMachServiceName)"
         )
     }

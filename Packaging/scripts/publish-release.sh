@@ -40,7 +40,10 @@ for artifact in "${DMG}" "${CHECKSUM}" "${SPARKLE_ZIP}" "${APPCAST}"; do
 done
 
 # Verify DMG SHA-256 matches
-shasum -a 256 -c "${CHECKSUM}"
+(
+  cd "${DIST}"
+  shasum -a 256 -c "$(basename "${CHECKSUM}")"
+)
 
 # Validate appcast matches the payload to be published
 bash "${ROOT}/Packaging/scripts/validate-appcast.sh" "${APPCAST}" "${VERSION}" "${BUILD}" "${EXPECTED_ZIP_URL}"

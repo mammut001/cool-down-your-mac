@@ -50,7 +50,10 @@ echo "==> 5/8 Verify release artifact"
 bash "${ROOT}/Packaging/scripts/verify-release.sh" "${APP}" "${DMG}"
 
 echo "==> 6/8 Write SHA-256"
-shasum -a 256 "${DMG}" | tee "${CHECKSUM}"
+(
+  cd "${DIST}"
+  shasum -a 256 "$(basename "${DMG}")"
+) | tee "${CHECKSUM}"
 
 echo "==> 7/8 Create Sparkle update archive"
 SPARKLE_ZIP="${DIST}/CoolDownPro-${VERSION}.zip"

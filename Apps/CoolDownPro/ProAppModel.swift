@@ -28,6 +28,7 @@ final class ProAppModel: ObservableObject {
     @Published var controlTemperatureC: Double?
     @Published var shouldPresentHelperSetup = false
     @Published private(set) var helperLaunchFailed = false
+    @Published private(set) var hasCompletedInitialHelperProbe = false
 
     let settings = SettingsStore()
     let helper = HelperClient.shared
@@ -61,11 +62,24 @@ final class ProAppModel: ObservableObject {
         helper.isConnected && snapshot.helperAvailable && snapshot.canControlFans && !snapshot.fans.isEmpty
     }
 
+    var helperPresentationState: HelperPresentationState {
+        HelperPresentationResolver.resolve(
+            hasCompletedInitialProbe: hasCompletedInitialHelperProbe,
+            isRegistered: helperIsRegistered,
+            isConnected: helper.isConnected,
+            snapshotHelperAvailable: snapshot.helperAvailable,
+            canControlFans: snapshot.canControlFans,
+            hasFans: !snapshot.fans.isEmpty,
+            helperLaunchFailed: helperLaunchFailed
+        )
+    }
+
     var helperNeedsSetup: Bool {
-        !helperIsRegistered || helperLaunchFailed || (helper.isConnected && !snapshot.helperAvailable)
+        hasCompletedInitialHelperProbe && (!helperIsRegistered || helperLaunchFailed || (helper.isConnected && !snapshot.helperAvailable))
     }
 
     var helperActionTitle: String {
+        if !hasCompletedInitialHelperProbe { return "Checking Helper…" }
         if !helperIsRegistered { return "Enable Fan Control…" }
         if helperLaunchFailed { return "Repair Fan Control…" }
         if !helperControlIsReady { return "Reconnect Fan Control" }
@@ -73,15 +87,11 @@ final class ProAppModel: ObservableObject {
     }
 
     var helperActionIsEnabled: Bool {
-        !helperControlIsReady && !fanControlUnavailableOnThisMac
+        hasCompletedInitialHelperProbe && !helperControlIsReady && !fanControlUnavailableOnThisMac
     }
 
     var helperStatusText: String {
-        if helperControlIsReady { return "Enabled" }
-        if !helperIsRegistered { return "Not installed" }
-        if helperLaunchFailed { return "Needs repair" }
-        if fanControlUnavailableOnThisMac { return "Unavailable on this Mac" }
-        return "Connecting…"
+        helperPresentationState.rawValue
     }
 
     var helperSetupTitle: String {
@@ -136,8 +146,9 @@ final class ProAppModel: ObservableObject {
             .store(in: &cancellables)
         // Make setup a one-time, explicit decision instead of leaving a
         // persistent warning in the interface.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
             guard let self,
+                  self.hasCompletedInitialHelperProbe,
                   !self.helperIsRegistered,
                   !UserDefaults.standard.bool(forKey: self.helperSetupPromptShownKey) else { return }
             UserDefaults.standard.set(true, forKey: self.helperSetupPromptShownKey)
@@ -217,6 +228,7 @@ final class ProAppModel: ObservableObject {
         } else {
             applyLocalSnapshot(localSMC: localSMC, temperatures: displayTemps, helperError: nil)
         }
+        hasCompletedInitialHelperProbe = true
 
         let finite = controlTemps.map(\.celsius).filter { $0.isFinite && $0 > 0 && $0 < 150 }
         controlTemperatureC = finite.max()
