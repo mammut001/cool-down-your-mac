@@ -56,7 +56,7 @@ for item in items:
     item_bld = bld_elem.text.strip() if bld_elem is not None and bld_elem.text else ""
     item_title = title_elem.text.strip() if title_elem is not None and title_elem.text else ""
 
-    if item_ver == expected_ver or item_bld == expected_bld or item_title == expected_ver:
+    if item_ver == expected_ver and item_bld == expected_bld:
         matching_item = item
         break
 
@@ -92,7 +92,7 @@ except ValueError:
 print(f"Appcast validation succeeded for {expected_ver} ({expected_bld}):")
 print(f"  URL:       {url}")
 print(f"  Length:    {length} bytes")
-print(f"  Signature: {signature[:16]}... (valid EdDSA)")
+print(f"  Signature: {signature[:16]}... (EdDSA signature present)")
 PYEOF
 
 echo "==> Appcast ${APPCAST} is valid"

@@ -65,14 +65,10 @@ fi
 echo "==> 8/8 Sign Sparkle update and update appcast"
 SPARKLE_BIN="${SPARKLE_BIN:-}"
 if [[ -z "${SPARKLE_BIN}" ]]; then
-  if [[ -x "${DIST}/build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_appcast" ]]; then
-    SPARKLE_BIN="${DIST}/build/SourcePackages/artifacts/sparkle/Sparkle/bin"
-  else
-    SPARKLE_BIN="$(find ~/Library/Developer/Xcode/DerivedData/CoolDownYourMac-*/SourcePackages/artifacts/sparkle/Sparkle/bin -type d 2>/dev/null | head -1 || true)"
-  fi
+  SPARKLE_BIN="${DIST}/build/SourcePackages/artifacts/sparkle/Sparkle/bin"
 fi
 
-if [[ -z "${SPARKLE_BIN}" || ! -x "${SPARKLE_BIN}/generate_appcast" ]]; then
+if [[ ! -x "${SPARKLE_BIN}/generate_appcast" ]]; then
   echo "error: Sparkle generate_appcast tool not found at '${SPARKLE_BIN}'" >&2
   exit 1
 fi
