@@ -1,9 +1,17 @@
-<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
-  <channel>
-    <title>Cool Down Pro</title>
-    <link>https://github.com/mammut001/cool-down-your-mac</link>
-    <description>Updates for Cool Down Pro</description>
-    <language>en</language>
-  </channel>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0">
+    <channel>
+        <title>Cool Down Pro</title>
+        <link>https://github.com/mammut001/cool-down-your-mac</link>
+        <description>Updates for Cool Down Pro</description>
+        <language>en</language>
+        <item>
+            <title>1.0.8</title>
+            <pubDate>Sun, 23 Aug 2026 11:11:39 -0400</pubDate>
+            <sparkle:version>18</sparkle:version>
+            <sparkle:shortVersionString>1.0.8</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/mammut001/cool-down-your-mac/releases/download/v1.0.8/CoolDownPro-1.0.8.zip" length="2216977" type="application/octet-stream" sparkle:edSignature="hsKUuzv/QkB8p7lOWYWn11KLyLgR+1HuixiKPzLnnzS5gTh93irjOb/2S9JeE+pj8P3tF8VzGjT7xpjZ74/pBg=="/>
+        </item>
+    </channel>
 </rss>

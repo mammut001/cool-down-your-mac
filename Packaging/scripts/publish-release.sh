@@ -1,26 +1,49 @@
 #!/usr/bin/env bash
-# Explicitly publish a prepared release to GitHub Releases.
+# Explicitly publish a verified Cool Down Pro release to GitHub Releases.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 DIST="${ROOT}/dist"
 APP="${DIST}/build/Build/Products/Release/CoolDownPro.app"
+APPCAST="${ROOT}/Packaging/Sparkle/appcast.xml"
 
 if [[ ! -d "${APP}" ]]; then
-  echo "error: built app not found at ${APP}. Run release.sh first." >&2
+  echo "error: built application not found at ${APP}. Run release.sh first." >&2
   exit 1
 fi
 
-VERSION="$(defaults read "${APP}/Contents/Info.plist" CFBundleShortVersionString)"
+VERSION="$(defaults read "${APP}/Contents/Info.plist" CFBundleShortVersionString | xargs)"
+BUILD="$(defaults read "${APP}/Contents/Info.plist" CFBundleVersion | xargs)"
+
+if [[ -z "${VERSION}" || "${VERSION}" =~ [[:space:]] ]]; then
+  echo "error: invalid or empty CFBundleShortVersionString: '${VERSION}'" >&2
+  exit 1
+fi
+
+if [[ -z "${BUILD}" || "${BUILD}" =~ [[:space:]] ]]; then
+  echo "error: invalid or empty CFBundleVersion: '${BUILD}'" >&2
+  exit 1
+fi
+
 TAG="v${VERSION}"
 DMG="${DIST}/CoolDownPro.dmg"
 CHECKSUM="${DIST}/CoolDownPro.dmg.sha256"
 SPARKLE_ZIP="${DIST}/CoolDownPro-${VERSION}.zip"
+EXPECTED_ZIP_URL="https://github.com/mammut001/cool-down-your-mac/releases/download/v${VERSION}/CoolDownPro-${VERSION}.zip"
 
-if [[ ! -f "${DMG}" || ! -f "${CHECKSUM}" || ! -f "${SPARKLE_ZIP}" ]]; then
-  echo "error: required distribution artifacts missing in ${DIST}" >&2
-  exit 1
-fi
+# Verify all release artifacts exist
+for artifact in "${DMG}" "${CHECKSUM}" "${SPARKLE_ZIP}" "${APPCAST}"; do
+  if [[ ! -f "${artifact}" || ! -s "${artifact}" ]]; then
+    echo "error: required release artifact missing or empty: ${artifact}" >&2
+    exit 1
+  fi
+done
+
+# Verify DMG SHA-256 matches
+shasum -a 256 -c "${CHECKSUM}"
+
+# Validate appcast matches the payload to be published
+bash "${ROOT}/Packaging/scripts/validate-appcast.sh" "${APPCAST}" "${VERSION}" "${BUILD}" "${EXPECTED_ZIP_URL}"
 
 echo "Publishing GitHub Release ${TAG}..."
 gh release create "${TAG}" \
@@ -28,7 +51,18 @@ gh release create "${TAG}" \
   "${CHECKSUM}" \
   "${SPARKLE_ZIP}" \
   --title "Cool Down Pro ${TAG}" \
-  --notes "Cool Down Pro ${TAG} release with in-app update archive."
+  --notes "Cool Down Pro ${TAG} (build ${BUILD}) release with DMG and Sparkle in-app update archive."
 
-echo "Release ${TAG} published successfully."
-echo "Now commit and push any updated Packaging/Sparkle/appcast.xml to main."
+echo
+echo "=================================================="
+echo "GitHub Release ${TAG} published successfully!"
+echo "Assets uploaded:"
+echo "  - CoolDownPro.dmg"
+echo "  - CoolDownPro.dmg.sha256"
+echo "  - CoolDownPro-${VERSION}.zip"
+echo "=================================================="
+echo
+echo "FINAL STEP: Publish the new appcast to production feed:"
+echo "  git add Packaging/Sparkle/appcast.xml"
+echo "  git commit -m \"release: update Sparkle appcast for ${TAG}\""
+echo "  git push origin main"
