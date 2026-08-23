@@ -13,21 +13,32 @@ final class LoadMonitor: ObservableObject {
     private var loadAboveThresholdSince: TimeInterval?
     private var smoothedFanBoost: Double = 0
     private var lastBoostUpdateUptime: TimeInterval?
+    private var lastProcessSampleUptime: TimeInterval?
 
     private let boostActivationSeconds: TimeInterval = 4
     private let boostReleaseHysteresisPercent = 8.0
     private let boostRiseTimeConstant: TimeInterval = 4
     private let boostFallTimeConstant: TimeInterval = 12
+    #if arch(x86_64)
+    private let processSampleIntervalSeconds: TimeInterval = 10
+    #else
+    private let processSampleIntervalSeconds: TimeInterval = 6
+    #endif
 
     func refresh() {
-        let (_, procs) = Self.sampleProcesses(limit: 8)
         cpuLoadPercent = sampleSystemCPULoad() ?? cpuLoadPercent
-        if let top = procs.first {
-            hottestProcessPercent = top.cpuPercent
-            hottestProcessName = top.name
-        } else {
-            hottestProcessPercent = 0
-            hottestProcessName = "—"
+
+        let now = ProcessInfo.processInfo.systemUptime
+        if lastProcessSampleUptime == nil || now - (lastProcessSampleUptime ?? 0) >= processSampleIntervalSeconds {
+            lastProcessSampleUptime = now
+            let (_, procs) = Self.sampleProcesses(limit: 8)
+            if let top = procs.first {
+                hottestProcessPercent = top.cpuPercent
+                hottestProcessName = top.name
+            } else {
+                hottestProcessPercent = 0
+                hottestProcessName = "—"
+            }
         }
     }
 
