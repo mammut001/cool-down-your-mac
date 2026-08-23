@@ -4,6 +4,7 @@ import CoolDownKit
 /// Reads Apple Silicon temperature sensors via IOHIDEventSystemClient.
 enum IOHIDTemperatureReader {
     static func readAll() -> [TemperatureReading] {
+        #if arch(arm64)
         let rows = CoolDownCopyHIDTemperatures()
         var raw: [(String, Double)] = []
         raw.reserveCapacity(rows.count)
@@ -22,7 +23,12 @@ enum IOHIDTemperatureReader {
             raw.append((name, celsius))
         }
 
-        let mapped = SensorNameMapper.map(rawReadings: raw)
-        return mapped
+        return SensorNameMapper.map(rawReadings: raw)
+        #else
+        // Intel Macs do not expose the Apple Silicon IOHID thermal services.
+        // Avoid rebuilding an IOHIDEventSystemClient every polling tick for an
+        // empty result; Intel temperature telemetry comes from AppleSMC.
+        return []
+        #endif
     }
 }

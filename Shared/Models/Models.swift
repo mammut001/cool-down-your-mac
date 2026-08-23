@@ -139,13 +139,40 @@ public struct CurveProfile: Codable, Hashable, Sendable {
         self.hysteresisC = hysteresisC
     }
 
+    /// Balanced preset biased toward earlier airflow so sustained work in a
+    /// warm room does not wait for the chassis to heat-soak before reaching
+    /// maximum fan speed.
     public static let defaultPoints: [CurvePoint] = [
-        CurvePoint(temperatureC: 45, fanPercent: 0.15),
-        CurvePoint(temperatureC: 55, fanPercent: 0.30),
-        CurvePoint(temperatureC: 65, fanPercent: 0.50),
-        CurvePoint(temperatureC: 75, fanPercent: 0.75),
-        CurvePoint(temperatureC: 85, fanPercent: 1.00)
+        CurvePoint(temperatureC: 45, fanPercent: 0.20),
+        CurvePoint(temperatureC: 55, fanPercent: 0.35),
+        CurvePoint(temperatureC: 65, fanPercent: 0.55),
+        CurvePoint(temperatureC: 72, fanPercent: 0.75),
+        CurvePoint(temperatureC: 78, fanPercent: 0.90),
+        CurvePoint(temperatureC: 82, fanPercent: 1.00)
     ]
+
+    private static let legacyDefaultShape: [(Double, Double)] = [
+        (45, 0.15),
+        (55, 0.30),
+        (65, 0.50),
+        (75, 0.75),
+        (85, 1.00)
+    ]
+
+    public var usesLegacyDefaultPoints: Bool {
+        let sorted = points.sorted { $0.temperatureC < $1.temperatureC }
+        guard sorted.count == Self.legacyDefaultShape.count else { return false }
+        return zip(sorted, Self.legacyDefaultShape).allSatisfy { point, legacy in
+            abs(point.temperatureC - legacy.0) < 0.0001
+                && abs(point.fanPercent - legacy.1) < 0.0001
+        }
+    }
+
+    public var isUntouchedLegacyDefault: Bool {
+        guard name == "Default" else { return false }
+        guard abs(hysteresisC - 2.0) < 0.0001 else { return false }
+        return usesLegacyDefaultPoints
+    }
 
     public func fanPercent(for temperatureC: Double) -> Double {
         let sorted = points.sorted { $0.temperatureC < $1.temperatureC }
@@ -296,7 +323,10 @@ public struct AppSettings: Codable, Hashable, Sendable {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         mode = try c.decodeIfPresent(ControlMode.self, forKey: .mode) ?? .smartCurve
-        curve = try c.decodeIfPresent(CurveProfile.self, forKey: .curve) ?? CurveProfile()
+        let decodedCurve = try c.decodeIfPresent(CurveProfile.self, forKey: .curve) ?? CurveProfile()
+        // Migrate only an untouched legacy default profile. User-customized
+        // curves (custom points, custom hysteresis, or custom name) remain untouched.
+        curve = decodedCurve.isUntouchedLegacyDefault ? CurveProfile() : decodedCurve
         manualPercent = (try c.decodeIfPresent(Double.self, forKey: .manualPercent) ?? 0.4).clamped(to: 0...1)
         sampleIntervalSeconds = try c.decodeIfPresent(Double.self, forKey: .sampleIntervalSeconds) ?? 2.0
         launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
@@ -354,5 +384,33 @@ public struct HotProcess: Identifiable, Hashable, Sendable {
 public extension Comparable {
     func clamped(to range: ClosedRange<Self>) -> Self {
         min(max(self, range.lowerBound), range.upperBound)
+    }
+}
+
+public enum CPULoadCalculator {
+    /// Computes system-wide CPU load percentage from Mach PROCESSOR_CPU_LOAD_INFO tick deltas.
+    /// Expected format for each core: [USER (0), SYSTEM (1), IDLE (2), NICE (3)].
+    public static func computeSystemLoadPercent(
+        currentTicks: [UInt32],
+        previousTicks: [UInt32]
+    ) -> Double? {
+        guard currentTicks.count == previousTicks.count,
+              !currentTicks.isEmpty,
+              currentTicks.count % 4 == 0 else {
+            return nil
+        }
+
+        var busy: UInt64 = 0
+        var total: UInt64 = 0
+        for offset in stride(from: 0, to: currentTicks.count, by: 4) {
+            let user = currentTicks[offset + 0] &- previousTicks[offset + 0]
+            let system = currentTicks[offset + 1] &- previousTicks[offset + 1]
+            let idle = currentTicks[offset + 2] &- previousTicks[offset + 2]
+            let nice = currentTicks[offset + 3] &- previousTicks[offset + 3]
+            busy += UInt64(user) + UInt64(system) + UInt64(nice)
+            total += UInt64(user) + UInt64(system) + UInt64(nice) + UInt64(idle)
+        }
+        guard total > 0 else { return nil }
+        return (Double(busy) / Double(total) * 100.0).clamped(to: 0...100)
     }
 }
