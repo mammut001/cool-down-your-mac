@@ -4,6 +4,13 @@ import os.log
 final class HelperService: NSObject, CoolDownHelperProtocol {
     private let queue = DispatchQueue(label: "com.cooldown.helper.smc", qos: .userInitiated)
     private var smc: SMCKit?
+    private var cachedTemperatures: [XPCSnapshotDTO.TempDTO] = []
+    private var lastTemperatureSampleUptime: TimeInterval = 0
+    #if arch(x86_64)
+    private let temperatureSampleIntervalSeconds: TimeInterval = 10
+    #else
+    private let temperatureSampleIntervalSeconds: TimeInterval = 6
+    #endif
     private static let log = Logger(subsystem: "com.cooldown.CoolDownPro.PrivilegedHelper", category: "SMC")
 
     static func restoreFansBestEffort() {
@@ -50,6 +57,10 @@ final class HelperService: NSObject, CoolDownHelperProtocol {
     func fetchSnapshot(reply: @escaping (Data?, NSError?) -> Void) {
         queue.async {
             do {
+                let now = ProcessInfo.processInfo.systemUptime
+                let refreshTemperatures = self.cachedTemperatures.isEmpty
+                    || now - self.lastTemperatureSampleUptime >= self.temperatureSampleIntervalSeconds
+
                 let dto = try self.withSMC { kit -> XPCSnapshotDTO in
                     let fans = try kit.readFans().map {
                         XPCSnapshotDTO.FanDTO(
@@ -62,12 +73,15 @@ final class HelperService: NSObject, CoolDownHelperProtocol {
                             isManual: $0.isManual
                         )
                     }
-                    let temps = kit.readTemperatures().map {
-                        XPCSnapshotDTO.TempDTO(key: $0.key, name: $0.name, celsius: $0.celsius)
+                    if refreshTemperatures {
+                        self.cachedTemperatures = kit.readTemperatures().map {
+                            XPCSnapshotDTO.TempDTO(key: $0.key, name: $0.name, celsius: $0.celsius)
+                        }
+                        self.lastTemperatureSampleUptime = now
                     }
                     return XPCSnapshotDTO(
                         fans: fans,
-                        temperatures: temps,
+                        temperatures: self.cachedTemperatures,
                         canControlFans: kit.canControlFans
                     )
                 }
