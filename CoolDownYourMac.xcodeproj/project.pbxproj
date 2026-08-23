@@ -25,6 +25,7 @@
 		40057656CE9FFBCE40D44651 /* ProSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E85BB2EEB5DCF1B905877FA8 /* ProSettingsView.swift */; };
 		521C5E8FAE847AD28F6BFF18 /* AppMarketingVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05BD3D4A9412CD309C040CC2 /* AppMarketingVersion.swift */; };
 		524392DB56B334D8D68A68C6 /* SMCKnownNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6EC64FC138684DE07E9104A /* SMCKnownNames.swift */; };
+		56C33770F88B5B43CE838625 /* HelperPresentationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4FC71492ED8B4F9BDD7D37A /* HelperPresentationState.swift */; };
 		61408E7A1A70717F646B29EB /* UpdateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B54C83BEEF4E919342ED89 /* UpdateController.swift */; };
 		61AEC91CC2697F2AE3C09549 /* SMCKnownNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6EC64FC138684DE07E9104A /* SMCKnownNames.swift */; };
 		665720AFEA76D59327A0983B /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76D8C21F054C99D0A6F97EF9 /* main.swift */; };
@@ -45,6 +46,7 @@
 		9B5F951B3BE9959C0C0FB508 /* SensorNameMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 600CB849C51BC30B7D73FB14 /* SensorNameMapper.swift */; };
 		A2761F6AAB51547C0D82A9DE /* ProDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26A81CFBA85D8DD9DF880EFD /* ProDashboardView.swift */; };
 		A2FD84C75DA7189FED977E6B /* SensorCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5736AFC158D743FCCDFC670D /* SensorCatalog.swift */; };
+		A3BA3F2215F1D8E364DD0B74 /* HelperPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF4A06FC652FFCA6BB1C0DD6 /* HelperPresentationTests.swift */; };
 		A6479DF4DEC2325DDF4D7FA9 /* SMCTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A495F20E2BAC3D09A61D2EDE /* SMCTypes.swift */; };
 		B17A6B3ACC9753A59C023C5D /* CoolDownKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D659E0B1C0BD93F2C4F46EA5 /* CoolDownKit.framework */; };
 		B64A625593A6332A1EF24985 /* CoolDownXPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC54DA1FFFDF6CE6FCD04B41 /* CoolDownXPCProtocol.swift */; };
@@ -157,11 +159,13 @@
 		9D228D6B3F83B1130C0308B3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		A495F20E2BAC3D09A61D2EDE /* SMCTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMCTypes.swift; sourceTree = "<group>"; };
 		AC54DA1FFFDF6CE6FCD04B41 /* CoolDownXPCProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoolDownXPCProtocol.swift; sourceTree = "<group>"; };
+		AF4A06FC652FFCA6BB1C0DD6 /* HelperPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperPresentationTests.swift; sourceTree = "<group>"; };
 		B5CB6FAB0508E157FB0B655B /* smc_cli_main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = smc_cli_main.swift; sourceTree = "<group>"; };
 		B7C17F1BD5681F50B327E7B2 /* FanCurveEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FanCurveEditorView.swift; sourceTree = "<group>"; };
 		B9925D2CA28326BD01BF81B2 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		C6EC64FC138684DE07E9104A /* SMCKnownNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMCKnownNames.swift; sourceTree = "<group>"; };
 		CA750041E0AA15A1D38D0451 /* SmartCurveEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartCurveEngine.swift; sourceTree = "<group>"; };
+		D4FC71492ED8B4F9BDD7D37A /* HelperPresentationState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperPresentationState.swift; sourceTree = "<group>"; };
 		D659E0B1C0BD93F2C4F46EA5 /* CoolDownKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = CoolDownKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D9B54C83BEEF4E919342ED89 /* UpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateController.swift; sourceTree = "<group>"; };
 		DADC856427C2F0565439E0F4 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
@@ -266,6 +270,14 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
+		81A9E3D290A88A2D8CA6749A /* Helper */ = {
+			isa = PBXGroup;
+			children = (
+				D4FC71492ED8B4F9BDD7D37A /* HelperPresentationState.swift */,
+			);
+			path = Helper;
+			sourceTree = "<group>";
+		};
 		A178C69CE90F8B57BD6AD888 /* Curve */ = {
 			isa = PBXGroup;
 			children = (
@@ -336,6 +348,7 @@
 			children = (
 				48621CC58AAD45AB3B7FBBF2 /* AppMarketingVersionTests.swift */,
 				F6C7E4DC737078AA0109588F /* CurveProfileTests.swift */,
+				AF4A06FC652FFCA6BB1C0DD6 /* HelperPresentationTests.swift */,
 				677E2E2BD10AFE4A51DA8C84 /* SensorCatalogTests.swift */,
 				FD358E304D25608848FDA922 /* SmartCurveEngineTests.swift */,
 				3D67747CC8214BF21404D571 /* UpdateFormattingTests.swift */,
@@ -382,6 +395,7 @@
 		FB8E09BCD8F4B91ABDFD37CD /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				81A9E3D290A88A2D8CA6749A /* Helper */,
 				7D1F5FC60C27A22A91B831E1 /* Models */,
 				AEB289619F4CFF7DC6F20CE6 /* Monitoring */,
 				7C02453872FC338F07B73C6D /* Resources */,
@@ -656,6 +670,7 @@
 			files = (
 				08A21046BD962F55197F1D76 /* AppMarketingVersionTests.swift in Sources */,
 				84C49EB2EF6402158CAF4DDC /* CurveProfileTests.swift in Sources */,
+				A3BA3F2215F1D8E364DD0B74 /* HelperPresentationTests.swift in Sources */,
 				3FD231B688DB607C4A7C2890 /* SMCKnownNames.swift in Sources */,
 				887FCB9A949E402D9F506279 /* SensorCatalog.swift in Sources */,
 				3AE55911BF6A35B5721DD437 /* SensorCatalogTests.swift in Sources */,
@@ -683,6 +698,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				521C5E8FAE847AD28F6BFF18 /* AppMarketingVersion.swift in Sources */,
+				56C33770F88B5B43CE838625 /* HelperPresentationState.swift in Sources */,
 				9B2F3DC0643FFDBEC6C86315 /* MenuBarPopoverViews.swift in Sources */,
 				B9FCB0E44166A687454EC79B /* Models.swift in Sources */,
 				CDB92F6AF882392CBA29FDBE /* SensorFormatting.swift in Sources */,
