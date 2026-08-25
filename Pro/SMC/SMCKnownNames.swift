@@ -1,6 +1,11 @@
 import Foundation
 
 enum SMCKnownNames {
+    static func isTemperatureKey(_ key: String) -> Bool {
+        guard let first = key.first else { return false }
+        return first == "T" || first == "t"
+    }
+
     static let fallbackKeys: [(key: String, name: String)] = [
         ("TB0T", "Battery"),
         ("TB1T", "Battery 2"),

@@ -69,7 +69,15 @@ enum SensorCatalog {
         }
 
         if orderedCPU.isEmpty {
-            let hidCPU = hid.filter { $0.group == .cpu && $0.celsius.isFinite && $0.celsius > 5 && $0.celsius < 150 }
+            // The mapper may already contain a synthetic average. Exclude it here
+            // because this catalog inserts one canonical average below.
+            let hidCPU = hid.filter {
+                $0.group == .cpu
+                    && $0.key != "hid.cpu.avg"
+                    && $0.celsius.isFinite
+                    && $0.celsius > 5
+                    && $0.celsius < 150
+            }
             list.append(contentsOf: hidCPU.prefix(18))
         }
 
