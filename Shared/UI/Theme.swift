@@ -21,20 +21,22 @@ public enum CoolDownTheme {
 /// macOS while giving related controls a clear, glass-like hierarchy.
 public struct GlassCard<Content: View>: View {
     private let content: Content
+    private let contentPadding: CGFloat
 
-    public init(@ViewBuilder content: () -> Content) {
+    public init(contentPadding: CGFloat = 16, @ViewBuilder content: () -> Content) {
+        self.contentPadding = contentPadding
         self.content = content()
     }
 
     public var body: some View {
         content
-            .padding(16)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .padding(contentPadding)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .strokeBorder(.white.opacity(0.24), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(.primary.opacity(0.08), lineWidth: 1)
             }
-            .shadow(color: .black.opacity(0.09), radius: 18, y: 8)
+            .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
     }
 }
 
@@ -44,9 +46,9 @@ public struct GlassBackdrop: View {
     public var body: some View {
         LinearGradient(
             colors: [
-                CoolDownTheme.accent.opacity(0.19),
-                Color(nsColor: .windowBackgroundColor).opacity(0.72),
-                CoolDownTheme.calm.opacity(0.13)
+                CoolDownTheme.accent.opacity(0.12),
+                Color(nsColor: .windowBackgroundColor).opacity(0.86),
+                CoolDownTheme.calm.opacity(0.08)
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing

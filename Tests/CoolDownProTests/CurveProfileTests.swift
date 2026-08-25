@@ -26,6 +26,32 @@ final class CurveProfileTests: XCTestCase {
         XCTAssertEqual(profile.fanPercent(for: 90), 0.50, accuracy: 0.0001)
     }
 
+    func testDescendingFanCurveIsNormalizedToSafeNondecreasingSpeeds() {
+        let unsafe = CurveProfile(
+            name: "Unsafe",
+            points: [
+                CurvePoint(temperatureC: 45, fanPercent: 0.60),
+                CurvePoint(temperatureC: 70, fanPercent: 0.20),
+                CurvePoint(temperatureC: 90, fanPercent: 0.90)
+            ]
+        )
+
+        XCTAssertEqual(unsafe.points.map(\.fanPercent), [0.60, 0.60, 0.90])
+        XCTAssertGreaterThanOrEqual(unsafe.fanPercent(for: 70), unsafe.fanPercent(for: 45))
+    }
+
+    func testDecodedDescendingFanCurveIsNormalizedForExistingSettings() throws {
+        let data = """
+        {"name":"Unsafe","points":[
+          {"temperatureC":45,"fanPercent":0.7},
+          {"temperatureC":75,"fanPercent":0.3}
+        ]}
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(CurveProfile.self, from: data)
+        XCTAssertEqual(decoded.points.map(\.fanPercent), [0.70, 0.70])
+    }
+
     func testEmptyPointsUseSafeDefault() {
         let empty = CurveProfile(name: "Empty", points: [])
         XCTAssertEqual(empty.fanPercent(for: 80), 0.3, accuracy: 0.0001)
@@ -46,6 +72,32 @@ final class CurveProfileTests: XCTestCase {
         XCTAssertEqual(decoded.hysteresisC, 2.0, accuracy: 0.0001)
         XCTAssertEqual(decoded.points.count, 2)
         XCTAssertEqual(decoded.fanPercent(for: 65), 0.5, accuracy: 0.0001)
+    }
+
+    func testNewSettingsDoNotEnableAlertsBeforeUserOptIn() {
+        XCTAssertFalse(AppSettings().alertsEnabled)
+    }
+
+    func testLegacySettingsWithoutAlertPreferenceRemainOptedOut() throws {
+        let data = "{}".data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: data)
+        XCTAssertFalse(decoded.alertsEnabled)
+    }
+
+    @MainActor
+    func testSettingsStoreFlushPersistsPendingEdits() {
+        let suiteName = "CoolDownProTests.Settings.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = SettingsStore(defaults: defaults)
+        store.settings.manualPercent = 0.73
+        store.settings.showTemperatureInMenuBar = false
+        store.flush()
+
+        let reloaded = SettingsStore(defaults: defaults)
+        XCTAssertEqual(reloaded.settings.manualPercent, 0.73, accuracy: 0.0001)
+        XCTAssertFalse(reloaded.settings.showTemperatureInMenuBar)
     }
 
     func testLegacyUntouchedDefaultMigratesToNewBalancedPreset() throws {

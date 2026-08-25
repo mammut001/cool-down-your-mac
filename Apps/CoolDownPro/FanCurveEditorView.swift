@@ -7,6 +7,7 @@ struct FanCurveEditorView: View {
 
     @State private var draggingID: UUID?
     @State private var selectedID: UUID?
+    @State private var confirmingCurveReset = false
 
     private let tempRange: ClosedRange<Double> = 30...100
     private let fanRange: ClosedRange<Double> = 0...1
@@ -16,37 +17,39 @@ struct FanCurveEditorView: View {
         VStack(alignment: .leading, spacing: 16) {
             headerControls
 
-            GlassCard {
-                curveCanvas
-                    .frame(maxWidth: .infinity, minHeight: 300)
-                    .opacity(settings.settings.mode == .smartCurve ? 1 : 0.45)
-            }
-
             if settings.settings.mode == .manual {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text("Manual fan speed")
-                        Spacer()
-                        Text(SensorFormatting.percent(settings.settings.manualPercent))
-                            .foregroundStyle(.secondary)
-                    }
-                    .font(.caption)
-                    Slider(
-                        value: Binding(
-                            get: { settings.settings.manualPercent },
-                            set: { model.setManualPercent($0) }
-                        ),
-                        in: 0...1
-                    )
+                manualControl
+            } else {
+                GlassCard {
+                    curveCanvas
+                        .frame(maxWidth: .infinity, minHeight: 300)
+                        .opacity(settings.settings.mode == .smartCurve ? 1 : 0.5)
+                }
+
+                if settings.settings.mode == .smartCurve {
+                    selectedPointSummary
+                    editorButtons
                 }
             }
 
             GlassCard { statusRow }
-            editorButtons
         }
         .padding(20)
         }
         .background(GlassBackdrop())
+        .confirmationDialog(
+            "Reset the fan curve?",
+            isPresented: $confirmingCurveReset,
+            titleVisibility: .visible
+        ) {
+            Button("Reset to Default", role: .destructive) {
+                settings.resetCurveToDefault()
+                selectedID = nil
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your current curve points will be replaced with the balanced default curve.")
+        }
     }
 
     private var headerControls: some View {
@@ -61,11 +64,48 @@ struct FanCurveEditorView: View {
                 ),
                 enabledModes: ControlMode.allCases
             )
-            .disabled(!model.helperControlIsReady)
             Text(modeHint)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var manualControl: some View {
+        GlassCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Label("Manual fan speed", systemImage: "fanblades")
+                        .font(.headline)
+                    Spacer()
+                    Text(SensorFormatting.percent(settings.settings.manualPercent))
+                        .font(.title3.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(CoolDownTheme.accent)
+                }
+                Slider(
+                    value: Binding(
+                        get: { settings.settings.manualPercent },
+                        set: { model.setManualPercent($0) }
+                    ),
+                    in: 0...1
+                )
+                .disabled(!model.helperControlIsReady)
+
+                if !model.helperControlIsReady {
+                    HStack {
+                        Label("Enable fan control before changing manual speed.", systemImage: "lock.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        if model.helperActionIsEnabled {
+                            Button(model.helperActionTitle) { model.performHelperAction() }
+                                .disabled(model.isBusy)
+                                .controlSize(.small)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -76,7 +116,7 @@ struct FanCurveEditorView: View {
                 ? "Fan telemetry is unavailable for this Mac's controller, so manual control is disabled."
                 : "macOS controls fans. Curve editing is disabled."
         case .smartCurve:
-            return "Fans follow the curve from CPU/GPU temperature. Heavy load adds up to \(Int(settings.settings.loadBoostMax * 100))% boost."
+            return "Fans follow CPU/GPU temperature with up to \(Int(settings.settings.loadBoostMax * 100))% load boost. Fan speed never decreases as temperature rises."
         case .manual:
             return "Fixed fan speed. Use the slider below."
         }
@@ -89,7 +129,10 @@ struct FanCurveEditorView: View {
                 // System Auto does not command a target; show measured fan duty instead of "Target 0%".
                 labeled("Actual", SensorFormatting.percent(model.snapshot.fans.first?.percent ?? 0))
             } else {
-                labeled("Target", SensorFormatting.percent(model.targetFanPercent))
+                labeled(
+                    "Target",
+                    model.helperControlIsReady ? SensorFormatting.percent(model.targetFanPercent) : "—"
+                )
             }
             labeled("Boost", SensorFormatting.percent(model.loadBoostPercent))
             labeled("Load", String(format: "%.0f%%", model.loadMonitor.cpuLoadPercent))
@@ -121,13 +164,92 @@ struct FanCurveEditorView: View {
                         || settings.settings.mode != .smartCurve
                 )
             Spacer()
-            Button("Reset Curve") {
-                settings.resetCurveToDefault()
-                selectedID = nil
+            Button("Reset Curve…") {
+                confirmingCurveReset = true
             }
         }
         .buttonStyle(.bordered)
         .controlSize(.small)
+    }
+
+    @ViewBuilder
+    private var selectedPointSummary: some View {
+        if let selectedPoint {
+            GlassCard(contentPadding: 12) {
+                VStack(spacing: 10) {
+                    HStack {
+                        Label("Selected point", systemImage: "scope")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(CoolDownTheme.accent)
+                        Spacer()
+                        Text("Drag the point or use the precise controls below.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 24) {
+                        Stepper(
+                            value: selectedTemperatureBinding,
+                            in: selectedTemperatureRange,
+                            step: 1
+                        ) {
+                            LabeledContent(
+                                "Temperature",
+                                value: SensorFormatting.temperature(selectedPoint.temperatureC)
+                            )
+                        }
+                        Stepper(value: selectedFanBinding, in: selectedFanRange, step: 0.05) {
+                            LabeledContent(
+                                "Fan speed",
+                                value: SensorFormatting.percent(selectedPoint.fanPercent)
+                            )
+                        }
+                    }
+                    .monospacedDigit()
+                }
+            }
+        } else {
+            Text("Select or drag a point to adjust it. Double-click the chart to add one.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+        }
+    }
+
+    private var selectedPoint: CurvePoint? {
+        guard let selectedID else { return nil }
+        return settings.settings.curve.points.first { $0.id == selectedID }
+    }
+
+    private var selectedTemperatureRange: ClosedRange<Double> {
+        let points = settings.settings.curve.points.sorted { $0.temperatureC < $1.temperatureC }
+        guard let selectedID,
+              let index = points.firstIndex(where: { $0.id == selectedID }) else { return tempRange }
+        let lower = index == 0 ? tempRange.lowerBound : points[index - 1].temperatureC + 1
+        let upper = index == points.count - 1 ? tempRange.upperBound : points[index + 1].temperatureC - 1
+        return min(lower, upper)...max(lower, upper)
+    }
+
+    private var selectedTemperatureBinding: Binding<Double> {
+        Binding(
+            get: { selectedPoint?.temperatureC ?? tempRange.lowerBound },
+            set: { updateSelectedPoint(temperatureC: $0) }
+        )
+    }
+
+    private var selectedFanBinding: Binding<Double> {
+        Binding(
+            get: { selectedPoint?.fanPercent ?? fanRange.lowerBound },
+            set: { updateSelectedPoint(fanPercent: $0) }
+        )
+    }
+
+    private var selectedFanRange: ClosedRange<Double> {
+        guard let selectedID else { return fanRange }
+        let points = settings.settings.curve.points.sorted { $0.temperatureC < $1.temperatureC }
+        guard let index = points.firstIndex(where: { $0.id == selectedID }) else { return fanRange }
+        let lower = index == 0 ? fanRange.lowerBound : points[index - 1].fanPercent
+        let upper = index == points.count - 1 ? fanRange.upperBound : points[index + 1].fanPercent
+        return min(lower, upper)...max(lower, upper)
     }
 
     private var curveCanvas: some View {
@@ -218,7 +340,13 @@ struct FanCurveEditorView: View {
                         .fill(selectedID == point.id ? CoolDownTheme.accent : Color.primary)
                         .frame(width: 12, height: 12)
                         .overlay(Circle().stroke(Color.white, lineWidth: 1.5))
+                        .scaleEffect(selectedID == point.id ? 1.25 : 1)
                         .position(pos)
+                        .onTapGesture { selectedID = point.id }
+                        .accessibilityLabel(
+                            "Curve point, \(SensorFormatting.temperature(point.temperatureC)), \(SensorFormatting.percent(point.fanPercent))"
+                        )
+                        .accessibilityAddTraits(.isButton)
                 }
             }
             .contentShape(Rectangle())
@@ -260,7 +388,7 @@ struct FanCurveEditorView: View {
         for point in points {
             let p = pointToView(point, origin: .zero, size: plot)
             let dist = hypot(p.x - location.x, p.y - location.y)
-            if dist < 24, best == nil || dist < best!.1 {
+            if dist < 24, best.map({ dist < $0.1 }) ?? true {
                 best = (point.id, dist)
             }
         }
@@ -300,17 +428,39 @@ struct FanCurveEditorView: View {
         let maxTemp = sortedIndex == points.count - 1 ? tempRange.upperBound : points[sortedIndex + 1].temperatureC - 1
         var temp = viewToTemp(location.x, width: canvas.width)
         temp = min(max(temp, minTemp), max(minTemp, maxTemp))
+        let lowerFan = sortedIndex == 0 ? fanRange.lowerBound : points[sortedIndex - 1].fanPercent
+        let upperFan = sortedIndex == points.count - 1 ? fanRange.upperBound : points[sortedIndex + 1].fanPercent
         let fan = viewToFan(location.y, height: canvas.height)
+            .clamped(to: min(lowerFan, upperFan)...max(lowerFan, upperFan))
 
         points[sortedIndex].temperatureC = temp
         points[sortedIndex].fanPercent = fan
         settings.settings.curve.points = points
     }
 
+    private func updateSelectedPoint(temperatureC: Double? = nil, fanPercent: Double? = nil) {
+        guard let selectedID else { return }
+        var points = settings.settings.curve.points.sorted { $0.temperatureC < $1.temperatureC }
+        guard let index = points.firstIndex(where: { $0.id == selectedID }) else { return }
+        if let temperatureC {
+            points[index].temperatureC = temperatureC.clamped(to: selectedTemperatureRange)
+        }
+        if let fanPercent {
+            points[index].fanPercent = fanPercent.clamped(to: selectedFanRange)
+        }
+        settings.settings.curve.points = points.sorted { $0.temperatureC < $1.temperatureC }
+    }
+
     private func addPoint() {
         let points = settings.settings.curve.points.sorted { $0.temperatureC < $1.temperatureC }
-        guard let first = points.first, let last = points.last else { return }
-        let midTemp = (first.temperatureC + last.temperatureC) / 2
+        guard points.count >= 2 else { return }
+
+        let gaps = zip(points, points.dropFirst())
+        guard let widest = gaps.max(by: {
+            ($0.1.temperatureC - $0.0.temperatureC) < ($1.1.temperatureC - $1.0.temperatureC)
+        }) else { return }
+        let midTemp = (widest.0.temperatureC + widest.1.temperatureC) / 2
+        guard canInsertPoint(at: midTemp) else { return }
         let midFan = settings.settings.curve.fanPercent(for: midTemp)
         let point = CurvePoint(temperatureC: midTemp, fanPercent: midFan)
         settings.settings.curve.points.append(point)
@@ -320,11 +470,20 @@ struct FanCurveEditorView: View {
 
     private func addPoint(at location: CGPoint, canvas: CGSize) {
         let temp = viewToTemp(location.x, width: canvas.width)
+        guard canInsertPoint(at: temp) else { return }
+        let points = settings.settings.curve.points.sorted { $0.temperatureC < $1.temperatureC }
+        let lowerFan = points.last(where: { $0.temperatureC < temp })?.fanPercent ?? fanRange.lowerBound
+        let upperFan = points.first(where: { $0.temperatureC > temp })?.fanPercent ?? fanRange.upperBound
         let fan = viewToFan(location.y, height: canvas.height)
+            .clamped(to: min(lowerFan, upperFan)...max(lowerFan, upperFan))
         let point = CurvePoint(temperatureC: temp, fanPercent: fan)
         settings.settings.curve.points.append(point)
         settings.settings.curve.points.sort { $0.temperatureC < $1.temperatureC }
         selectedID = point.id
+    }
+
+    private func canInsertPoint(at temperatureC: Double) -> Bool {
+        !settings.settings.curve.points.contains { abs($0.temperatureC - temperatureC) < 1 }
     }
 
     private func removeSelected() {

@@ -44,7 +44,7 @@ struct CoolDownProApp: App {
             ProSettingsView()
                 .environmentObject(appModel)
                 .environmentObject(appModel.settings)
-                .frame(width: 480, height: 420)
+                .frame(width: 520, height: 500)
         }
     }
 }
@@ -78,6 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 extension Notification.Name {
     static let coolDownOpenDashboard = Notification.Name("coolDownOpenDashboard")
+    static let coolDownOpenFanCurve = Notification.Name("coolDownOpenFanCurve")
 }
 
 struct ProMenuBarLabel: View {

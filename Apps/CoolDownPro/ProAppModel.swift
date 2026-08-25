@@ -19,7 +19,6 @@ final class ProAppModel: ObservableObject {
     }
 
     @Published var snapshot = SensorSnapshot()
-    @Published var allTemperatures: [TemperatureReading] = []
     @Published var showAllSensors = false
     @Published var statusMessage: String?
     @Published var isBusy = false
@@ -42,6 +41,7 @@ final class ProAppModel: ObservableObject {
     private var controlGeneration = 0
     private var isTicking = false
     private var cancellables = Set<AnyCancellable>()
+    private let helperInstallationSigningIssue = HelperClient.blessingSignatureIssue()
 
     var menuBarTitle: String {
         SensorFormatting.menuBarTitle(
@@ -70,7 +70,8 @@ final class ProAppModel: ObservableObject {
             snapshotHelperAvailable: snapshot.helperAvailable,
             canControlFans: snapshot.canControlFans,
             hasFans: !snapshot.fans.isEmpty,
-            helperLaunchFailed: helperLaunchFailed
+            helperLaunchFailed: helperLaunchFailed,
+            appSigningValid: helperInstallationSigningIssue == nil
         )
     }
 
@@ -79,6 +80,12 @@ final class ProAppModel: ObservableObject {
     }
 
     var helperActionTitle: String {
+        if helperInstallationSigningIssue != nil { return "Signed Build Required" }
+        if isBusy {
+            if !helperIsRegistered { return "Enabling Fan Control…" }
+            if helperLaunchFailed { return "Repairing Fan Control…" }
+            return "Connecting Fan Control…"
+        }
         if !hasCompletedInitialHelperProbe { return "Checking Helper…" }
         if !helperIsRegistered { return "Enable Fan Control…" }
         if helperLaunchFailed { return "Repair Fan Control…" }
@@ -87,7 +94,11 @@ final class ProAppModel: ObservableObject {
     }
 
     var helperActionIsEnabled: Bool {
-        hasCompletedInitialHelperProbe && !helperControlIsReady && !fanControlUnavailableOnThisMac
+        !isBusy
+            && helperInstallationSigningIssue == nil
+            && hasCompletedInitialHelperProbe
+            && !helperControlIsReady
+            && !fanControlUnavailableOnThisMac
     }
 
     var helperStatusText: String {
@@ -121,7 +132,6 @@ final class ProAppModel: ObservableObject {
         helper.reconnect()
         applyLaunchAtLogin()
         startPolling()
-        requestNotificationPermission()
         helper.objectWillChange
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
@@ -149,11 +159,13 @@ final class ProAppModel: ObservableObject {
     func startPolling() {
         timer?.invalidate()
         let interval = max(1.0, settings.settings.sampleIntervalSeconds)
-        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+        let pollingTimer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 await self?.tick()
             }
         }
+        RunLoop.main.add(pollingTimer, forMode: .common)
+        timer = pollingTimer
         Task { await tick() }
     }
 
@@ -168,6 +180,7 @@ final class ProAppModel: ObservableObject {
         stopPolling()
         isTicking = false
         cancellables.removeAll()
+        settings.flush()
         restoreAutoOnExitSync()
         helper.disconnect()
     }
@@ -183,14 +196,17 @@ final class ProAppModel: ObservableObject {
     }
 
     func refreshSnapshot() async {
-        let hidTemps = IOHIDTemperatureReader.readAll()
-        let localSMC = DirectSMCReader.readSnapshot()
-        let smcTemps = (localSMC?.temperatures ?? []).map(SensorMerge.annotateSMC)
-        let curated = SensorCatalog.curated(smc: smcTemps, hid: hidTemps)
-        let mergedAll = SensorCatalog.allMerged(smc: smcTemps, hid: hidTemps)
-        let controlTemps = SensorCatalog.controlReadings(smc: smcTemps, hid: hidTemps)
-        allTemperatures = mergedAll
-        let displayTemps = showAllSensors ? mergedAll : curated
+        let showAll = showAllSensors
+        let (localSMC, displayTemps, controlTemps) = await Task.detached(priority: .utility) {
+            let hidTemps = IOHIDTemperatureReader.readAll()
+            let localSMC = DirectSMCReader.readSnapshot()
+            let smcTemps = (localSMC?.temperatures ?? []).map(SensorMerge.annotateSMC)
+            let displayTemps = showAll
+                ? SensorCatalog.allMerged(smc: smcTemps, hid: hidTemps)
+                : SensorCatalog.curated(smc: smcTemps, hid: hidTemps)
+            let controlTemps = SensorCatalog.controlReadings(smc: smcTemps, hid: hidTemps)
+            return (localSMC, displayTemps, controlTemps)
+        }.value
 
         // Fan RPM is readable without the helper; always prefer a healthy local SMC read
         // so a stale/broken helper snapshot cannot force the UI to show 0 RPM.
@@ -226,6 +242,7 @@ final class ProAppModel: ObservableObject {
     }
 
     private func presentInitialHelperSetupIfNeeded() {
+        guard helperInstallationSigningIssue == nil else { return }
         guard InitialHelperSetupResolver.shouldPresent(
             probeCompleted: hasCompletedInitialHelperProbe,
             isRegistered: helperIsRegistered,
@@ -411,26 +428,57 @@ final class ProAppModel: ObservableObject {
     }
 
     func requestHelperSetup() {
+        if let helperInstallationSigningIssue {
+            statusMessage = helperInstallationSigningIssue
+            return
+        }
         shouldPresentHelperSetup = true
     }
 
     func performHelperSetup() {
-        if helperIsRegistered {
-            reinstallHelper()
-        } else {
-            installHelper()
+        guard !isBusy else { return }
+        guard let helperInstallationSigningIssue = helperInstallationSigningIssue else {
+            beginHelperSetup()
+            return
+        }
+        statusMessage = helperInstallationSigningIssue
+    }
+
+    private func beginHelperSetup() {
+        isBusy = true
+        let repairing = helperIsRegistered
+        statusMessage = repairing
+            ? "Preparing fan control repair…"
+            : "Preparing fan control installation…"
+
+        // Let the SwiftUI confirmation sheet dismiss before SMJobBless presents
+        // the macOS administrator authorization UI.
+        Task {
+            try? await Task.sleep(for: .milliseconds(180))
+            if repairing {
+                reinstallHelper()
+            } else {
+                installHelper()
+            }
         }
     }
 
     func performHelperAction() {
+        guard !isBusy else { return }
+        if let helperInstallationSigningIssue {
+            statusMessage = helperInstallationSigningIssue
+            return
+        }
         if !helperIsRegistered || helperLaunchFailed {
             requestHelperSetup()
         } else {
+            isBusy = true
             helper.reconnect()
             statusMessage = "Reconnecting to fan control…"
             Task {
                 try? await Task.sleep(for: .milliseconds(600))
                 await refreshSnapshot()
+                isBusy = false
             }
         }
     }
@@ -498,8 +546,25 @@ final class ProAppModel: ObservableObject {
         }
     }
 
-    private func requestNotificationPermission() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    func requestNotificationPermission() {
+        let center = UNUserNotificationCenter.current()
+        center.getNotificationSettings { [weak self] notificationSettings in
+            switch notificationSettings.authorizationStatus {
+            case .notDetermined:
+                center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+                    guard !granted else { return }
+                    Task { @MainActor [weak self] in
+                        self?.statusMessage = "Temperature alerts need notification permission."
+                    }
+                }
+            case .denied:
+                Task { @MainActor [weak self] in
+                    self?.statusMessage = "Temperature alerts are enabled, but notifications are blocked in System Settings."
+                }
+            default:
+                break
+            }
+        }
     }
 
     private func evaluateAlerts() {

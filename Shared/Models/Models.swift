@@ -126,7 +126,11 @@ public struct CurvePoint: Identifiable, Codable, Hashable, Sendable {
 
 public struct CurveProfile: Codable, Hashable, Sendable {
     public var name: String
-    public var points: [CurvePoint]
+    public var points: [CurvePoint] {
+        didSet {
+            points = Self.normalized(points)
+        }
+    }
     public var hysteresisC: Double
 
     public init(
@@ -135,7 +139,7 @@ public struct CurveProfile: Codable, Hashable, Sendable {
         hysteresisC: Double = 2.0
     ) {
         self.name = name
-        self.points = points.sorted { $0.temperatureC < $1.temperatureC }
+        self.points = Self.normalized(points)
         self.hysteresisC = hysteresisC
     }
 
@@ -175,7 +179,7 @@ public struct CurveProfile: Codable, Hashable, Sendable {
     }
 
     public func fanPercent(for temperatureC: Double) -> Double {
-        let sorted = points.sorted { $0.temperatureC < $1.temperatureC }
+        let sorted = Self.normalized(points)
         guard let first = sorted.first else { return 0.3 }
         if temperatureC <= first.temperatureC { return first.fanPercent }
         guard let last = sorted.last else { return first.fanPercent }
@@ -202,8 +206,21 @@ public struct CurveProfile: Codable, Hashable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         name = try c.decodeIfPresent(String.self, forKey: .name) ?? "Default"
         let decoded = try c.decodeIfPresent([CurvePoint].self, forKey: .points) ?? CurveProfile.defaultPoints
-        points = decoded.sorted { $0.temperatureC < $1.temperatureC }
+        points = Self.normalized(decoded)
         hysteresisC = try c.decodeIfPresent(Double.self, forKey: .hysteresisC) ?? 2.0
+    }
+
+    /// A thermal fan curve must never command less airflow as temperature rises.
+    /// Preserve point identity and temperatures while lifting unsafe descending
+    /// percentages to the previous point's safe floor.
+    private static func normalized(_ points: [CurvePoint]) -> [CurvePoint] {
+        var result = points.sorted { $0.temperatureC < $1.temperatureC }
+        var minimumFan = 0.0
+        for index in result.indices {
+            result[index].fanPercent = max(result[index].fanPercent, minimumFan)
+            minimumFan = result[index].fanPercent
+        }
+        return result
     }
 }
 
@@ -295,7 +312,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
         sampleIntervalSeconds: Double = 2.0,
         launchAtLogin: Bool = false,
         alertTemperatureC: Double = 90,
-        alertsEnabled: Bool = true,
+        alertsEnabled: Bool = false,
         showTemperatureInMenuBar: Bool = true,
         loadBoostMax: Double = 0.20,
         loadBoostThreshold: Double = 60
@@ -331,7 +348,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
         sampleIntervalSeconds = try c.decodeIfPresent(Double.self, forKey: .sampleIntervalSeconds) ?? 2.0
         launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
         alertTemperatureC = try c.decodeIfPresent(Double.self, forKey: .alertTemperatureC) ?? 90
-        alertsEnabled = try c.decodeIfPresent(Bool.self, forKey: .alertsEnabled) ?? true
+        alertsEnabled = try c.decodeIfPresent(Bool.self, forKey: .alertsEnabled) ?? false
         showTemperatureInMenuBar = try c.decodeIfPresent(Bool.self, forKey: .showTemperatureInMenuBar) ?? true
         loadBoostMax = (try c.decodeIfPresent(Double.self, forKey: .loadBoostMax) ?? 0.20).clamped(to: 0...0.4)
         loadBoostThreshold = (try c.decodeIfPresent(Double.self, forKey: .loadBoostThreshold) ?? 60).clamped(to: 20...95)

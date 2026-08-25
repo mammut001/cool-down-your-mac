@@ -48,7 +48,7 @@ static BOOL CoolDownLoadHIDSymbols(void) {
     return gSymbolsReady;
 }
 
-static void CoolDownHIDResetServices(void) {
+static void CoolDownHIDResetServicesLocked(void) {
     if (gServices) {
         CFRelease(gServices);
         gServices = NULL;
@@ -73,7 +73,7 @@ static BOOL CoolDownHIDShouldSkipProduct(NSString *product) {
         [product hasPrefix:@"PMU ildo"];
 }
 
-static void CoolDownHIDRefreshServices(void) {
+static void CoolDownHIDRefreshServicesLocked(void) {
     if (!gClient) {
         gClient = gCreate(kCFAllocatorDefault);
         if (!gClient) {
@@ -113,7 +113,7 @@ static void CoolDownHIDRefreshServices(void) {
         CFRelease(services);
     }
 
-    CoolDownHIDResetServices();
+    CoolDownHIDResetServicesLocked();
     gServices = nextServices;
     gNames = nextNames;
     gServicesUptime = [NSProcessInfo processInfo].systemUptime;
@@ -124,11 +124,12 @@ NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
         return @[];
     }
 
+    // Phase 1: Under lock, refresh if needed and snapshot the service list.
     os_unfair_lock_lock(&gLock);
 
     const NSTimeInterval now = [NSProcessInfo processInfo].systemUptime;
     if (CoolDownHIDShouldRefreshServices(now)) {
-        CoolDownHIDRefreshServices();
+        CoolDownHIDRefreshServicesLocked();
     }
 
     if (!gClient || !gServices || gNames.count == 0) {
@@ -136,16 +137,30 @@ NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
         return @[];
     }
 
+    // Snapshot: retain current arrays so event sampling can proceed outside
+    // the lock. Other callers that arrive during sampling will block only for
+    // the brief snapshot copy, not for the full I/O sweep.
+    CFArrayRef snapshotServices = CFRetain(gServices);
+    NSArray<NSString *> *snapshotNames = [gNames copy];
+
+    os_unfair_lock_unlock(&gLock);
+
+    // Phase 2: Sample events outside the lock.
     NSMutableDictionary<NSString *, NSNumber *> *sums = [NSMutableDictionary dictionary];
     NSMutableDictionary<NSString *, NSNumber *> *counts = [NSMutableDictionary dictionary];
-    CFIndex serviceCount = CFArrayGetCount(gServices);
-    CFIndex nameCount = (CFIndex)gNames.count;
-    CFIndex total = serviceCount < nameCount ? serviceCount : nameCount;
+    CFIndex total = CFArrayGetCount(snapshotServices);
+    CFIndex nameCount = (CFIndex)snapshotNames.count;
+    if (nameCount < total) {
+        total = nameCount;
+    }
+
+    NSInteger nullEventCount = 0;
 
     for (CFIndex i = 0; i < total; i++) {
-        CoolDownHIDService service = (CoolDownHIDService)CFArrayGetValueAtIndex(gServices, i);
+        CoolDownHIDService service = (CoolDownHIDService)CFArrayGetValueAtIndex(snapshotServices, i);
         CoolDownHIDEvent event = gCopyEvent(service, 15, NULL, 0);
         if (!event) {
+            nullEventCount++;
             continue;
         }
         double value = gGetFloat(event, 15u << 16);
@@ -154,12 +169,21 @@ NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
             continue;
         }
 
-        NSString *name = gNames[i];
+        NSString *name = snapshotNames[i];
         sums[name] = @((sums[name].doubleValue) + value);
         counts[name] = @((counts[name].integerValue) + 1);
     }
 
-    os_unfair_lock_unlock(&gLock);
+    CFRelease(snapshotServices);
+
+    // Phase 3: If most events returned NULL the cached service handles are
+    // likely stale (e.g. system sleep/wake cycle). Force a refresh on the
+    // next poll instead of waiting for the 45-second timer.
+    if (total > 0 && nullEventCount * 2 > total) {
+        os_unfair_lock_lock(&gLock);
+        gServicesUptime = 0;
+        os_unfair_lock_unlock(&gLock);
+    }
 
     NSMutableArray<NSDictionary<NSString *, id> *> *results = [NSMutableArray array];
     for (NSString *name in sums) {
@@ -171,4 +195,14 @@ NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
         [results addObject:@{@"name": name, @"celsius": @(avg)}];
     }
     return results;
+}
+
+void CoolDownHIDTeardown(void) {
+    os_unfair_lock_lock(&gLock);
+    CoolDownHIDResetServicesLocked();
+    if (gClient) {
+        CFRelease(gClient);
+        gClient = NULL;
+    }
+    os_unfair_lock_unlock(&gLock);
 }

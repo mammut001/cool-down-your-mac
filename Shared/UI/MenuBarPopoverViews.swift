@@ -19,10 +19,15 @@ public struct SnapshotHeaderView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(SensorFormatting.temperature(maxTemp))
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundStyle(CoolDownTheme.temperatureColor(maxTemp))
-                .contentTransition(.numericText())
+            VStack(alignment: .trailing, spacing: 1) {
+                Text(SensorFormatting.temperature(maxTemp))
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundStyle(CoolDownTheme.temperatureColor(maxTemp))
+                    .contentTransition(.numericText())
+                Text("Hottest")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(.bottom, 4)
 
@@ -50,6 +55,8 @@ public struct FanRowView: View {
             }
             ProgressView(value: fan.percent)
                 .tint(CoolDownTheme.accent)
+                .accessibilityLabel("\(fan.name) speed")
+                .accessibilityValue(SensorFormatting.rpm(fan.currentRPM))
             if let onManualChange {
                 Slider(
                     value: Binding(

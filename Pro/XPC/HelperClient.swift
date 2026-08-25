@@ -247,6 +247,17 @@ public final class HelperClient: ObservableObject {
     private static let clientSelfRequirement =
         "identifier \"com.cooldown.CoolDownPro\" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = Z5D5N7CU6L"
 
+    /// Returns an actionable explanation before the UI offers an install or
+    /// repair that SMJobBless cannot possibly complete.
+    public static func blessingSignatureIssue() -> String? {
+        do {
+            try validateBlessingSignatures()
+            return nil
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
     private static func validateBlessingSignatures() throws {
         var clientRequirement: SecRequirement?
         var status = SecRequirementCreateWithString(
