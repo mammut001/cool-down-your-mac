@@ -24,6 +24,24 @@ final class SMCKit {
     }
 
     private var connection: io_connect_t = 0
+    private var cachedTemperatureKeys: [SMCTempKey]?
+    private var cachedFanMetas: [FanMeta]?
+    private var cachedCanControlFans: Bool?
+    private var lastCanControlProbeUptime: TimeInterval = 0
+
+    private struct SMCTempKey {
+        let key: String
+        let type: String
+        let size: UInt32
+    }
+
+    private struct FanMeta {
+        let index: Int
+        let name: String
+        let minRPM: Double
+        let maxRPM: Double
+        let modeKey: String
+    }
 
     init(allowKeysEndpointFallback: Bool = false) throws {
         // Apple Silicon exposes both services. KeysEndpoint accepts F*Tg
@@ -64,21 +82,19 @@ final class SMCKit {
     }
 
     func readFans() throws -> [SMCFanReading] {
-        let indices = try fanIndices()
+        let metas = try fanMetas()
         var fans: [SMCFanReading] = []
-        for index in indices {
-            let name = (try? fanName(index: index)) ?? "Fan \(index)"
-            let minRPM = Double((try? readFloat(key: "F\(index)Mn")) ?? 1000)
-            let maxRPM = Double((try? readFloat(key: "F\(index)Mx")) ?? 6000)
-            let current = Double((try? readFloat(key: "F\(index)Ac")) ?? 0)
-            let target = try? readFloat(key: "F\(index)Tg")
-            let mode = (try? readBytes(key: "F\(index)Md"))?.first ?? 0
+        fans.reserveCapacity(metas.count)
+        for meta in metas {
+            let current = Double((try? readFloat(key: "F\(meta.index)Ac")) ?? 0)
+            let target = try? readFloat(key: "F\(meta.index)Tg")
+            let mode = (try? readBytes(key: meta.modeKey))?.first ?? 0
             fans.append(
                 SMCFanReading(
-                    index: index,
-                    name: name,
-                    minRPM: minRPM,
-                    maxRPM: maxRPM,
+                    index: meta.index,
+                    name: meta.name,
+                    minRPM: meta.minRPM,
+                    maxRPM: meta.maxRPM,
                     currentRPM: current,
                     targetRPM: target.map(Double.init),
                     isManual: mode != 0
@@ -89,26 +105,31 @@ final class SMCKit {
     }
 
     func readTemperatures() -> [SMCTempReading] {
+        let keys = discoveredTemperatureKeys()
         var results: [SMCTempReading] = []
-        let count = (try? keyCount()) ?? 0
-        if count > 0 {
-            for index in 0..<count {
-                guard let key = try? keyAt(index: index) else { continue }
-                guard key.first == "T" || key.first == "t" else { continue }
-                guard let value = try? readTemperatureValue(key: key) else { continue }
-                guard value > 5, value < 110 else { continue }
-                results.append(
-                    SMCTempReading(key: key, name: SMCKnownNames.name(for: key), celsius: value)
-                )
+        results.reserveCapacity(keys.count)
+        var failures = 0
+        for entry in keys {
+            guard let value = try? readTemperatureValue(key: entry.key, type: entry.type, size: entry.size) else {
+                failures += 1
+                continue
             }
-        } else {
-            for entry in SMCKnownNames.fallbackKeys {
-                guard let value = try? readTemperatureValue(key: entry.key) else { continue }
-                guard value > 5, value < 110 else { continue }
-                results.append(SMCTempReading(key: entry.key, name: entry.name, celsius: value))
-            }
+            guard value > 5, value < 110 else { continue }
+            results.append(
+                SMCTempReading(key: entry.key, name: SMCKnownNames.name(for: entry.key), celsius: value)
+            )
+        }
+        if !keys.isEmpty, failures * 2 > keys.count {
+            cachedTemperatureKeys = nil
         }
         return results
+    }
+
+    func invalidateCaches() {
+        cachedTemperatureKeys = nil
+        cachedFanMetas = nil
+        cachedCanControlFans = nil
+        lastCanControlProbeUptime = 0
     }
 
     func setFanManual(index: Int, enabled: Bool) throws {
@@ -176,10 +197,20 @@ final class SMCKit {
     }
 
     var canControlFans: Bool {
-        guard let indices = try? fanIndices(), !indices.isEmpty else { return false }
-        return indices.contains { index in
-            (try? readInfo(key: "F\(index)Md")) != nil || (try? readInfo(key: "F\(index)md")) != nil
+        let now = ProcessInfo.processInfo.systemUptime
+        if let cachedCanControlFans {
+            if cachedCanControlFans { return true }
+            if now - lastCanControlProbeUptime < 8 { return false }
         }
+        lastCanControlProbeUptime = now
+        let value: Bool = {
+            guard let indices = try? fanIndices(), !indices.isEmpty else { return false }
+            return indices.contains { index in
+                (try? readInfo(key: "F\(index)Md")) != nil || (try? readInfo(key: "F\(index)md")) != nil
+            }
+        }()
+        cachedCanControlFans = value
+        return value
     }
 
     /// Diagnostics used to select the correct write encoding on each Mac.
@@ -193,6 +224,55 @@ final class SMCKit {
                 return "\(key) unavailable"
             }
         }
+    }
+
+    private func fanMetas() throws -> [FanMeta] {
+        if let cachedFanMetas, !cachedFanMetas.isEmpty {
+            return cachedFanMetas
+        }
+        let indices = try fanIndices()
+        let metas = indices.map { index -> FanMeta in
+            let modeKey: String
+            if (try? readBytes(key: "F\(index)Md")) != nil {
+                modeKey = "F\(index)Md"
+            } else if (try? readBytes(key: "F\(index)md")) != nil {
+                modeKey = "F\(index)md"
+            } else {
+                modeKey = "F\(index)Md"
+            }
+            return FanMeta(
+                index: index,
+                name: (try? fanName(index: index)) ?? "Fan \(index)",
+                minRPM: Double((try? readFloat(key: "F\(index)Mn")) ?? 1000),
+                maxRPM: Double((try? readFloat(key: "F\(index)Mx")) ?? 6000),
+                modeKey: modeKey
+            )
+        }
+        cachedFanMetas = metas
+        return metas
+    }
+
+    private func discoveredTemperatureKeys() -> [SMCTempKey] {
+        if let cachedTemperatureKeys {
+            return cachedTemperatureKeys
+        }
+        var discovered: [SMCTempKey] = []
+        let count = (try? keyCount()) ?? 0
+        if count > 0 {
+            discovered.reserveCapacity(min(count, 128))
+            for index in 0..<count {
+                guard let key = try? keyAt(index: index), SMCKnownNames.isTemperatureKey(key) else { continue }
+                guard let info = try? keyInfo(key: key) else { continue }
+                discovered.append(SMCTempKey(key: key, type: info.type, size: info.size))
+            }
+        } else {
+            for entry in SMCKnownNames.fallbackKeys {
+                guard let info = try? keyInfo(key: entry.key) else { continue }
+                discovered.append(SMCTempKey(key: entry.key, type: info.type, size: info.size))
+            }
+        }
+        cachedTemperatureKeys = discovered
+        return discovered
     }
 
     private func fanIndices() throws -> [Int] {
@@ -235,8 +315,8 @@ final class SMCKit {
         return name.isEmpty ? "Fan \(index)" : name
     }
 
-    private func readTemperatureValue(key: String) throws -> Double {
-        let (type, size, bytes) = try readInfo(key: key)
+    private func readTemperatureValue(key: String, type: String, size: UInt32) throws -> Double {
+        let bytes = try readBytes(key: key, type: type, size: size)
         if type == "ioft", size >= 8 {
             let raw = bytes.prefix(8).enumerated().reduce(UInt64(0)) { acc, item in
                 acc | (UInt64(item.element) << (56 - item.offset * 8))
@@ -300,19 +380,22 @@ final class SMCKit {
         try readInfo(key: key).bytes
     }
 
-    private func readInfo(key: String) throws -> (type: String, size: UInt32, bytes: [UInt8]) {
+    private func keyInfo(key: String) throws -> (type: String, size: UInt32) {
         var input = blankKeyData()
         var output = blankKeyData()
         input.key = fourCC(key)
         input.data8 = CChar(bitPattern: UInt8(kSMCGetKeyInfo))
         try invoke(input: &input, output: &output)
+        return (fourCCString(output.keyInfo.dataType), output.keyInfo.dataSize)
+    }
 
+    private func readBytes(key: String, type: String, size: UInt32) throws -> [UInt8] {
         var readInput = blankKeyData()
         var readOutput = blankKeyData()
-        readInput.key = input.key
+        readInput.key = fourCC(key)
         readInput.data8 = CChar(bitPattern: UInt8(kSMCReadKey))
-        readInput.keyInfo.dataSize = output.keyInfo.dataSize
-        readInput.keyInfo.dataType = output.keyInfo.dataType
+        readInput.keyInfo.dataSize = size
+        readInput.keyInfo.dataType = fourCC(type)
         try invoke(input: &readInput, output: &readOutput)
 
         var bytes = [UInt8](repeating: 0, count: 32)
@@ -322,7 +405,13 @@ final class SMCKit {
                 bytes[i] = raw[i]
             }
         }
-        return (fourCCString(output.keyInfo.dataType), output.keyInfo.dataSize, bytes)
+        return bytes
+    }
+
+    private func readInfo(key: String) throws -> (type: String, size: UInt32, bytes: [UInt8]) {
+        let info = try keyInfo(key: key)
+        let bytes = try readBytes(key: key, type: info.type, size: info.size)
+        return (info.type, info.size, bytes)
     }
 
     private func writeBytes(key: String, bytes: [UInt8], type: String, size: UInt32) throws {

@@ -4,28 +4,19 @@ import CoolDownKit
 /// Best-effort unprivileged SMC access for UI (and local write fallback when helper SMC fails).
 /// Prefer the privileged helper for production fan writes.
 enum DirectSMCReader {
-    private final class SnapshotCache: @unchecked Sendable {
+    private final class State: @unchecked Sendable {
         let lock = NSLock()
+        var kit: SMCKit?
         var snapshot: SensorSnapshot?
-        var refreshedAtUptime: TimeInterval = 0
     }
 
-    private static let cache = SnapshotCache()
-    private static let cacheLifetimeSeconds: TimeInterval = 2
+    private static let state = State()
 
     static func readSnapshot() -> SensorSnapshot? {
-        let now = ProcessInfo.processInfo.systemUptime
-
-        cache.lock.lock()
-        let cached = cache.snapshot
-        let isFresh = cached != nil && now - cache.refreshedAtUptime < cacheLifetimeSeconds
-        cache.lock.unlock()
-        if isFresh {
-            return cached
-        }
-
+        state.lock.lock()
+        defer { state.lock.unlock() }
         do {
-            let kit = try SMCKit(allowKeysEndpointFallback: true)
+            let kit = try sharedKitLocked()
             let fans = try kit.readFans().map {
                 FanInfo(
                     index: $0.index,
@@ -46,29 +37,21 @@ enum DirectSMCReader {
                 canControlFans: kit.canControlFans,
                 helperAvailable: false
             )
-            cache.lock.lock()
-            cache.snapshot = snapshot
-            cache.refreshedAtUptime = now
-            cache.lock.unlock()
+            state.snapshot = snapshot
             return snapshot
         } catch {
+            state.kit = nil
             // A transient SMC read should not blank the UI. A slightly stale
-            // snapshot is preferable and the next cache expiry will retry.
-            return cached
+            // snapshot is preferable and the next poll will retry.
+            return state.snapshot
         }
-    }
-
-    private static func invalidateCache() {
-        cache.lock.lock()
-        cache.refreshedAtUptime = 0
-        cache.lock.unlock()
     }
 
     @discardableResult
     static func setFansAuto() -> Bool {
         do {
             try SMCKit(allowKeysEndpointFallback: false).setAllFansAuto()
-            invalidateCache()
+            invalidateReadConnection()
             return true
         } catch {
             return false
@@ -79,10 +62,26 @@ enum DirectSMCReader {
     static func setFansPercent(_ percent: Double) -> Bool {
         do {
             try SMCKit(allowKeysEndpointFallback: false).setAllFansPercent(percent)
-            invalidateCache()
+            invalidateReadConnection()
             return true
         } catch {
             return false
         }
+    }
+
+    private static func sharedKitLocked() throws -> SMCKit {
+        if let kit = state.kit {
+            return kit
+        }
+        let kit = try SMCKit(allowKeysEndpointFallback: true)
+        state.kit = kit
+        return kit
+    }
+
+    private static func invalidateReadConnection() {
+        state.lock.lock()
+        state.kit?.invalidateCaches()
+        state.kit = nil
+        state.lock.unlock()
     }
 }

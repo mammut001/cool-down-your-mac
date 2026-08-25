@@ -86,6 +86,20 @@ final class SensorCatalogTests: XCTestCase {
         XCTAssertTrue(curated.contains { $0.key == "TG0P" })
     }
 
+    func testCuratedHIDFallbackShowsOnlyOneCPUAverage() {
+        let hid = [
+            TemperatureReading(key: "hid.cpu.perf.1", name: "CPU Performance Core 1", celsius: 50, group: .cpu),
+            TemperatureReading(key: "hid.cpu.perf.2", name: "CPU Performance Core 2", celsius: 60, group: .cpu),
+            TemperatureReading(key: "hid.cpu.avg", name: "CPU Core Average", celsius: 55, group: .cpu)
+        ]
+
+        let curated = SensorCatalog.curated(smc: [], hid: hid)
+        let averages = curated.filter { $0.name == "CPU Core Average" }
+
+        XCTAssertEqual(averages.count, 1)
+        XCTAssertEqual(averages.first!.celsius, 55, accuracy: 0.0001)
+    }
+
     func testMergedListAlsoDeduplicatesSharedKeys() {
         let a = TemperatureReading(key: "Tp01", name: "CPU A", celsius: 40, group: .cpu)
         let b = TemperatureReading(key: "Tp01", name: "CPU B", celsius: 55, group: .cpu)
@@ -93,5 +107,14 @@ final class SensorCatalogTests: XCTestCase {
         let matches = merged.filter { $0.key == "Tp01" }
         XCTAssertEqual(matches.count, 1)
         XCTAssertEqual(matches.first!.celsius, 55, accuracy: 0.0001)
+    }
+
+    func testTemperatureKeyDetection() {
+        XCTAssertTrue(SMCKnownNames.isTemperatureKey("Tp09"))
+        XCTAssertTrue(SMCKnownNames.isTemperatureKey("TC0P"))
+        XCTAssertTrue(SMCKnownNames.isTemperatureKey("tg0P"))
+        XCTAssertFalse(SMCKnownNames.isTemperatureKey("FNum"))
+        XCTAssertFalse(SMCKnownNames.isTemperatureKey("F0Ac"))
+        XCTAssertFalse(SMCKnownNames.isTemperatureKey(""))
     }
 }

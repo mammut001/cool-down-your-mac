@@ -1,31 +1,84 @@
 #import "IOHIDTemperatureBridge.h"
 #import <dlfcn.h>
+#import <os/lock.h>
 
 typedef void *CoolDownHIDClient;
 typedef void *CoolDownHIDService;
 typedef void *CoolDownHIDEvent;
 
-NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
-    void *handle = dlopen("/System/Library/Frameworks/IOKit.framework/IOKit", RTLD_LAZY);
-    if (!handle) {
-        handle = RTLD_DEFAULT;
+typedef CoolDownHIDClient (*CoolDownHIDCreate)(CFAllocatorRef);
+typedef void (*CoolDownHIDSetMatching)(CoolDownHIDClient, CFDictionaryRef);
+typedef CFArrayRef (*CoolDownHIDCopyServices)(CoolDownHIDClient);
+typedef CFTypeRef (*CoolDownHIDCopyProperty)(CoolDownHIDService, CFStringRef);
+typedef CoolDownHIDEvent (*CoolDownHIDCopyEvent)(CoolDownHIDService, int64_t, CoolDownHIDEvent, int32_t);
+typedef double (*CoolDownHIDGetFloat)(CoolDownHIDEvent, uint32_t);
+
+static CoolDownHIDCreate gCreate = NULL;
+static CoolDownHIDSetMatching gSetMatching = NULL;
+static CoolDownHIDCopyServices gCopyServices = NULL;
+static CoolDownHIDCopyProperty gCopyProperty = NULL;
+static CoolDownHIDCopyEvent gCopyEvent = NULL;
+static CoolDownHIDGetFloat gGetFloat = NULL;
+static BOOL gSymbolsReady = NO;
+
+static os_unfair_lock gLock = OS_UNFAIR_LOCK_INIT;
+static CoolDownHIDClient gClient = NULL;
+static CFMutableArrayRef gServices = NULL;
+static NSMutableArray<NSString *> *gNames = nil;
+static NSTimeInterval gServicesUptime = 0;
+
+static const NSTimeInterval kHIDServiceRefreshSeconds = 45;
+static const NSTimeInterval kHIDEmptyRetrySeconds = 2;
+
+static BOOL CoolDownLoadHIDSymbols(void) {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        void *handle = dlopen("/System/Library/Frameworks/IOKit.framework/IOKit", RTLD_LAZY);
+        if (!handle) {
+            handle = RTLD_DEFAULT;
+        }
+        gCreate = dlsym(handle, "IOHIDEventSystemClientCreate");
+        gSetMatching = dlsym(handle, "IOHIDEventSystemClientSetMatching");
+        gCopyServices = dlsym(handle, "IOHIDEventSystemClientCopyServices");
+        gCopyProperty = dlsym(handle, "IOHIDServiceClientCopyProperty");
+        gCopyEvent = dlsym(handle, "IOHIDServiceClientCopyEvent");
+        gGetFloat = dlsym(handle, "IOHIDEventGetFloatValue");
+        gSymbolsReady = gCreate && gSetMatching && gCopyServices && gCopyProperty && gCopyEvent && gGetFloat;
+    });
+    return gSymbolsReady;
+}
+
+static void CoolDownHIDResetServices(void) {
+    if (gServices) {
+        CFRelease(gServices);
+        gServices = NULL;
     }
+    gNames = nil;
+}
 
-    CoolDownHIDClient (*create)(CFAllocatorRef) = dlsym(handle, "IOHIDEventSystemClientCreate");
-    void (*setMatching)(CoolDownHIDClient, CFDictionaryRef) = dlsym(handle, "IOHIDEventSystemClientSetMatching");
-    CFArrayRef (*copyServices)(CoolDownHIDClient) = dlsym(handle, "IOHIDEventSystemClientCopyServices");
-    CFTypeRef (*copyProperty)(CoolDownHIDService, CFStringRef) = dlsym(handle, "IOHIDServiceClientCopyProperty");
-    CoolDownHIDEvent (*copyEvent)(CoolDownHIDService, int64_t, CoolDownHIDEvent, int32_t) =
-        dlsym(handle, "IOHIDServiceClientCopyEvent");
-    double (*getFloat)(CoolDownHIDEvent, uint32_t) = dlsym(handle, "IOHIDEventGetFloatValue");
-
-    if (!create || !setMatching || !copyServices || !copyProperty || !copyEvent || !getFloat) {
-        return @[];
+static BOOL CoolDownHIDShouldRefreshServices(NSTimeInterval now) {
+    const CFIndex count = gServices ? CFArrayGetCount(gServices) : 0;
+    if (count > 0) {
+        return now - gServicesUptime >= kHIDServiceRefreshSeconds;
     }
+    if (gServicesUptime <= 0) {
+        return YES;
+    }
+    return now - gServicesUptime >= kHIDEmptyRetrySeconds;
+}
 
-    CoolDownHIDClient client = create(kCFAllocatorDefault);
-    if (!client) {
-        return @[];
+static BOOL CoolDownHIDShouldSkipProduct(NSString *product) {
+    return [product hasPrefix:@"PMU tdev"] ||
+        [product hasPrefix:@"PMU ibuck"] ||
+        [product hasPrefix:@"PMU ildo"];
+}
+
+static void CoolDownHIDRefreshServices(void) {
+    if (!gClient) {
+        gClient = gCreate(kCFAllocatorDefault);
+        if (!gClient) {
+            return;
+        }
     }
 
     NSArray<NSDictionary *> *presets = @[
@@ -33,12 +86,12 @@ NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
         @{@"PrimaryUsagePage": @(0xff05), @"PrimaryUsage": @5},
     ];
 
-    NSMutableDictionary<NSString *, NSNumber *> *sums = [NSMutableDictionary dictionary];
-    NSMutableDictionary<NSString *, NSNumber *> *counts = [NSMutableDictionary dictionary];
+    CFMutableArrayRef nextServices = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+    NSMutableArray<NSString *> *nextNames = [NSMutableArray array];
 
     for (NSDictionary *matching in presets) {
-        setMatching(client, (__bridge CFDictionaryRef)matching);
-        CFArrayRef services = copyServices(client);
+        gSetMatching(gClient, (__bridge CFDictionaryRef)matching);
+        CFArrayRef services = gCopyServices(gClient);
         if (!services) {
             continue;
         }
@@ -46,32 +99,67 @@ NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
         CFIndex total = CFArrayGetCount(services);
         for (CFIndex i = 0; i < total; i++) {
             CoolDownHIDService service = (CoolDownHIDService)CFArrayGetValueAtIndex(services, i);
-            CFStringRef productRef = copyProperty(service, CFSTR("Product"));
+            CFStringRef productRef = gCopyProperty(service, CFSTR("Product"));
             if (!productRef) {
                 continue;
             }
             NSString *product = CFBridgingRelease(productRef);
-            if ([product hasPrefix:@"PMU tdev"] ||
-                [product hasPrefix:@"PMU ibuck"] ||
-                [product hasPrefix:@"PMU ildo"]) {
+            if (CoolDownHIDShouldSkipProduct(product)) {
                 continue;
             }
-
-            CoolDownHIDEvent event = copyEvent(service, 15, NULL, 0);
-            if (!event) {
-                continue;
-            }
-            double value = getFloat(event, 15u << 16);
-            CFRelease(event);
-            if (!isfinite(value) || value <= -20.0 || value >= 120.0) {
-                continue;
-            }
-
-            sums[product] = @((sums[product].doubleValue) + value);
-            counts[product] = @((counts[product].integerValue) + 1);
+            CFArrayAppendValue(nextServices, service);
+            [nextNames addObject:product];
         }
         CFRelease(services);
     }
+
+    CoolDownHIDResetServices();
+    gServices = nextServices;
+    gNames = nextNames;
+    gServicesUptime = [NSProcessInfo processInfo].systemUptime;
+}
+
+NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
+    if (!CoolDownLoadHIDSymbols()) {
+        return @[];
+    }
+
+    os_unfair_lock_lock(&gLock);
+
+    const NSTimeInterval now = [NSProcessInfo processInfo].systemUptime;
+    if (CoolDownHIDShouldRefreshServices(now)) {
+        CoolDownHIDRefreshServices();
+    }
+
+    if (!gClient || !gServices || gNames.count == 0) {
+        os_unfair_lock_unlock(&gLock);
+        return @[];
+    }
+
+    NSMutableDictionary<NSString *, NSNumber *> *sums = [NSMutableDictionary dictionary];
+    NSMutableDictionary<NSString *, NSNumber *> *counts = [NSMutableDictionary dictionary];
+    CFIndex serviceCount = CFArrayGetCount(gServices);
+    CFIndex nameCount = (CFIndex)gNames.count;
+    CFIndex total = serviceCount < nameCount ? serviceCount : nameCount;
+
+    for (CFIndex i = 0; i < total; i++) {
+        CoolDownHIDService service = (CoolDownHIDService)CFArrayGetValueAtIndex(gServices, i);
+        CoolDownHIDEvent event = gCopyEvent(service, 15, NULL, 0);
+        if (!event) {
+            continue;
+        }
+        double value = gGetFloat(event, 15u << 16);
+        CFRelease(event);
+        if (!isfinite(value) || value <= -20.0 || value >= 120.0) {
+            continue;
+        }
+
+        NSString *name = gNames[i];
+        sums[name] = @((sums[name].doubleValue) + value);
+        counts[name] = @((counts[name].integerValue) + 1);
+    }
+
+    os_unfair_lock_unlock(&gLock);
 
     NSMutableArray<NSDictionary<NSString *, id> *> *results = [NSMutableArray array];
     for (NSString *name in sums) {
@@ -82,7 +170,5 @@ NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
         double avg = sums[name].doubleValue / (double)count;
         [results addObject:@{@"name": name, @"celsius": @(avg)}];
     }
-
-    CFRelease(client);
     return results;
 }
