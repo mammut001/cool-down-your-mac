@@ -87,6 +87,21 @@ final class HelperPresentationTests: XCTestCase {
         XCTAssertEqual(state.rawValue, "Needs repair")
     }
 
+    func testUnsignedAppExplainsWhyHelperCannotBeRepaired() {
+        let state = HelperPresentationResolver.resolve(
+            hasCompletedInitialProbe: true,
+            isRegistered: true,
+            isConnected: false,
+            snapshotHelperAvailable: false,
+            canControlFans: false,
+            hasFans: false,
+            helperLaunchFailed: true,
+            appSigningValid: false
+        )
+        XCTAssertEqual(state, .invalidAppSignature)
+        XCTAssertEqual(state.rawValue, "App build not signed")
+    }
+
     func testUnavailableWhenConnectedWithoutControllableFans() {
         let state = HelperPresentationResolver.resolve(
             hasCompletedInitialProbe: true,
@@ -155,4 +170,3 @@ final class HelperPresentationTests: XCTestCase {
         XCTAssertTrue(afterSlowProbe)
     }
 }
-

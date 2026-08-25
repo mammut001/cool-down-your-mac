@@ -6,11 +6,7 @@ final class HelperDelegate: NSObject, NSXPCListenerDelegate {
             return false
         }
         if #available(macOS 13.0, *) {
-            do {
-                try newConnection.setCodeSigningRequirement(HelperSecurity.clientRequirement)
-            } catch {
-                return false
-            }
+            newConnection.setCodeSigningRequirement(HelperSecurity.clientRequirement)
         }
         newConnection.exportedInterface = NSXPCInterface(with: CoolDownHelperProtocol.self)
         newConnection.exportedObject = HelperService()

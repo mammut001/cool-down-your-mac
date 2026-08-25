@@ -5,16 +5,25 @@ import AppKit
 struct ProDashboardView: View {
     @EnvironmentObject private var model: ProAppModel
     @EnvironmentObject private var settings: SettingsStore
+    @State private var selectedTab: DashboardTab = .overview
+    @State private var sensorSearchText = ""
+
+    private enum DashboardTab: Hashable {
+        case overview
+        case fanCurve
+    }
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             sensorsTab
                 .tabItem { Label("Overview", systemImage: "gauge.with.dots.needle.67percent") }
+                .tag(DashboardTab.overview)
 
             FanCurveEditorView()
                 .environmentObject(model)
                 .environmentObject(settings)
                 .tabItem { Label("Fan Curve", systemImage: "chart.xyaxis.line") }
+                .tag(DashboardTab.fanCurve)
         }
         .frame(minWidth: 640, minHeight: 700)
         .background(GlassBackdrop())
@@ -31,6 +40,9 @@ struct ProDashboardView: View {
             NSApp.activate(ignoringOtherApps: true)
             Task { await model.tick() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .coolDownOpenFanCurve)) { _ in
+            selectedTab = .fanCurve
+        }
     }
 
     private var sensorsTab: some View {
@@ -39,10 +51,7 @@ struct ProDashboardView: View {
                 sensorsHeader
                 liveMetrics
                 if let status = model.statusMessage {
-                    Text(status)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    statusBanner(status)
                 }
                 sensorTable
             }
@@ -83,12 +92,46 @@ struct ProDashboardView: View {
     }
 
     private var liveMetrics: some View {
-        HStack(spacing: 12) {
+        LazyVGrid(
+            columns: Array(repeating: GridItem(.flexible(minimum: 110), spacing: 12), count: 4),
+            spacing: 12
+        ) {
             metricCard("Control", value: settings.settings.mode.displayName, icon: "slider.horizontal.3", tint: CoolDownTheme.accent)
-            metricCard("Fan target", value: fanTargetLabel, icon: "fanblades", tint: CoolDownTheme.calm)
+            metricCard(
+                "Fan target",
+                value: fanTargetLabel,
+                icon: "fanblades",
+                tint: model.helperControlIsReady || settings.settings.mode == .systemAuto ? CoolDownTheme.calm : .secondary
+            )
             metricCard("CPU load", value: String(format: "%.0f%%", model.loadMonitor.cpuLoadPercent), icon: "cpu", tint: CoolDownTheme.warning)
-            metricCard("Fan control", value: model.helperStatusText, icon: "checkmark.shield", tint: model.helperControlIsReady ? CoolDownTheme.calm : CoolDownTheme.warning)
+            metricCard(
+                "Fan control",
+                value: model.helperStatusText,
+                icon: model.helperControlIsReady ? "checkmark.shield.fill" : "exclamationmark.shield.fill",
+                tint: model.helperControlIsReady ? CoolDownTheme.calm : CoolDownTheme.warning
+            )
         }
+    }
+
+    private func statusBanner(_ status: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: model.helperControlIsReady ? "info.circle" : "exclamationmark.triangle.fill")
+                .foregroundStyle(model.helperControlIsReady ? CoolDownTheme.accent : CoolDownTheme.warning)
+            Text(status)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            if model.helperActionIsEnabled {
+                Button(model.helperActionTitle) {
+                    model.performHelperAction()
+                }
+                .disabled(model.isBusy)
+                .controlSize(.small)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private func metricCard(_ title: String, value: String, icon: String, tint: Color) -> some View {
@@ -114,6 +157,10 @@ struct ProDashboardView: View {
             HStack {
                 Label("Sensors", systemImage: "thermometer.medium")
                 Spacer()
+                TextField("Filter sensors", text: $sensorSearchText)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 180)
+                    .accessibilityLabel("Filter sensors")
                 Text("Value °C")
                     .frame(width: 72, alignment: .trailing)
             }
@@ -129,32 +176,43 @@ struct ProDashboardView: View {
                     systemImage: "thermometer.medium",
                     description: Text("Temperature sensors will appear here when available.")
                 )
+            } else if groupedSensors.isEmpty {
+                ContentUnavailableView.search(text: sensorSearchText)
+                    .frame(minHeight: 180)
             } else {
-                List {
+                LazyVStack(spacing: 0) {
                     ForEach(groupedSensors, id: \.group) { section in
-                        Section(section.group.displayName) {
-                            ForEach(section.items) { reading in
-                                HStack(spacing: 10) {
-                                    Image(systemName: icon(for: reading.group))
-                                        .foregroundStyle(CoolDownTheme.temperatureColor(reading.celsius))
-                                        .frame(width: 16)
-                                    Text(reading.name)
-                                        .font(.body)
-                                    Spacer()
-                                    Text(SensorFormatting.temperature(reading.celsius))
-                                        .font(.body.monospacedDigit().weight(.medium))
-                                        .foregroundStyle(CoolDownTheme.temperatureColor(reading.celsius))
-                                        .frame(width: 72, alignment: .trailing)
-                                }
-                                .padding(.vertical, 2)
-                                .listRowSeparator(.visible)
+                        HStack {
+                            Text(section.group.displayName)
+                            Spacer()
+                            Text("\(section.items.count)")
+                                .monospacedDigit()
+                        }
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(.primary.opacity(0.035))
+
+                        ForEach(section.items) { reading in
+                            HStack(spacing: 10) {
+                                Image(systemName: icon(for: reading.group))
+                                    .foregroundStyle(CoolDownTheme.temperatureColor(reading.celsius))
+                                    .frame(width: 16)
+                                Text(reading.name)
+                                    .font(.body)
+                                Spacer()
+                                Text(SensorFormatting.temperature(reading.celsius))
+                                    .font(.body.monospacedDigit().weight(.medium))
+                                    .foregroundStyle(CoolDownTheme.temperatureColor(reading.celsius))
+                                    .frame(width: 72, alignment: .trailing)
                             }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            Divider().padding(.leading, 36)
                         }
                     }
                 }
-                .listStyle(.inset)
-                .scrollContentBackground(.hidden)
-                .frame(minHeight: 250)
             }
         }
         }
@@ -167,8 +225,13 @@ struct ProDashboardView: View {
     }
 
     private var groupedSensors: [(group: SensorGroup, items: [TemperatureReading])] {
-        SensorGroup.allCases.compactMap { group in
-            let items = model.snapshot.temperatures.filter { $0.group == group }
+        SensorGroup.allCases.sorted { $0.sortOrder < $1.sortOrder }.compactMap { group in
+            let items = model.snapshot.temperatures.filter {
+                guard $0.group == group else { return false }
+                guard !sensorSearchText.isEmpty else { return true }
+                return $0.name.localizedCaseInsensitiveContains(sensorSearchText)
+                    || $0.key.localizedCaseInsensitiveContains(sensorSearchText)
+            }
             guard !items.isEmpty else { return nil }
             return (group, items)
         }

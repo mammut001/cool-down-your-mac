@@ -5,6 +5,7 @@ public enum HelperPresentationState: String, Equatable, Sendable {
     case notInstalled = "Not installed"
     case connecting = "Connecting…"
     case enabled = "Enabled"
+    case invalidAppSignature = "App build not signed"
     case needsRepair = "Needs repair"
     case unavailable = "Unavailable on this Mac"
 }
@@ -17,7 +18,8 @@ public enum HelperPresentationResolver {
         snapshotHelperAvailable: Bool,
         canControlFans: Bool,
         hasFans: Bool,
-        helperLaunchFailed: Bool
+        helperLaunchFailed: Bool,
+        appSigningValid: Bool = true
     ) -> HelperPresentationState {
         let controlReady = isConnected && snapshotHelperAvailable && canControlFans && hasFans
         if controlReady {
@@ -25,6 +27,9 @@ public enum HelperPresentationResolver {
         }
         if !hasCompletedInitialProbe {
             return isRegistered ? .connecting : .checking
+        }
+        if !appSigningValid {
+            return .invalidAppSignature
         }
         if !isRegistered {
             return .notInstalled

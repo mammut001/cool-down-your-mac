@@ -25,9 +25,17 @@ final class SMCKit {
 
     private var connection: io_connect_t = 0
     private var cachedTemperatureKeys: [SMCTempKey]?
+    private var cachedTemperatureKeysUptime: TimeInterval = 0
     private var cachedFanMetas: [FanMeta]?
+    private var cachedFanMetasUptime: TimeInterval = 0
     private var cachedCanControlFans: Bool?
     private var lastCanControlProbeUptime: TimeInterval = 0
+
+    /// Temperature key discovery is expensive (up to 512 IOConnect calls).
+    /// Cache the result for this many seconds before re-scanning.
+    private let temperatureKeyCacheSeconds: TimeInterval = 120
+    /// Fan metadata changes even less often, but a longer cache is fine.
+    private let fanMetaCacheSeconds: TimeInterval = 300
 
     private struct SMCTempKey {
         let key: String
@@ -127,7 +135,9 @@ final class SMCKit {
 
     func invalidateCaches() {
         cachedTemperatureKeys = nil
+        cachedTemperatureKeysUptime = 0
         cachedFanMetas = nil
+        cachedFanMetasUptime = 0
         cachedCanControlFans = nil
         lastCanControlProbeUptime = 0
     }
@@ -227,7 +237,8 @@ final class SMCKit {
     }
 
     private func fanMetas() throws -> [FanMeta] {
-        if let cachedFanMetas, !cachedFanMetas.isEmpty {
+        let now = ProcessInfo.processInfo.systemUptime
+        if let cachedFanMetas, !cachedFanMetas.isEmpty, now - cachedFanMetasUptime < fanMetaCacheSeconds {
             return cachedFanMetas
         }
         let indices = try fanIndices()
@@ -249,11 +260,13 @@ final class SMCKit {
             )
         }
         cachedFanMetas = metas
+        cachedFanMetasUptime = now
         return metas
     }
 
     private func discoveredTemperatureKeys() -> [SMCTempKey] {
-        if let cachedTemperatureKeys {
+        let now = ProcessInfo.processInfo.systemUptime
+        if let cachedTemperatureKeys, now - cachedTemperatureKeysUptime < temperatureKeyCacheSeconds {
             return cachedTemperatureKeys
         }
         var discovered: [SMCTempKey] = []
@@ -272,6 +285,7 @@ final class SMCKit {
             }
         }
         cachedTemperatureKeys = discovered
+        cachedTemperatureKeysUptime = now
         return discovered
     }
 
