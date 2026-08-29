@@ -17,9 +17,7 @@ final class LoadMonitor: ObservableObject {
     private var lastProcessSampleUptime: TimeInterval?
     #endif
 
-    private let boostActivationSeconds: TimeInterval = 4
     private let boostReleaseHysteresisPercent = 8.0
-    private let boostRiseTimeConstant: TimeInterval = 4
     private let boostFallTimeConstant: TimeInterval = 12
     #if DEBUG
     #if arch(x86_64)
@@ -106,20 +104,27 @@ final class LoadMonitor: ObservableObject {
             loadAboveThresholdSince = nil
         }
 
-        let sustained = loadAboveThresholdSince.map { now - $0 >= boostActivationSeconds } ?? false
-        let desired: Double
-        if sustained, load > threshold {
-            let span = max(100 - threshold, 1)
-            let t = ((load - threshold) / span).clamped(to: 0...1)
-            desired = boostMax * t
-        } else {
-            desired = 0
-        }
+        let activationDelay = LoadBoostPolicy.activationDelaySeconds(
+            loadPercent: load,
+            threshold: threshold
+        )
+        let sustained = loadAboveThresholdSince.map { now - $0 >= activationDelay } ?? false
+        let desired = sustained
+            ? LoadBoostPolicy.desiredBoost(
+                loadPercent: load,
+                threshold: threshold,
+                boostMax: boostMax
+            )
+            : 0
 
-        // Approach boost slowly and release even more slowly so short-lived CPU
-        // bursts do not translate into audible fan pulses.
+        // Feed forward progressively under real sustained load: the higher the
+        // utilization, the shorter the activation delay and rise time. Release
+        // remains deliberately slow so load drops do not create fan pulsing.
         let timeConstant = desired > smoothedFanBoost
-            ? boostRiseTimeConstant
+            ? LoadBoostPolicy.riseTimeConstantSeconds(
+                loadPercent: load,
+                threshold: threshold
+            )
             : boostFallTimeConstant
         let alpha = 1 - exp(-dt / timeConstant)
         smoothedFanBoost += (desired - smoothedFanBoost) * alpha
