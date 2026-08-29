@@ -26,9 +26,37 @@ final class ThermalPollingPolicyTests: XCTestCase {
         )
     }
 
+    func testIntelHighCPULoadAcceleratesCoolTemperaturePolling() {
+        XCTAssertEqual(
+            ThermalPollingPolicy.temperatureCacheLifetime(
+                controlTemperatureC: 55,
+                isIntel: true,
+                cpuLoadPercent: 85
+            ),
+            2.0,
+            accuracy: 0.0001
+        )
+    }
+
+    func testIntelModerateCPULoadUsesThreeSecondPolling() {
+        XCTAssertEqual(
+            ThermalPollingPolicy.temperatureCacheLifetime(
+                controlTemperatureC: 55,
+                isIntel: true,
+                cpuLoadPercent: 65
+            ),
+            3.0,
+            accuracy: 0.0001
+        )
+    }
+
     func testAppleSiliconKeepsTwoSecondCadence() {
         XCTAssertEqual(
-            ThermalPollingPolicy.temperatureCacheLifetime(controlTemperatureC: 55, isIntel: false),
+            ThermalPollingPolicy.temperatureCacheLifetime(
+                controlTemperatureC: 55,
+                isIntel: false,
+                cpuLoadPercent: 10
+            ),
             2.0,
             accuracy: 0.0001
         )
