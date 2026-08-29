@@ -8,6 +8,8 @@ enum DirectSMCReader {
         let lock = NSLock()
         var kit: SMCKit?
         var snapshot: SensorSnapshot?
+        var temperatures: [TemperatureReading] = []
+        var temperaturesRefreshedAtUptime: TimeInterval = 0
     }
 
     private static let state = State()
@@ -28,9 +30,38 @@ enum DirectSMCReader {
                     isManual: $0.isManual
                 )
             }
-            let temps = kit.readTemperatures().map {
-                TemperatureReading(key: $0.key, name: $0.name, celsius: $0.celsius)
+
+            let now = ProcessInfo.processInfo.systemUptime
+            #if arch(x86_64)
+            let isIntel = true
+            #else
+            let isIntel = false
+            #endif
+            let temperatureCacheLifetime = ThermalPollingPolicy.temperatureCacheLifetime(
+                controlTemperatureC: state.snapshot?.maxTemperatureC,
+                isIntel: isIntel
+            )
+            let cachedTemperaturesAreFresh = !state.temperatures.isEmpty
+                && now - state.temperaturesRefreshedAtUptime < temperatureCacheLifetime
+
+            let temps: [TemperatureReading]
+            if cachedTemperaturesAreFresh {
+                temps = state.temperatures
+            } else {
+                let freshTemperatures = kit.readTemperatures().map {
+                    TemperatureReading(key: $0.key, name: $0.name, celsius: $0.celsius)
+                }
+                // Keep the last valid sample if a transient SMC read returns no
+                // temperature rows. The next expired poll will retry.
+                if freshTemperatures.isEmpty, !state.temperatures.isEmpty {
+                    temps = state.temperatures
+                } else {
+                    state.temperatures = freshTemperatures
+                    state.temperaturesRefreshedAtUptime = now
+                    temps = freshTemperatures
+                }
             }
+
             let snapshot = SensorSnapshot(
                 fans: fans,
                 temperatures: temps,
@@ -82,6 +113,7 @@ enum DirectSMCReader {
         state.lock.lock()
         state.kit?.invalidateCaches()
         state.kit = nil
+        state.temperaturesRefreshedAtUptime = 0
         state.lock.unlock()
     }
 }
