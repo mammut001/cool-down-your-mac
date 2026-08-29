@@ -8,14 +8,26 @@ public enum ThermalPollingPolicy {
     ///
     /// Intel Macs pay substantially more for enumerating and reading SMC
     /// temperature keys, so cool/normal operation reuses the previous sample.
-    /// Once the machine is warm, the cache window collapses back toward the
-    /// normal 2-second control cadence. Apple Silicon keeps the existing 2s
-    /// behavior because HID telemetry is the primary path there.
+    /// Rising CPU load acts as feed-forward: expensive temperature polling
+    /// accelerates before the last sampled temperature has already become hot.
+    /// Apple Silicon keeps the existing 2s behavior because HID telemetry is
+    /// the primary path there.
     public static func temperatureCacheLifetime(
         controlTemperatureC: Double?,
-        isIntel: Bool
+        isIntel: Bool,
+        cpuLoadPercent: Double? = nil
     ) -> TimeInterval {
         guard isIntel else { return 2.0 }
+
+        if let load = cpuLoadPercent, load.isFinite {
+            if load >= 80 {
+                return 2.0
+            }
+            if load >= 60 {
+                return 3.0
+            }
+        }
+
         guard let temperature = controlTemperatureC, temperature.isFinite else {
             return 2.0
         }
