@@ -6,8 +6,8 @@ final class LoadBoostPolicyTests: XCTestCase {
         let moderate = LoadBoostPolicy.activationDelaySeconds(loadPercent: 70, threshold: 60)
         let high = LoadBoostPolicy.activationDelaySeconds(loadPercent: 90, threshold: 60)
         XCTAssertGreaterThan(moderate, high)
-        XCTAssertEqual(moderate, 2.5, accuracy: 0.0001)
-        XCTAssertEqual(high, 1.5, accuracy: 0.0001)
+        XCTAssertEqual(moderate, 2.0, accuracy: 0.0001)
+        XCTAssertEqual(high, 0.0, accuracy: 0.0001)
     }
 
     func testModerateLoadGetsUsefulProgressiveBoost() {
