@@ -2,25 +2,25 @@ import XCTest
 import CoolDownKit
 
 final class ThermalPollingPolicyTests: XCTestCase {
-    func testIntelCoolTemperatureUsesFourSecondCache() {
+    func testIntelCoolLowLoadTemperatureUsesFourSecondCache() {
         XCTAssertEqual(
-            ThermalPollingPolicy.temperatureCacheLifetime(controlTemperatureC: 55, isIntel: true),
+            ThermalPollingPolicy.temperatureCacheLifetime(
+                controlTemperatureC: 55,
+                isIntel: true,
+                cpuLoadPercent: 20
+            ),
             4.0,
             accuracy: 0.0001
         )
     }
 
-    func testIntelWarmTemperatureTightensToThreeSeconds() {
+    func testIntelSeventyDegreesReturnsToTwoSecondCadence() {
         XCTAssertEqual(
-            ThermalPollingPolicy.temperatureCacheLifetime(controlTemperatureC: 75, isIntel: true),
-            3.0,
-            accuracy: 0.0001
-        )
-    }
-
-    func testIntelHotTemperatureReturnsToTwoSecondCadence() {
-        XCTAssertEqual(
-            ThermalPollingPolicy.temperatureCacheLifetime(controlTemperatureC: 80, isIntel: true),
+            ThermalPollingPolicy.temperatureCacheLifetime(
+                controlTemperatureC: 70,
+                isIntel: true,
+                cpuLoadPercent: 20
+            ),
             2.0,
             accuracy: 0.0001
         )
@@ -38,14 +38,14 @@ final class ThermalPollingPolicyTests: XCTestCase {
         )
     }
 
-    func testIntelModerateCPULoadUsesThreeSecondPolling() {
+    func testIntelModerateWorkloadAlsoReturnsToTwoSecondPolling() {
         XCTAssertEqual(
             ThermalPollingPolicy.temperatureCacheLifetime(
                 controlTemperatureC: 55,
                 isIntel: true,
                 cpuLoadPercent: 65
             ),
-            3.0,
+            2.0,
             accuracy: 0.0001
         )
     }
