@@ -39,7 +39,8 @@ enum DirectSMCReader {
             #endif
             let temperatureCacheLifetime = ThermalPollingPolicy.temperatureCacheLifetime(
                 controlTemperatureC: state.snapshot?.maxTemperatureC,
-                isIntel: isIntel
+                isIntel: isIntel,
+                cpuLoadPercent: ThermalLoadSignal.currentLoadPercent
             )
             let cachedTemperaturesAreFresh = !state.temperatures.isEmpty
                 && now - state.temperaturesRefreshedAtUptime < temperatureCacheLifetime
