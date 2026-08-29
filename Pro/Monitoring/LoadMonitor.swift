@@ -2,6 +2,31 @@ import Foundation
 import CoolDownKit
 import Darwin
 
+/// Lightweight cross-thread signal used by direct SMC telemetry so rising CPU
+/// load can shorten the temperature cache before the sampled temperature has
+/// already climbed. This avoids performing a second CPU-load measurement.
+enum ThermalLoadSignal {
+    private final class State: @unchecked Sendable {
+        let lock = NSLock()
+        var latestLoadPercent: Double?
+    }
+
+    private static let state = State()
+
+    static func update(_ loadPercent: Double) {
+        guard loadPercent.isFinite else { return }
+        state.lock.lock()
+        state.latestLoadPercent = min(max(loadPercent, 0), 100)
+        state.lock.unlock()
+    }
+
+    static var currentLoadPercent: Double? {
+        state.lock.lock()
+        defer { state.lock.unlock() }
+        return state.latestLoadPercent
+    }
+}
+
 /// Lightweight CPU load sampler used to boost fan speed under sustained work.
 @MainActor
 final class LoadMonitor: ObservableObject {
@@ -28,7 +53,10 @@ final class LoadMonitor: ObservableObject {
     #endif
 
     func refresh() {
-        cpuLoadPercent = sampleSystemCPULoad() ?? cpuLoadPercent
+        if let sampledLoad = sampleSystemCPULoad() {
+            cpuLoadPercent = sampledLoad
+            ThermalLoadSignal.update(sampledLoad)
+        }
 
         #if DEBUG
         let now = ProcessInfo.processInfo.systemUptime
