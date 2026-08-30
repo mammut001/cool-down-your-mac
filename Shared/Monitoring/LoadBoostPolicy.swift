@@ -12,13 +12,13 @@ public enum LoadBoostPolicy {
         return min(max((load - threshold) / max(100 - threshold, 1), 0), 1)
     }
 
-    /// Near the threshold, wait up to 3 seconds so brief activity spikes do not
-    /// move the fans. As utilization climbs, aggressively collapse that delay;
-    /// around 90%+ load with the default threshold the boost can start on the
-    /// same sampling tick instead of waiting another full polling interval.
+    /// Keep activation aligned with the app's default 2-second control tick:
+    /// near-threshold load can wait for the next tick, but never just beyond it
+    /// and therefore an additional full polling interval. The delay reaches
+    /// zero at 75% normalized excess (90% load with the default threshold).
     public static func activationDelaySeconds(loadPercent: Double, threshold: Double) -> TimeInterval {
         let t = normalizedExcess(loadPercent: loadPercent, threshold: threshold)
-        return max(0, 3.0 - (4.0 * t))
+        return max(0, 2.0 * (1.0 - (t / 0.75)))
     }
 
     /// Use a sub-linear power curve so moderate/high load earns useful airflow
