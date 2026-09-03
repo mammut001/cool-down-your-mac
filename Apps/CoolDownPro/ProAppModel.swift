@@ -189,10 +189,19 @@ final class ProAppModel: ObservableObject {
         guard !isTicking else { return }
         isTicking = true
         defer { isTicking = false }
-        loadMonitor.refresh()
+        if shouldSampleCPULoad {
+            loadMonitor.refresh()
+        }
         await refreshSnapshot()
         await applyControlPolicy()
         evaluateAlerts()
+    }
+
+    private var shouldSampleCPULoad: Bool {
+        if settings.settings.mode == .smartCurve && settings.settings.loadBoostMax > 0 {
+            return true
+        }
+        return NSApp.windows.contains { $0.isVisible && $0.canBecomeKey }
     }
 
     func refreshSnapshot() async {
@@ -208,11 +217,33 @@ final class ProAppModel: ObservableObject {
             return (localSMC, displayTemps, controlTemps)
         }.value
 
-        // Fan RPM is readable without the helper; always prefer a healthy local SMC read
-        // so a stale/broken helper snapshot cannot force the UI to show 0 RPM.
+        // Fan RPM is readable without the helper; prefer a healthy local SMC read
+        // to avoid waking up the root helper process on every tick (which caused
+        // duplicate SMC reads, IPC context switching, and 10% root helper CPU churn).
         let localFans = localSMC?.fans ?? []
 
-        if helper.isConnected || helper.isHelperInstalled {
+        if !localFans.isEmpty, var local = localSMC {
+            local.temperatures = displayTemps
+            local.helperAvailable = helper.isHelperInstalled
+            snapshot = local
+            if helper.isHelperInstalled {
+                helperLaunchFailed = false
+                if fanControlUnavailableOnThisMac {
+                    targetFanPercent = 0
+                    loadBoostPercent = 0
+                    lastAppliedFanCommand = nil
+                    statusMessage = "Fan telemetry is unavailable on this Mac. Manual speed was not applied."
+                } else {
+                    statusMessage = nil
+                }
+                if !hasCompletedInitialHelperProbe || !helper.isConnected {
+                    helper.ping()
+                }
+            } else {
+                statusMessage = "Read-only (install helper to control fans)"
+            }
+        } else if helper.isConnected || helper.isHelperInstalled {
+            // Fallback: only call helper.fetchSnapshot() if local SMC failed to read fans
             do {
                 var remote = try await helper.fetchSnapshot()
                 remote.temperatures = displayTemps

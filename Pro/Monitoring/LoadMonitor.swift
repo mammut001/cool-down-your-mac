@@ -54,30 +54,24 @@ final class LoadMonitor: ObservableObject {
         lastBoostUpdateUptime = nil
     }
 
-    /// Uses kernel CPU tick deltas rather than `p_estcpu`, which is a stale
-    /// scheduler estimate and can remain zero while CPU-bound work is running.
+    /// Uses lightweight stack-allocated Mach host statistics rather than
+    /// `host_processor_info`, avoiding kernel vm_allocate/deallocate churn
+    /// on every sample tick.
     private func sampleSystemCPULoad() -> Double? {
-        var cpuCount: natural_t = 0
-        var info: processor_info_array_t?
-        var infoCount: mach_msg_type_number_t = 0
-        guard host_processor_info(
-            mach_host_self(),
-            PROCESSOR_CPU_LOAD_INFO,
-            &cpuCount,
-            &info,
-            &infoCount
-        ) == KERN_SUCCESS, let info else {
-            return nil
+        var count = mach_msg_type_number_t(MemoryLayout<host_cpu_load_info_data_t>.size / MemoryLayout<integer_t>.size)
+        var cpuInfo = host_cpu_load_info_data_t()
+        let result = withUnsafeMutablePointer(to: &cpuInfo) { ptr in
+            ptr.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { intPtr in
+                host_statistics(mach_host_self(), HOST_CPU_LOAD_INFO, intPtr, &count)
+            }
         }
-        defer {
-            vm_deallocate(
-                mach_task_self_,
-                vm_address_t(bitPattern: info),
-                vm_size_t(infoCount) * vm_size_t(MemoryLayout<integer_t>.stride)
-            )
-        }
+        guard result == KERN_SUCCESS else { return nil }
 
-        let ticks = UnsafeBufferPointer(start: info, count: Int(infoCount)).map { UInt32(bitPattern: $0) }
+        let user = UInt32(cpuInfo.cpu_ticks.0)
+        let system = UInt32(cpuInfo.cpu_ticks.1)
+        let idle = UInt32(cpuInfo.cpu_ticks.2)
+        let nice = UInt32(cpuInfo.cpu_ticks.3)
+        let ticks = [user, system, idle, nice]
         defer { previousCPUTicks = ticks }
         guard let previous = previousCPUTicks else { return 0 }
         return CPULoadCalculator.computeSystemLoadPercent(currentTicks: ticks, previousTicks: previous) ?? cpuLoadPercent
