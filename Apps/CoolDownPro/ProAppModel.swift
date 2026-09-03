@@ -154,11 +154,44 @@ final class ProAppModel: ObservableObject {
             .dropFirst()
             .sink { [weak self] _ in self?.applyLaunchAtLogin() }
             .store(in: &cancellables)
+
+        let ws = NSWorkspace.shared.notificationCenter
+        ws.publisher(for: NSWorkspace.screensDidSleepNotification)
+            .sink { [weak self] _ in self?.handleDisplaySleep(true) }
+            .store(in: &cancellables)
+        ws.publisher(for: NSWorkspace.screensDidWakeNotification)
+            .sink { [weak self] _ in self?.handleDisplaySleep(false) }
+            .store(in: &cancellables)
+        ws.publisher(for: NSWorkspace.willSleepNotification)
+            .sink { [weak self] _ in self?.handleSystemSleep() }
+            .store(in: &cancellables)
+        ws.publisher(for: NSWorkspace.didWakeNotification)
+            .sink { [weak self] _ in self?.handleSystemWake() }
+            .store(in: &cancellables)
+    }
+
+    private var isDisplayAsleep = false
+
+    private func handleDisplaySleep(_ asleep: Bool) {
+        guard isDisplayAsleep != asleep else { return }
+        isDisplayAsleep = asleep
+        startPolling()
+    }
+
+    private func handleSystemSleep() {
+        stopPolling()
+    }
+
+    private func handleSystemWake() {
+        DirectSMCReader.invalidateReadConnection()
+        CoolDownHIDTeardown()
+        startPolling()
     }
 
     func startPolling() {
         timer?.invalidate()
-        let interval = max(1.0, settings.settings.sampleIntervalSeconds)
+        let baseInterval = max(1.0, settings.settings.sampleIntervalSeconds)
+        let interval = isDisplayAsleep ? max(5.0, baseInterval * 2.5) : baseInterval
         let pollingTimer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 await self?.tick()
@@ -166,7 +199,9 @@ final class ProAppModel: ObservableObject {
         }
         RunLoop.main.add(pollingTimer, forMode: .common)
         timer = pollingTimer
-        Task { await tick() }
+        if !isDisplayAsleep {
+            Task { await tick() }
+        }
     }
 
     func stopPolling() {

@@ -24,7 +24,9 @@ static BOOL gSymbolsReady = NO;
 static os_unfair_lock gLock = OS_UNFAIR_LOCK_INIT;
 static CoolDownHIDClient gClient = NULL;
 static CFMutableArrayRef gServices = NULL;
-static NSMutableArray<NSString *> *gNames = nil;
+static NSArray<NSString *> *gUniqueNames = nil;
+static uint16_t *gServiceUniqueIndices = NULL;
+static CFIndex gServiceCount = 0;
 static NSTimeInterval gServicesUptime = 0;
 
 static const NSTimeInterval kHIDServiceRefreshSeconds = 45;
@@ -53,12 +55,16 @@ static void CoolDownHIDResetServicesLocked(void) {
         CFRelease(gServices);
         gServices = NULL;
     }
-    gNames = nil;
+    gUniqueNames = nil;
+    if (gServiceUniqueIndices) {
+        free(gServiceUniqueIndices);
+        gServiceUniqueIndices = NULL;
+    }
+    gServiceCount = 0;
 }
 
 static BOOL CoolDownHIDShouldRefreshServices(NSTimeInterval now) {
-    const CFIndex count = gServices ? CFArrayGetCount(gServices) : 0;
-    if (count > 0) {
+    if (gServiceCount > 0) {
         return now - gServicesUptime >= kHIDServiceRefreshSeconds;
     }
     if (gServicesUptime <= 0) {
@@ -113,9 +119,30 @@ static void CoolDownHIDRefreshServicesLocked(void) {
         CFRelease(services);
     }
 
+    CFIndex totalServices = CFArrayGetCount(nextServices);
+    NSMutableArray<NSString *> *uniqueNames = [NSMutableArray array];
+    NSMutableDictionary<NSString *, NSNumber *> *nameIndexMap = [NSMutableDictionary dictionary];
+    uint16_t *indices = totalServices > 0 ? (uint16_t *)malloc(sizeof(uint16_t) * totalServices) : NULL;
+
+    for (CFIndex i = 0; i < totalServices; i++) {
+        NSString *name = nextNames[i];
+        NSNumber *existingIndex = nameIndexMap[name];
+        uint16_t uIdx;
+        if (existingIndex != nil) {
+            uIdx = (uint16_t)existingIndex.unsignedIntegerValue;
+        } else {
+            uIdx = (uint16_t)uniqueNames.count;
+            nameIndexMap[name] = @(uIdx);
+            [uniqueNames addObject:name];
+        }
+        indices[i] = uIdx;
+    }
+
     CoolDownHIDResetServicesLocked();
     gServices = nextServices;
-    gNames = nextNames;
+    gUniqueNames = [uniqueNames copy];
+    gServiceUniqueIndices = indices;
+    gServiceCount = totalServices;
     gServicesUptime = [NSProcessInfo processInfo].systemUptime;
 }
 
@@ -132,7 +159,7 @@ NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
         CoolDownHIDRefreshServicesLocked();
     }
 
-    if (!gClient || !gServices || gNames.count == 0) {
+    if (!gClient || !gServices || gServiceCount == 0 || gUniqueNames.count == 0) {
         os_unfair_lock_unlock(&gLock);
         return @[];
     }
@@ -141,19 +168,18 @@ NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
     // the lock. Other callers that arrive during sampling will block only for
     // the brief snapshot copy, not for the full I/O sweep.
     CFArrayRef snapshotServices = CFRetain(gServices);
-    NSArray<NSString *> *snapshotNames = [gNames copy];
+    NSArray<NSString *> *snapshotUniqueNames = [gUniqueNames copy];
+    CFIndex total = gServiceCount;
+    uint16_t *snapshotIndices = (uint16_t *)malloc(sizeof(uint16_t) * total);
+    memcpy(snapshotIndices, gServiceUniqueIndices, sizeof(uint16_t) * total);
 
     os_unfair_lock_unlock(&gLock);
 
-    // Phase 2: Sample events outside the lock.
-    NSMutableDictionary<NSString *, NSNumber *> *sums = [NSMutableDictionary dictionary];
-    NSMutableDictionary<NSString *, NSNumber *> *counts = [NSMutableDictionary dictionary];
-    CFIndex total = CFArrayGetCount(snapshotServices);
-    CFIndex nameCount = (CFIndex)snapshotNames.count;
-    if (nameCount < total) {
-        total = nameCount;
-    }
-
+    // Phase 2: Sample events outside the lock using flat stack arrays.
+    // Zero heap allocation and zero dictionary hashing inside the hot loop.
+    NSUInteger uniqueCount = snapshotUniqueNames.count;
+    double *sums = (double *)calloc(uniqueCount, sizeof(double));
+    uint16_t *counts = (uint16_t *)calloc(uniqueCount, sizeof(uint16_t));
     NSInteger nullEventCount = 0;
 
     for (CFIndex i = 0; i < total; i++) {
@@ -169,12 +195,15 @@ NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
             continue;
         }
 
-        NSString *name = snapshotNames[i];
-        sums[name] = @((sums[name].doubleValue) + value);
-        counts[name] = @((counts[name].integerValue) + 1);
+        uint16_t uIdx = snapshotIndices[i];
+        if (uIdx < uniqueCount) {
+            sums[uIdx] += value;
+            counts[uIdx]++;
+        }
     }
 
     CFRelease(snapshotServices);
+    free(snapshotIndices);
 
     // Phase 3: If most events returned NULL the cached service handles are
     // likely stale (e.g. system sleep/wake cycle). Force a refresh on the
@@ -185,15 +214,17 @@ NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
         os_unfair_lock_unlock(&gLock);
     }
 
-    NSMutableArray<NSDictionary<NSString *, id> *> *results = [NSMutableArray array];
-    for (NSString *name in sums) {
-        NSInteger count = counts[name].integerValue;
-        if (count <= 0) {
-            continue;
+    NSMutableArray<NSDictionary<NSString *, id> *> *results = [NSMutableArray arrayWithCapacity:uniqueCount];
+    for (NSUInteger u = 0; u < uniqueCount; u++) {
+        if (counts[u] > 0) {
+            double avg = sums[u] / (double)counts[u];
+            [results addObject:@{@"name": snapshotUniqueNames[u], @"celsius": @(avg)}];
         }
-        double avg = sums[name].doubleValue / (double)count;
-        [results addObject:@{@"name": name, @"celsius": @(avg)}];
     }
+
+    free(sums);
+    free(counts);
+
     return results;
 }
 

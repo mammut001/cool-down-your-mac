@@ -78,7 +78,7 @@ enum DirectSMCReader {
         return kit
     }
 
-    private static func invalidateReadConnection() {
+    static func invalidateReadConnection() {
         state.lock.lock()
         state.kit?.invalidateCaches()
         state.kit = nil
