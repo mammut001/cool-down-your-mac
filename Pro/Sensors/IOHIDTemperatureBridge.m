@@ -146,9 +146,9 @@ static void CoolDownHIDRefreshServicesLocked(void) {
     gServicesUptime = [NSProcessInfo processInfo].systemUptime;
 }
 
-NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
-    if (!CoolDownLoadHIDSymbols()) {
-        return @[];
+void CoolDownEnumerateHIDTemperatures(void (NS_NOESCAPE ^block)(NSString *name, double celsius)) {
+    if (!CoolDownLoadHIDSymbols() || !block) {
+        return;
     }
 
     // Phase 1: Under lock, refresh if needed and snapshot the service list.
@@ -161,7 +161,7 @@ NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
 
     if (!gClient || !gServices || gServiceCount == 0 || gUniqueNames.count == 0) {
         os_unfair_lock_unlock(&gLock);
-        return @[];
+        return;
     }
 
     // Snapshot: retain current arrays so event sampling can proceed outside
@@ -214,17 +214,22 @@ NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
         os_unfair_lock_unlock(&gLock);
     }
 
-    NSMutableArray<NSDictionary<NSString *, id> *> *results = [NSMutableArray arrayWithCapacity:uniqueCount];
     for (NSUInteger u = 0; u < uniqueCount; u++) {
         if (counts[u] > 0) {
             double avg = sums[u] / (double)counts[u];
-            [results addObject:@{@"name": snapshotUniqueNames[u], @"celsius": @(avg)}];
+            block(snapshotUniqueNames[u], avg);
         }
     }
 
     free(sums);
     free(counts);
+}
 
+NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
+    NSMutableArray<NSDictionary<NSString *, id> *> *results = [NSMutableArray array];
+    CoolDownEnumerateHIDTemperatures(^(NSString *name, double celsius) {
+        [results addObject:@{@"name": name, @"celsius": @(celsius)}];
+    });
     return results;
 }
 

@@ -303,8 +303,10 @@ final class ProAppModel: ObservableObject {
         hasCompletedInitialHelperProbe = true
         presentInitialHelperSetupIfNeeded()
 
-        let finite = controlTemps.map(\.celsius).filter { $0.isFinite && $0 > 0 && $0 < 150 }
-        controlTemperatureC = finite.max()
+        let newControlTemp = controlTemps.map(\.celsius).filter { $0.isFinite && $0 > 0 && $0 < 150 }.max()
+        if controlTemperatureC != newControlTemp {
+            controlTemperatureC = newControlTemp
+        }
     }
 
     private func presentInitialHelperSetupIfNeeded() {
@@ -368,8 +370,8 @@ final class ProAppModel: ObservableObject {
         do {
             switch mode {
             case .systemAuto:
-                targetFanPercent = 0
-                loadBoostPercent = 0
+                if targetFanPercent != 0 { targetFanPercent = 0 }
+                if loadBoostPercent != 0 { loadBoostPercent = 0 }
                 curveEngine.reset()
                 loadMonitor.resetFanBoost()
                 try await applyFanWrite(
@@ -378,11 +380,11 @@ final class ProAppModel: ObservableObject {
                     remote: { try await helper.setFansAuto() }
                 )
             case .manual:
-                loadBoostPercent = 0
-                targetFanPercent = settings.settings.manualPercent
+                if loadBoostPercent != 0 { loadBoostPercent = 0 }
+                let percent = settings.settings.manualPercent
+                if abs(targetFanPercent - percent) > 0.001 { targetFanPercent = percent }
                 curveEngine.reset()
                 loadMonitor.resetFanBoost()
-                let percent = settings.settings.manualPercent
                 try await applyFanWrite(
                     commandKey: String(format: "manual-%.3f", percent),
                     generation: generation,
@@ -401,13 +403,17 @@ final class ProAppModel: ObservableObject {
                     threshold: settings.settings.loadBoostThreshold,
                     boostMax: settings.settings.loadBoostMax
                 )
-                loadBoostPercent = boost
+                if abs(loadBoostPercent - boost) > 0.001 {
+                    loadBoostPercent = boost
+                }
                 let percent = curveEngine.targetPercent(
                     temperatureC: temp,
                     profile: settings.settings.curve,
                     loadBoost: boost
                 )
-                targetFanPercent = percent
+                if abs(targetFanPercent - percent) > 0.001 {
+                    targetFanPercent = percent
+                }
                 try await applyFanWrite(
                     commandKey: String(format: "smart-%.3f", percent),
                     generation: generation,

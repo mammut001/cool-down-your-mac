@@ -7,24 +7,11 @@ import CoolDownKit
 enum IOHIDTemperatureReader {
     static func readAll() -> [TemperatureReading] {
         #if arch(arm64)
-        let rows = CoolDownCopyHIDTemperatures()
         var raw: [(String, Double)] = []
-        raw.reserveCapacity(rows.count)
-
-        for case let row as NSDictionary in rows {
-            guard let name = row["name"] as? String else { continue }
-            let celsius: Double?
-            if let number = row["celsius"] as? NSNumber {
-                celsius = number.doubleValue
-            } else if let value = row["celsius"] as? Double {
-                celsius = value
-            } else {
-                celsius = nil
-            }
-            guard let celsius else { continue }
+        raw.reserveCapacity(64)
+        CoolDownEnumerateHIDTemperatures { name, celsius in
             raw.append((name, celsius))
         }
-
         return SensorNameMapper.map(rawReadings: raw)
         #else
         // Intel Macs do not expose the Apple Silicon IOHID thermal services.
