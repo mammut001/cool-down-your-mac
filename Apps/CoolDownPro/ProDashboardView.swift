@@ -38,7 +38,11 @@ struct ProDashboardView: View {
             // without using Terminal. The menu-bar extra stays available.
             NSApp.setActivationPolicy(.regular)
             NSApp.activate(ignoringOtherApps: true)
+            model.isDashboardVisible = true
             Task { await model.tick() }
+        }
+        .onDisappear {
+            model.isDashboardVisible = false
         }
         .onReceive(NotificationCenter.default.publisher(for: .coolDownOpenFanCurve)) { _ in
             selectedTab = .fanCurve

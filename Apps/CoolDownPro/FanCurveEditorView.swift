@@ -220,8 +220,15 @@ struct FanCurveEditorView: View {
         return settings.settings.curve.points.first { $0.id == selectedID }
     }
 
+    private var sortedPoints: [CurvePoint] {
+        settings.settings.curve.points.sorted { $0.temperatureC < $1.temperatureC }
+    }
+
+    private static let curveStroke = StrokeStyle(lineWidth: 2.5, lineJoin: .round)
+    private static let dashedGuideStroke = StrokeStyle(lineWidth: 1, dash: [4, 3])
+
     private var selectedTemperatureRange: ClosedRange<Double> {
-        let points = settings.settings.curve.points.sorted { $0.temperatureC < $1.temperatureC }
+        let points = sortedPoints
         guard let selectedID,
               let index = points.firstIndex(where: { $0.id == selectedID }) else { return tempRange }
         let lower = index == 0 ? tempRange.lowerBound : points[index - 1].temperatureC + 1
@@ -245,7 +252,7 @@ struct FanCurveEditorView: View {
 
     private var selectedFanRange: ClosedRange<Double> {
         guard let selectedID else { return fanRange }
-        let points = settings.settings.curve.points.sorted { $0.temperatureC < $1.temperatureC }
+        let points = sortedPoints
         guard let index = points.firstIndex(where: { $0.id == selectedID }) else { return fanRange }
         let lower = index == 0 ? fanRange.lowerBound : points[index - 1].fanPercent
         let upper = index == points.count - 1 ? fanRange.upperBound : points[index + 1].fanPercent
@@ -259,6 +266,7 @@ struct FanCurveEditorView: View {
                 width: max(0, geo.size.width - pad * 2),
                 height: max(0, geo.size.height - pad * 2)
             )
+            let points = sortedPoints
 
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -279,7 +287,6 @@ struct FanCurveEditorView: View {
                     }
                     context.stroke(grid, with: .color(.secondary.opacity(0.2)), lineWidth: 1)
 
-                    let points = settings.settings.curve.points.sorted { $0.temperatureC < $1.temperatureC }
                     if points.count >= 2 {
                         var curve = Path()
                         for (index, point) in points.enumerated() {
@@ -289,7 +296,7 @@ struct FanCurveEditorView: View {
                         context.stroke(
                             curve,
                             with: .color(CoolDownTheme.accent),
-                            style: StrokeStyle(lineWidth: 2.5, lineJoin: .round)
+                            style: Self.curveStroke
                         )
                     }
 
@@ -301,7 +308,7 @@ struct FanCurveEditorView: View {
                         context.stroke(
                             v,
                             with: .color(CoolDownTheme.warning.opacity(0.85)),
-                            style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+                            style: Self.dashedGuideStroke
                         )
                     }
 
@@ -313,7 +320,7 @@ struct FanCurveEditorView: View {
                         context.stroke(
                             h,
                             with: .color(CoolDownTheme.calm.opacity(0.9)),
-                            style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+                            style: Self.dashedGuideStroke
                         )
                     }
 

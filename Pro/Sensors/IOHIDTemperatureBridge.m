@@ -170,16 +170,27 @@ void CoolDownEnumerateHIDTemperatures(void (NS_NOESCAPE ^block)(NSString *name, 
     CFArrayRef snapshotServices = CFRetain(gServices);
     NSArray<NSString *> *snapshotUniqueNames = [gUniqueNames copy];
     CFIndex total = gServiceCount;
-    uint16_t *snapshotIndices = (uint16_t *)malloc(sizeof(uint16_t) * total);
+
+    #define STACK_CAPACITY 256
+    uint16_t stackIndices[STACK_CAPACITY];
+    uint16_t *snapshotIndices = (total <= STACK_CAPACITY)
+        ? stackIndices
+        : (uint16_t *)malloc(sizeof(uint16_t) * total);
     memcpy(snapshotIndices, gServiceUniqueIndices, sizeof(uint16_t) * total);
 
     os_unfair_lock_unlock(&gLock);
 
-    // Phase 2: Sample events outside the lock using flat stack arrays.
-    // Zero heap allocation and zero dictionary hashing inside the hot loop.
+    // Phase 2: Sample events outside the lock using stack buffers.
+    // Zero heap allocation and zero memory fragmentation inside the hot loop.
     NSUInteger uniqueCount = snapshotUniqueNames.count;
-    double *sums = (double *)calloc(uniqueCount, sizeof(double));
-    uint16_t *counts = (uint16_t *)calloc(uniqueCount, sizeof(uint16_t));
+    double stackSums[STACK_CAPACITY] = {0};
+    uint16_t stackCounts[STACK_CAPACITY] = {0};
+    double *sums = (uniqueCount <= STACK_CAPACITY)
+        ? stackSums
+        : (double *)calloc(uniqueCount, sizeof(double));
+    uint16_t *counts = (uniqueCount <= STACK_CAPACITY)
+        ? stackCounts
+        : (uint16_t *)calloc(uniqueCount, sizeof(uint16_t));
     NSInteger nullEventCount = 0;
 
     for (CFIndex i = 0; i < total; i++) {
@@ -203,7 +214,9 @@ void CoolDownEnumerateHIDTemperatures(void (NS_NOESCAPE ^block)(NSString *name, 
     }
 
     CFRelease(snapshotServices);
-    free(snapshotIndices);
+    if (snapshotIndices != stackIndices) {
+        free(snapshotIndices);
+    }
 
     // Phase 3: If most events returned NULL the cached service handles are
     // likely stale (e.g. system sleep/wake cycle). Force a refresh on the
@@ -221,8 +234,12 @@ void CoolDownEnumerateHIDTemperatures(void (NS_NOESCAPE ^block)(NSString *name, 
         }
     }
 
-    free(sums);
-    free(counts);
+    if (sums != stackSums) {
+        free(sums);
+    }
+    if (counts != stackCounts) {
+        free(counts);
+    }
 }
 
 NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {

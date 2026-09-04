@@ -9,7 +9,7 @@ final class LoadMonitor: ObservableObject {
     @Published private(set) var hottestProcessPercent: Double = 0
     @Published private(set) var hottestProcessName: String = "—"
 
-    private var previousCPUTicks: [UInt32]?
+    private var previousCPUTicksTuple: (UInt32, UInt32, UInt32, UInt32)?
     private var loadAboveThresholdSince: TimeInterval?
     private var smoothedFanBoost: Double = 0
     private var lastBoostUpdateUptime: TimeInterval?
@@ -71,10 +71,17 @@ final class LoadMonitor: ObservableObject {
         let system = UInt32(cpuInfo.cpu_ticks.1)
         let idle = UInt32(cpuInfo.cpu_ticks.2)
         let nice = UInt32(cpuInfo.cpu_ticks.3)
-        let ticks = [user, system, idle, nice]
-        defer { previousCPUTicks = ticks }
-        guard let previous = previousCPUTicks else { return 0 }
-        return CPULoadCalculator.computeSystemLoadPercent(currentTicks: ticks, previousTicks: previous) ?? cpuLoadPercent
+        defer { previousCPUTicksTuple = (user, system, idle, nice) }
+        guard let prev = previousCPUTicksTuple else { return 0 }
+
+        let dUser = user &- prev.0
+        let dSystem = system &- prev.1
+        let dIdle = idle &- prev.2
+        let dNice = nice &- prev.3
+        let busy = UInt64(dUser) + UInt64(dSystem) + UInt64(dNice)
+        let total = busy + UInt64(dIdle)
+        guard total > 0 else { return cpuLoadPercent }
+        return (Double(busy) / Double(total)) * 100.0
     }
 
     /// Returns a smoothed 0...boostMax value based on sustained *system* CPU

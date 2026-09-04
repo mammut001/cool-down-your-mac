@@ -7,14 +7,19 @@ public final class SettingsStore: ObservableObject {
 
     private let defaults: UserDefaults
     private var persistenceCancellable: AnyCancellable?
+    private let encoder = JSONEncoder()
+    private var lastPersistedSettings: AppSettings?
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         if let data = defaults.data(forKey: AppSettings.storageKey),
            let decoded = try? JSONDecoder().decode(AppSettings.self, from: data) {
             self.settings = decoded
+            self.lastPersistedSettings = decoded
         } else {
-            self.settings = AppSettings()
+            let initial = AppSettings()
+            self.settings = initial
+            self.lastPersistedSettings = initial
         }
         persistenceCancellable = $settings
             .dropFirst()
@@ -26,7 +31,9 @@ public final class SettingsStore: ObservableObject {
     }
 
     private func persist(_ settings: AppSettings) {
-        guard let data = try? JSONEncoder().encode(settings) else { return }
+        guard settings != lastPersistedSettings else { return }
+        guard let data = try? encoder.encode(settings) else { return }
+        lastPersistedSettings = settings
         defaults.set(data, forKey: AppSettings.storageKey)
     }
 

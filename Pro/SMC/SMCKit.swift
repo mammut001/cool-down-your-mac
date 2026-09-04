@@ -455,9 +455,12 @@ final class SMCKit {
             &output,
             &outputSize
         )
-        let key = fourCCString(input.key)
-        guard kr == KERN_SUCCESS else { throw SMCError.ioFailed(key) }
-        guard output.result == 0 else { throw SMCError.keyNotFound(key) }
+        guard kr == KERN_SUCCESS else {
+            throw SMCError.ioFailed(fourCCString(input.key))
+        }
+        guard output.result == 0 else {
+            throw SMCError.keyNotFound(fourCCString(input.key))
+        }
     }
 
     private func nativeFloat(_ bytes: [UInt8]) -> Float {
@@ -471,11 +474,16 @@ final class SMCKit {
     }
 
     private func fourCC(_ string: String) -> UInt32 {
-        var padded = string
-        while padded.utf8.count < 4 { padded.append(" ") }
         var result: UInt32 = 0
-        for scalar in padded.utf8.prefix(4) {
-            result = (result << 8) | UInt32(scalar)
+        var count = 0
+        for byte in string.utf8 {
+            if count == 4 { break }
+            result = (result << 8) | UInt32(byte)
+            count += 1
+        }
+        while count < 4 {
+            result = (result << 8) | 0x20
+            count += 1
         }
         return result
     }

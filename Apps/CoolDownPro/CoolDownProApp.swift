@@ -81,7 +81,7 @@ extension Notification.Name {
     static let coolDownOpenFanCurve = Notification.Name("coolDownOpenFanCurve")
 }
 
-struct ProMenuBarLabel: View {
+struct ProMenuBarLabel: View, Equatable {
     let title: String
     var body: some View {
         HStack(spacing: 4) {
@@ -101,6 +101,7 @@ private struct DashboardLaunchLabel: View {
 
     var body: some View {
         ProMenuBarLabel(title: model.menuBarTitle)
+            .equatable()
             .onReceive(NotificationCenter.default.publisher(for: .coolDownOpenDashboard)) { _ in
                 openWindow(id: "dashboard")
                 NSApp.activate(ignoringOtherApps: true)

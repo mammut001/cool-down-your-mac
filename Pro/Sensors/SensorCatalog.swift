@@ -151,18 +151,26 @@ enum SensorCatalog {
             addSMC("TN00", name: "SSD", group: .storage)
         }
 
-        // Stable display order matching the reference app.
-        let order: [String] = [
-            "Airport Proximity",
-            "Battery",
-            "Battery Gas Gauge",
-            "CPU Core Average"
-        ]
         return list.sorted { lhs, rhs in
-            let li = order.firstIndex(of: lhs.name) ?? (lhs.name.hasPrefix("CPU Performance") ? 10 : lhs.name.hasPrefix("CPU Super") ? 20 : lhs.name.hasPrefix("GPU") ? 30 : 40)
-            let ri = order.firstIndex(of: rhs.name) ?? (rhs.name.hasPrefix("CPU Performance") ? 10 : rhs.name.hasPrefix("CPU Super") ? 20 : rhs.name.hasPrefix("GPU") ? 30 : 40)
+            let li = displayRank(for: lhs.name)
+            let ri = displayRank(for: rhs.name)
             if li != ri { return li < ri }
             return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+        }
+    }
+
+    @inline(__always)
+    private static func displayRank(for name: String) -> Int {
+        switch name {
+        case "Airport Proximity": return 0
+        case "Battery": return 1
+        case "Battery Gas Gauge": return 2
+        case "CPU Core Average": return 3
+        default:
+            if name.hasPrefix("CPU Performance") { return 10 }
+            if name.hasPrefix("CPU Super") { return 20 }
+            if name.hasPrefix("GPU") { return 30 }
+            return 40
         }
     }
 

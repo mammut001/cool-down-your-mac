@@ -20,6 +20,7 @@ final class ProAppModel: ObservableObject {
 
     @Published var snapshot = SensorSnapshot()
     @Published var showAllSensors = false
+    @Published var isDashboardVisible = false
     @Published var statusMessage: String?
     @Published var isBusy = false
     @Published var targetFanPercent: Double = 0
@@ -240,7 +241,7 @@ final class ProAppModel: ObservableObject {
     }
 
     func refreshSnapshot() async {
-        let showAll = showAllSensors
+        let showAll = showAllSensors && isDashboardVisible
         let (localSMC, displayTemps, controlTemps) = await Task.detached(priority: .utility) {
             let hidTemps = IOHIDTemperatureReader.readAll()
             let localSMC = DirectSMCReader.readSnapshot()

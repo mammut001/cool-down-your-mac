@@ -179,7 +179,7 @@ public struct CurveProfile: Codable, Hashable, Sendable {
     }
 
     public func fanPercent(for temperatureC: Double) -> Double {
-        let sorted = Self.normalized(points)
+        let sorted = points
         guard let first = sorted.first else { return 0.3 }
         if temperatureC <= first.temperatureC { return first.fanPercent }
         guard let last = sorted.last else { return first.fanPercent }
@@ -246,7 +246,15 @@ public struct SensorSnapshot: Codable, Hashable, Sendable {
     }
 
     public var maxTemperatureC: Double? {
-        controlTemperatures.map(\.celsius).max() ?? temperatures.map(\.celsius).max()
+        var maxTemp: Double?
+        for t in temperatures {
+            let val = t.celsius
+            guard val.isFinite, val > 0, val < 150 else { continue }
+            if maxTemp == nil || val > maxTemp! {
+                maxTemp = val
+            }
+        }
+        return maxTemp
     }
 
     /// User-facing temperature: prefer the calculated CPU average so the
@@ -256,9 +264,14 @@ public struct SensorSnapshot: Codable, Hashable, Sendable {
         if let average = temperatures.first(where: { $0.key == "calc.cpu.avg" || $0.key == "hid.cpu.avg" }) {
             return average.celsius
         }
-        let cpuTemperatures = temperatures.filter { $0.group == .cpu }
-        if !cpuTemperatures.isEmpty {
-            return cpuTemperatures.map(\.celsius).reduce(0, +) / Double(cpuTemperatures.count)
+        var cpuSum = 0.0
+        var cpuCount = 0
+        for t in temperatures where t.group == .cpu {
+            cpuSum += t.celsius
+            cpuCount += 1
+        }
+        if cpuCount > 0 {
+            return cpuSum / Double(cpuCount)
         }
         return maxTemperatureC
     }
@@ -266,9 +279,21 @@ public struct SensorSnapshot: Codable, Hashable, Sendable {
     /// Thermal-control temperature: use the hottest valid CPU/GPU reading so
     /// a local hotspot cannot be hidden by the display average.
     public var thermalControlTemperatureC: Double? {
-        let temps = controlTemperatures.map(\.celsius).filter { $0.isFinite && $0 > 0 && $0 < 150 }
-        if let hottest = temps.max() { return hottest }
-        return temperatures.map(\.celsius).filter { $0.isFinite && $0 > 0 && $0 < 150 }.max()
+        var controlMax: Double?
+        var anyMax: Double?
+        for t in temperatures {
+            let val = t.celsius
+            guard val.isFinite, val > 0, val < 150 else { continue }
+            if anyMax == nil || val > anyMax! {
+                anyMax = val
+            }
+            if t.group.affectsThermalControl {
+                if controlMax == nil || val > controlMax! {
+                    controlMax = val
+                }
+            }
+        }
+        return controlMax ?? anyMax
     }
 
     public var controlTemperatures: [TemperatureReading] {
