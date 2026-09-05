@@ -272,20 +272,61 @@ final class SMCKit {
         var discovered: [SMCTempKey] = []
         let count = (try? keyCount()) ?? 0
         if count > 0 {
-            discovered.reserveCapacity(min(count, 128))
-            for index in 0..<count {
-                guard let key = try? keyAt(index: index), SMCKnownNames.isTemperatureKey(key) else { continue }
-                guard let info = try? keyInfo(key: key) else { continue }
-                discovered.append(SMCTempKey(key: key, type: info.type, size: info.size))
+            // Binary search to find the start of 'T' keys in the sorted SMC key table
+            var low = 0
+            var high = count - 1
+            var firstTIndex = -1
+            while low <= high {
+                let mid = (low + high) / 2
+                guard let key = try? keyAt(index: mid), !key.isEmpty else { break }
+                if key >= "T" {
+                    if SMCKnownNames.isTemperatureKey(key) {
+                        firstTIndex = mid
+                    }
+                    high = mid - 1
+                } else {
+                    low = mid + 1
+                }
             }
-        } else {
+
+            if firstTIndex >= 0 {
+                var idx = firstTIndex
+                while idx < count {
+                    guard let key = try? keyAt(index: idx), !key.isEmpty else { break }
+                    if !SMCKnownNames.isTemperatureKey(key) {
+                        if key > "T" { break }
+                        idx += 1
+                        continue
+                    }
+                    if let info = try? keyInfo(key: key) {
+                        discovered.append(SMCTempKey(key: key, type: info.type, size: info.size))
+                    }
+                    idx += 1
+                }
+            }
+
+            // Fallback: if binary search found nothing (e.g. non-standard key ordering), scan linearly
+            if discovered.isEmpty {
+                for index in 0..<min(count, 2048) {
+                    guard let key = try? keyAt(index: index), SMCKnownNames.isTemperatureKey(key) else { continue }
+                    guard let info = try? keyInfo(key: key) else { continue }
+                    discovered.append(SMCTempKey(key: key, type: info.type, size: info.size))
+                }
+            }
+        }
+
+        // Fallback: probe known static keys (crucial on Intel if #KEY is unavailable or incomplete)
+        if discovered.isEmpty {
             for entry in SMCKnownNames.fallbackKeys {
                 guard let info = try? keyInfo(key: entry.key) else { continue }
                 discovered.append(SMCTempKey(key: entry.key, type: info.type, size: info.size))
             }
         }
-        cachedTemperatureKeys = discovered
-        cachedTemperatureKeysUptime = now
+
+        if !discovered.isEmpty {
+            cachedTemperatureKeys = discovered
+            cachedTemperatureKeysUptime = now
+        }
         return discovered
     }
 
@@ -310,7 +351,7 @@ final class SMCKit {
     private func keyCount() throws -> Int {
         let bytes = try readBytes(key: "#KEY")
         let count = (UInt32(bytes[0]) << 24) | (UInt32(bytes[1]) << 16) | (UInt32(bytes[2]) << 8) | UInt32(bytes[3])
-        return min(Int(count), 512)
+        return min(Int(count), 4096)
     }
 
     private func keyAt(index: Int) throws -> String {
@@ -346,6 +387,13 @@ final class SMCKit {
         if type.hasPrefix("sp"), size >= 2 {
             let hi = Int8(bitPattern: bytes[0])
             return Double(hi) + Double(bytes[1]) / 256.0
+        }
+        if type == "ui8 ", size >= 1 {
+            return Double(bytes[0])
+        }
+        if type == "ui16", size >= 2 {
+            let raw = (UInt16(bytes[0]) << 8) | UInt16(bytes[1])
+            return Double(raw)
         }
         throw SMCError.ioFailed(key)
     }

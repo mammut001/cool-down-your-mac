@@ -117,4 +117,40 @@ final class SensorCatalogTests: XCTestCase {
         XCTAssertFalse(SMCKnownNames.isTemperatureKey("F0Ac"))
         XCTAssertFalse(SMCKnownNames.isTemperatureKey(""))
     }
+
+    func testIntelSMCSensorsAreCuratedWithFriendlyNamesAndAverage() {
+        let tc0p = TemperatureReading(key: "TC0P", name: "TC0P", celsius: 65, group: .cpu)
+        let tc1c = TemperatureReading(key: "TC1C", name: "TC1C", celsius: 70, group: .cpu)
+        let tc2c = TemperatureReading(key: "TC2C", name: "TC2C", celsius: 72, group: .cpu)
+        let tg0p = TemperatureReading(key: "TG0P", name: "TG0P", celsius: 55, group: .gpu)
+        let tm0p = TemperatureReading(key: "TM0P", name: "TM0P", celsius: 48, group: .other)
+
+        let smcTemps = [tc0p, tc1c, tc2c, tg0p, tm0p].map(SensorMerge.annotateSMC)
+        let curated = SensorCatalog.curated(smc: smcTemps, hid: [])
+
+        // CPU average should be computed
+        let avg = curated.first(where: { $0.key == "calc.cpu.avg" })
+        XCTAssertNotNil(avg)
+        XCTAssertEqual(avg?.celsius ?? 0, (65.0 + 70.0 + 72.0) / 3.0, accuracy: 0.0001)
+
+        // Intel sensors should retain friendly names
+        XCTAssertTrue(curated.contains(where: { $0.name == "CPU Proximity" }))
+        XCTAssertTrue(curated.contains(where: { $0.name == "CPU Core 1" }))
+        XCTAssertTrue(curated.contains(where: { $0.name == "CPU Core 2" }))
+        XCTAssertTrue(curated.contains(where: { $0.name == "GPU Proximity" }))
+        XCTAssertTrue(curated.contains(where: { $0.name == "Memory Proximity" }))
+
+        // CPU should not be labeled "CPU Performance Core" on Intel
+        XCTAssertFalse(curated.contains(where: { $0.name.contains("Performance Core") }))
+    }
+
+    func testIntelKnownNamesMapping() {
+        XCTAssertEqual(SMCKnownNames.name(for: "TC0P"), "CPU Proximity")
+        XCTAssertEqual(SMCKnownNames.name(for: "TC0D"), "CPU Die")
+        XCTAssertEqual(SMCKnownNames.name(for: "TC1C"), "CPU Core 1")
+        XCTAssertEqual(SMCKnownNames.name(for: "TC8C"), "CPU Core 8")
+        XCTAssertEqual(SMCKnownNames.name(for: "TG0P"), "GPU Proximity")
+        XCTAssertEqual(SMCKnownNames.name(for: "TM0P"), "Memory Proximity")
+        XCTAssertEqual(SMCKnownNames.name(for: "TN0P"), "Platform Controller Hub")
+    }
 }

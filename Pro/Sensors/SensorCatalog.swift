@@ -45,22 +45,37 @@ enum SensorCatalog {
         }
         let orderedCPU = primaryCPU.isEmpty ? Array(cpuKeys.prefix(18)) : Array(primaryCPU.prefix(18))
 
-        let performanceCount = min(12, orderedCPU.count)
-        for (index, reading) in orderedCPU.enumerated() {
-            if index < performanceCount {
-                list.append(
-                    TemperatureReading(
-                        key: reading.key,
-                        name: "CPU Performance Core \(index + 1)",
-                        celsius: reading.celsius,
-                        group: .cpu
+        let isAppleSiliconSMC = orderedCPU.contains { $0.key.hasPrefix("Tp") || $0.key.hasPrefix("Te") }
+        if isAppleSiliconSMC {
+            let performanceCount = min(12, orderedCPU.count)
+            for (index, reading) in orderedCPU.enumerated() {
+                if index < performanceCount {
+                    list.append(
+                        TemperatureReading(
+                            key: reading.key,
+                            name: "CPU Performance Core \(index + 1)",
+                            celsius: reading.celsius,
+                            group: .cpu
+                        )
                     )
-                )
-            } else {
+                } else {
+                    list.append(
+                        TemperatureReading(
+                            key: reading.key,
+                            name: "CPU Super Core \(index - performanceCount + 1)",
+                            celsius: reading.celsius,
+                            group: .cpu
+                        )
+                    )
+                }
+            }
+        } else {
+            for reading in orderedCPU {
+                let friendly = reading.name != reading.key ? reading.name : SMCKnownNames.name(for: reading.key)
                 list.append(
                     TemperatureReading(
                         key: reading.key,
-                        name: "CPU Super Core \(index - performanceCount + 1)",
+                        name: friendly,
                         celsius: reading.celsius,
                         group: .cpu
                     )
@@ -103,12 +118,16 @@ enum SensorCatalog {
             let hidGPU = hid.filter { $0.group == .gpu && $0.celsius.isFinite && $0.celsius > 5 && $0.celsius < 150 }
             list.append(contentsOf: hidGPU.prefix(4))
         } else if !gpuKeys.isEmpty {
+            let isAppleSiliconGPU = gpuKeys.contains { $0.key.hasPrefix("Tg") }
             let picks = evenlyPick(gpuKeys, count: min(4, gpuKeys.count))
             for (index, reading) in picks.enumerated() {
+                let name = isAppleSiliconGPU
+                    ? "GPU Cluster \(index + 1)"
+                    : (reading.name != reading.key ? reading.name : SMCKnownNames.name(for: reading.key))
                 list.append(
                     TemperatureReading(
                         key: reading.key,
-                        name: "GPU Cluster \(index + 1)",
+                        name: name,
                         celsius: reading.celsius,
                         group: .gpu
                     )
@@ -137,6 +156,10 @@ enum SensorCatalog {
 
         addSMC("Ts0P", name: "Trackpad", group: .other)
         addSMC("Ts1P", name: "Trackpad Actuator", group: .other)
+        addSMC("TM0P", name: "Memory Proximity", group: .other)
+        addSMC("TA0P", name: "Ambient Airflow", group: .other)
+        addSMC("TN0P", name: "Platform Controller Hub", group: .other)
+        addSMC("Th0H", name: "Heatsink", group: .other)
 
         if let nand = hid.first(where: { $0.name.localizedCaseInsensitiveContains("NAND") || $0.name.localizedCaseInsensitiveContains("SSD") }) {
             list.append(
@@ -167,8 +190,7 @@ enum SensorCatalog {
         case "Battery Gas Gauge": return 2
         case "CPU Core Average": return 3
         default:
-            if name.hasPrefix("CPU Performance") { return 10 }
-            if name.hasPrefix("CPU Super") { return 20 }
+            if name.hasPrefix("CPU") { return 10 }
             if name.hasPrefix("GPU") { return 30 }
             return 40
         }
