@@ -36,6 +36,7 @@ struct FanCurveEditorView: View {
         }
         .padding(20)
         }
+        .glassContainerIfAvailable()
         .background(GlassBackdrop())
         .confirmationDialog(
             "Reset the fan curve?",
@@ -168,7 +169,7 @@ struct FanCurveEditorView: View {
                 confirmingCurveReset = true
             }
         }
-        .buttonStyle(.bordered)
+        .liquidGlassButtonStyle(prominent: false)
         .controlSize(.small)
     }
 

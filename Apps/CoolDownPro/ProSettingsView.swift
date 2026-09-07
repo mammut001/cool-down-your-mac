@@ -71,6 +71,7 @@ struct ProSettingsView: View {
                     model.performHelperAction()
                 }
                 .disabled(!model.helperActionIsEnabled)
+                .liquidGlassButtonStyle(prominent: !model.helperControlIsReady)
                 .help("Installs or repairs the privileged helper used to control fan speed.")
                 Text("macOS asks for an administrator password on first install and explicit repairs only.")
                     .font(.caption)
@@ -85,6 +86,7 @@ struct ProSettingsView: View {
             Section("Smart Curve") {
                 LabeledContent {
                     Button("Open Fan Curve…") { openFanCurve() }
+                        .liquidGlassButtonStyle(prominent: false)
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Curve editor")
@@ -153,6 +155,7 @@ struct ProSettingsView: View {
                     updateController.checkForUpdates()
                 }
                 .disabled(!updateController.canCheckForUpdates)
+                .liquidGlassButtonStyle(prominent: false)
                 Text("Updates are cryptographically signed via Sparkle EdDSA and verified with Apple Developer ID / Notarization.")
                     .font(.caption)
                     .foregroundStyle(.secondary)

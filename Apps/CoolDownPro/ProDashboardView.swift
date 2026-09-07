@@ -61,6 +61,7 @@ struct ProDashboardView: View {
             }
             .padding(20)
         }
+        .glassContainerIfAvailable()
     }
 
     private var sensorsHeader: some View {
@@ -130,6 +131,7 @@ struct ProDashboardView: View {
                     model.performHelperAction()
                 }
                 .disabled(model.isBusy)
+                .liquidGlassButtonStyle(prominent: true)
                 .controlSize(.small)
             }
         }

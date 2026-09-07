@@ -18,7 +18,7 @@ struct ProMenuBarView: View {
                 Label("Open Cool Down Pro", systemImage: "macwindow")
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .buttonStyle(.borderedProminent)
+            .liquidGlassButtonStyle(prominent: true)
             .tint(CoolDownTheme.accent)
             .controlSize(.regular)
 
@@ -119,11 +119,12 @@ struct ProMenuBarView: View {
                             model.performHelperAction()
                         }
                         .disabled(model.isBusy)
+                        .liquidGlassButtonStyle(prominent: true)
                         .controlSize(.mini)
                     }
                 }
                 .padding(8)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
 
             HStack {
@@ -144,11 +145,12 @@ struct ProMenuBarView: View {
             Button("Quit Cool Down Pro") {
                 NSApplication.shared.terminate(nil)
             }
-            .buttonStyle(.bordered)
+            .liquidGlassButtonStyle(prominent: false)
             .controlSize(.small)
             .frame(maxWidth: .infinity, alignment: .leading)
             .help("Stops background monitoring so the app can be deleted or replaced.")
         }
+        .glassContainerIfAvailable()
         .padding(14)
         .frame(width: 340)
         .background(GlassBackdrop())
