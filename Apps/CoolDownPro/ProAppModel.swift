@@ -7,6 +7,23 @@ import UserNotifications
 import os
 
 @MainActor
+final class MenuBarTitleModel: ObservableObject {
+    @Published private(set) var title: String
+    private var lastRecordedTitle: String
+
+    init(initialTitle: String = "") {
+        self.title = initialTitle
+        self.lastRecordedTitle = initialTitle
+    }
+
+    func update(title newTitle: String) {
+        guard newTitle != lastRecordedTitle else { return }
+        lastRecordedTitle = newTitle
+        title = newTitle
+    }
+}
+
+@MainActor
 final class ProAppModel: ObservableObject {
     #if DEBUG
     private let smartCurveLogger = Logger(subsystem: "com.cooldown.CoolDownPro", category: "SmartCurve")
@@ -30,6 +47,7 @@ final class ProAppModel: ObservableObject {
     @Published private(set) var helperLaunchFailed = false
     @Published private(set) var hasCompletedInitialHelperProbe = false
 
+    let menuBarTitleModel = MenuBarTitleModel()
     let settings = SettingsStore()
     let helper = HelperClient.shared
     let loadMonitor = LoadMonitor()
@@ -132,6 +150,7 @@ final class ProAppModel: ObservableObject {
         }
         helper.reconnect()
         applyLaunchAtLogin()
+        menuBarTitleModel.update(title: menuBarTitle)
         startPolling()
         helper.objectWillChange
             .receive(on: RunLoop.main)
@@ -231,6 +250,7 @@ final class ProAppModel: ObservableObject {
         await refreshSnapshot()
         await applyControlPolicy()
         evaluateAlerts()
+        menuBarTitleModel.update(title: menuBarTitle)
     }
 
     private var shouldSampleCPULoad: Bool {

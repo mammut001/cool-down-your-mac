@@ -13,9 +13,7 @@ struct CoolDownProApp: App {
                 .environmentObject(appModel)
                 .environmentObject(appModel.settings)
         } label: {
-            DashboardLaunchLabel()
-                .environmentObject(appModel)
-                .environmentObject(appModel.settings)
+            DashboardLaunchLabel(menuBarModel: appModel.menuBarTitleModel)
         }
         .menuBarExtraStyle(.window)
 
@@ -94,15 +92,16 @@ struct ProMenuBarLabel: View, Equatable {
 }
 
 /// Always-mounted menu bar label so launch/reopen can open the dashboard window.
+/// Observes only the isolated MenuBarTitleModel to avoid re-rendering on internal telemetry changes.
 private struct DashboardLaunchLabel: View {
-    @EnvironmentObject private var model: ProAppModel
-    @EnvironmentObject private var settings: SettingsStore
+    @ObservedObject var menuBarModel: MenuBarTitleModel
     @Environment(\.openWindow) private var openWindow
+    private static let openDashboardPublisher = NotificationCenter.default.publisher(for: .coolDownOpenDashboard)
 
     var body: some View {
-        ProMenuBarLabel(title: model.menuBarTitle)
+        ProMenuBarLabel(title: menuBarModel.title)
             .equatable()
-            .onReceive(NotificationCenter.default.publisher(for: .coolDownOpenDashboard)) { _ in
+            .onReceive(Self.openDashboardPublisher) { _ in
                 openWindow(id: "dashboard")
                 NSApp.activate(ignoringOtherApps: true)
             }

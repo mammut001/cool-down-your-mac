@@ -314,6 +314,23 @@ public struct SensorSnapshot: Codable, Hashable, Sendable {
         return controlTemperatures.max(by: { $0.celsius < $1.celsius })
             ?? temperatures.max(by: { $0.celsius < $1.celsius })
     }
+
+    /// Pre-computed top representative readings for the compact menu popover,
+    /// cached to eliminate per-frame filtering and sorting on the Main Thread.
+    public var menuTemperatures: [TemperatureReading] {
+        let groups = SensorGroup.allCases.sorted { $0.sortOrder < $1.sortOrder }
+        var result = groups.compactMap { group in
+            temperatures
+                .filter { $0.group == group }
+                .max(by: { $0.celsius < $1.celsius })
+        }
+        let representedKeys = Set(result.map(\.key))
+        let extras = temperatures
+            .filter { !representedKeys.contains($0.key) }
+            .sorted { $0.celsius > $1.celsius }
+        result.append(contentsOf: extras)
+        return Array(result.prefix(6))
+    }
 }
 
 public struct AppSettings: Codable, Hashable, Sendable {

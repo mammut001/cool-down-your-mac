@@ -157,10 +157,12 @@ struct ProMenuBarView: View {
         .onAppear {
             Task { await model.tick() }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .coolDownOpenDashboard)) { _ in
+        .onReceive(Self.openDashboardPublisher) { _ in
             openDashboard()
         }
     }
+
+    private static let openDashboardPublisher = NotificationCenter.default.publisher(for: .coolDownOpenDashboard)
 
     private func openDashboard() {
         openWindow(id: "dashboard")
@@ -168,20 +170,7 @@ struct ProMenuBarView: View {
         dismiss()
     }
 
-    /// One representative per hardware group is more useful in the compact
-    /// popover than showing five adjacent CPU core readings.
     private var menuTemperatures: [TemperatureReading] {
-        let groups = SensorGroup.allCases.sorted { $0.sortOrder < $1.sortOrder }
-        var result = groups.compactMap { group in
-            model.snapshot.temperatures
-                .filter { $0.group == group }
-                .max(by: { $0.celsius < $1.celsius })
-        }
-        let representedKeys = Set(result.map(\.key))
-        let extras = model.snapshot.temperatures
-            .filter { !representedKeys.contains($0.key) }
-            .sorted { $0.celsius > $1.celsius }
-        result.append(contentsOf: extras)
-        return Array(result.prefix(6))
+        model.snapshot.menuTemperatures
     }
 }
