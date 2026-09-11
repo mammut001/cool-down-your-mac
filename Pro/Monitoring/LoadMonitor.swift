@@ -2,6 +2,31 @@ import Foundation
 import CoolDownKit
 import Darwin
 
+/// Lightweight cross-thread signal used by direct SMC telemetry so rising CPU
+/// load can shorten the temperature cache before the sampled temperature has
+/// already climbed. This avoids performing a second CPU-load measurement.
+enum ThermalLoadSignal {
+    private final class State: @unchecked Sendable {
+        let lock = NSLock()
+        var latestLoadPercent: Double?
+    }
+
+    private static let state = State()
+
+    static func update(_ loadPercent: Double) {
+        guard loadPercent.isFinite else { return }
+        state.lock.lock()
+        state.latestLoadPercent = min(max(loadPercent, 0), 100)
+        state.lock.unlock()
+    }
+
+    static var currentLoadPercent: Double? {
+        state.lock.lock()
+        defer { state.lock.unlock() }
+        return state.latestLoadPercent
+    }
+}
+
 /// Lightweight CPU load sampler used to boost fan speed under sustained work.
 @MainActor
 final class LoadMonitor: ObservableObject {
@@ -17,9 +42,7 @@ final class LoadMonitor: ObservableObject {
     private var lastProcessSampleUptime: TimeInterval?
     #endif
 
-    private let boostActivationSeconds: TimeInterval = 4
     private let boostReleaseHysteresisPercent = 8.0
-    private let boostRiseTimeConstant: TimeInterval = 4
     private let boostFallTimeConstant: TimeInterval = 12
     #if DEBUG
     #if arch(x86_64)
@@ -30,7 +53,10 @@ final class LoadMonitor: ObservableObject {
     #endif
 
     func refresh() {
-        cpuLoadPercent = sampleSystemCPULoad() ?? cpuLoadPercent
+        if let sampledLoad = sampleSystemCPULoad() {
+            cpuLoadPercent = sampledLoad
+            ThermalLoadSignal.update(sampledLoad)
+        }
 
         #if DEBUG
         let now = ProcessInfo.processInfo.systemUptime
@@ -107,20 +133,27 @@ final class LoadMonitor: ObservableObject {
             loadAboveThresholdSince = nil
         }
 
-        let sustained = loadAboveThresholdSince.map { now - $0 >= boostActivationSeconds } ?? false
-        let desired: Double
-        if sustained, load > threshold {
-            let span = max(100 - threshold, 1)
-            let t = ((load - threshold) / span).clamped(to: 0...1)
-            desired = boostMax * t
-        } else {
-            desired = 0
-        }
+        let activationDelay = LoadBoostPolicy.activationDelaySeconds(
+            loadPercent: load,
+            threshold: threshold
+        )
+        let sustained = loadAboveThresholdSince.map { now - $0 >= activationDelay } ?? false
+        let desired = sustained
+            ? LoadBoostPolicy.desiredBoost(
+                loadPercent: load,
+                threshold: threshold,
+                boostMax: boostMax
+            )
+            : 0
 
-        // Approach boost slowly and release even more slowly so short-lived CPU
-        // bursts do not translate into audible fan pulses.
+        // Feed forward progressively under real sustained load: the higher the
+        // utilization, the shorter the activation delay and rise time. Release
+        // remains deliberately slow so load drops do not create fan pulsing.
         let timeConstant = desired > smoothedFanBoost
-            ? boostRiseTimeConstant
+            ? LoadBoostPolicy.riseTimeConstantSeconds(
+                loadPercent: load,
+                threshold: threshold
+            )
             : boostFallTimeConstant
         let alpha = 1 - exp(-dt / timeConstant)
         smoothedFanBoost += (desired - smoothedFanBoost) * alpha
