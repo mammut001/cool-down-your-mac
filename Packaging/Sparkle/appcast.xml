@@ -6,6 +6,14 @@
         <description>Updates for Cool Down Pro</description>
         <language>en</language>
         <item>
+            <title>1.0.15</title>
+            <pubDate>Mon, 14 Sep 2026 17:20:53 -0400</pubDate>
+            <sparkle:version>26</sparkle:version>
+            <sparkle:shortVersionString>1.0.15</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/mammut001/cool-down-your-mac/releases/download/v1.0.15/CoolDownPro-1.0.15.zip" length="2475837" type="application/octet-stream" sparkle:edSignature="qtTpf3q6Hhol2v396l+1b3a/p+aWTo4SucrhNJsL+MH7tChaOHpdOkH+jUO6bdF+KvqQouBzgRytmBI40esPBw=="/>
+        </item>
+        <item>
             <title>1.0.14</title>
             <pubDate>Fri, 11 Sep 2026 13:32:48 -0400</pubDate>
             <sparkle:version>25</sparkle:version>
@@ -20,14 +28,6 @@
             <sparkle:shortVersionString>1.0.13</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/mammut001/cool-down-your-mac/releases/download/v1.0.13/CoolDownPro-1.0.13.zip" length="2418671" type="application/octet-stream" sparkle:edSignature="sTJRuvL6VTY3tALnvf3YHcrxwWvNRPlexlP5Qst5qCxCkwjyZTcDNS3TN/OOTUVEh/romnEbzla+ECTLD+OnDw=="/>
-        </item>
-        <item>
-            <title>1.0.12</title>
-            <pubDate>Fri, 04 Sep 2026 01:47:37 -0400</pubDate>
-            <sparkle:version>23</sparkle:version>
-            <sparkle:shortVersionString>1.0.12</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/mammut001/cool-down-your-mac/releases/download/v1.0.12/CoolDownPro-1.0.12.zip" length="2369474" type="application/octet-stream" sparkle:edSignature="Xgvk8f5fk3SEIiGeCxzmRNuXiOF/kS5tMBEwpjPch+xQQAI3pbTX/tyGTJ9tjquIls5pilnV9DZbFn73q7uhDA=="/>
         </item>
     </channel>
 </rss>
