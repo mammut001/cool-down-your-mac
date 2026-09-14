@@ -1,6 +1,22 @@
 import Foundation
 
 enum SMCKnownNames {
+    /// Keep every CPU/GPU key, including hotspots omitted from the curated UI.
+    /// Other keys are only needed when displayed by SensorCatalog.curated.
+    /// The full sensor view bypasses this filter entirely.
+    static func isRegularlySampledTemperatureKey(_ key: String) -> Bool {
+        if ["Tp", "TC", "Te", "tp", "Tg", "TG", "tg"].contains(where: key.hasPrefix) {
+            return true
+        }
+        return curatedAuxiliaryKeys.contains(key)
+    }
+
+    private static let curatedAuxiliaryKeys: Set<String> = [
+        "TW0P", "TB0T", "TB1T", "TPMP", "TPSP", "TCHP", "Ts0P", "Ts1P",
+        "TM0P", "TA0P", "TN0P", "Th0H", "TN00",
+        "TN0D", "Th1H", "TA1P", "TM0S"
+    ]
+
     static func isTemperatureKey(_ key: String) -> Bool {
         guard let first = key.first else { return false }
         return first == "T" || first == "t"
@@ -95,10 +111,12 @@ enum SMCKnownNames {
         case "TH0x", "TH0a", "TH0b": return "Heatpipe"
         case "TCMb": return "CPU Max"
         case "TN00", "TN01": return "APPLE SSD"
+        case "TCGC": return "Intel GPU"
+        case "TCSA": return "CPU System Agent"
         default:
             if key.hasPrefix("TC") && key.hasSuffix("C") && key.count == 4 {
                 let coreChar = key[key.index(key.startIndex, offsetBy: 2)]
-                if let coreNum = Int(String(coreChar)) {
+                if let coreNum = Int(String(coreChar), radix: 16) {
                     return "CPU Core \(coreNum)"
                 }
             }

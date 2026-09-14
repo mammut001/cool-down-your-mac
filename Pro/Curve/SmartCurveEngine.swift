@@ -58,9 +58,16 @@ public final class SmartCurveEngine: @unchecked Sendable {
 
     // Tuned for a calm acoustic response at normal temperatures while moving
     // decisively before the chassis heat-soaks in a warm ambient environment.
+    // Intel CPUs have higher thermal density and jump 40C in seconds;
+    // use a more responsive rise alpha and ramp rate on x86_64 to combat throttling.
+    #if arch(x86_64)
+    private let temperatureRiseAlphaAtTwoSeconds = 0.50
+    private let normalRisePerSecond = 0.03
+    #else
     private let temperatureRiseAlphaAtTwoSeconds = 0.35
-    private let temperatureFallAlphaAtTwoSeconds = 0.12
     private let normalRisePerSecond = 0.02
+    #endif
+    private let temperatureFallAlphaAtTwoSeconds = 0.12
     private let warmRisePerSecond = 0.05
     private let hotRisePerSecond = 0.12
     private let fallPerSecond = 0.0075

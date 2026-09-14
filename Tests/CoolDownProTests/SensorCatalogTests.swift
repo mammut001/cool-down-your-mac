@@ -2,6 +2,40 @@ import XCTest
 import CoolDownKit
 
 final class SensorCatalogTests: XCTestCase {
+    func testCaseDistinctGPUKeysHaveStableClusterSelection() {
+        let readings = ["Tg00", "tg00", "Tg01", "TG0H", "Tg99"].enumerated().map {
+            TemperatureReading(key: $0.element, name: $0.element,
+                               celsius: 40 + Double($0.offset), group: .gpu)
+        }
+        let expected = SensorCatalog.curated(smc: readings, hid: [])
+        XCTAssertTrue(expected.contains { $0.key == "Tg00" })
+        for _ in 0..<30 {
+            XCTAssertEqual(SensorCatalog.curated(smc: readings.shuffled(), hid: []), expected)
+        }
+    }
+
+    func testReducedSamplingPreservesCuratedDisplayAndAllControlHotspots() {
+        // Exercise Intel, Apple Silicon, lowercase keys and auxiliary fallbacks.
+        let keys = Set(SMCKnownNames.fallbackKeys.map(\.key) + [
+            "Tp00", "Tp01", "Tp1g", "Tp9Z", "Te00", "tp00", "TC9C",
+            "Tg00", "Tg01", "Tg99", "tg00", "TN00", "TN01", "Tz00"
+        ])
+        let all = keys.sorted().enumerated().map { index, key in
+            SensorMerge.annotateSMC(TemperatureReading(
+                key: key, name: SMCKnownNames.name(for: key), celsius: 30 + Double(index)
+            ))
+        }
+        let reduced = all.filter { SMCKnownNames.isRegularlySampledTemperatureKey($0.key) }
+        XCTAssertLessThan(reduced.count, all.count)
+        XCTAssertEqual(SensorCatalog.curated(smc: all, hid: []), SensorCatalog.curated(smc: reduced, hid: []))
+        XCTAssertEqual(
+            Set(SensorCatalog.controlReadings(smc: all, hid: [])),
+            Set(SensorCatalog.controlReadings(smc: reduced, hid: []))
+        )
+        // A hotspot outside the curated core limit must still reach the controller.
+        XCTAssertTrue(SensorCatalog.controlReadings(smc: reduced, hid: []).contains { $0.key == "Tp9Z" })
+    }
+
     func testCuratedListDeduplicatesSMCKeysWithoutTrapping() {
         let first = TemperatureReading(key: "TW0P", name: "Airport A", celsius: 31, group: .wireless)
         let second = TemperatureReading(key: "TW0P", name: "Airport B", celsius: 44, group: .wireless)
@@ -149,8 +183,23 @@ final class SensorCatalogTests: XCTestCase {
         XCTAssertEqual(SMCKnownNames.name(for: "TC0D"), "CPU Die")
         XCTAssertEqual(SMCKnownNames.name(for: "TC1C"), "CPU Core 1")
         XCTAssertEqual(SMCKnownNames.name(for: "TC8C"), "CPU Core 8")
+        XCTAssertEqual(SMCKnownNames.name(for: "TC9C"), "CPU Core 9")
+        XCTAssertEqual(SMCKnownNames.name(for: "TCAC"), "CPU Core 10")
+        XCTAssertEqual(SMCKnownNames.name(for: "TCFC"), "CPU Core 15")
         XCTAssertEqual(SMCKnownNames.name(for: "TG0P"), "GPU Proximity")
         XCTAssertEqual(SMCKnownNames.name(for: "TM0P"), "Memory Proximity")
         XCTAssertEqual(SMCKnownNames.name(for: "TN0P"), "Platform Controller Hub")
+        XCTAssertEqual(SMCKnownNames.name(for: "TN0D"), "PCH Die")
+        XCTAssertEqual(SMCKnownNames.name(for: "Th0H"), "Heatsink")
+        XCTAssertEqual(SMCKnownNames.name(for: "Th1H"), "Heatsink 2")
+    }
+
+    func testIntelAntiThrottleProfile() {
+        let profile = CurveProfile.intelAntiThrottle
+        XCTAssertEqual(profile.name, "Intel Anti-Throttle")
+        XCTAssertEqual(profile.fanPercent(for: 40), 0.25)
+        XCTAssertEqual(profile.fanPercent(for: 65), 0.65)
+        XCTAssertEqual(profile.fanPercent(for: 78), 1.00)
+        XCTAssertEqual(profile.fanPercent(for: 90), 1.00)
     }
 }

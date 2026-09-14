@@ -13,6 +13,10 @@ struct FanCurveEditorView: View {
     private let fanRange: ClosedRange<Double> = 0...1
 
     var body: some View {
+        TelemetryContent(updates: model.telemetryUpdates) { editorContent }
+    }
+
+    private var editorContent: some View {
         ScrollView {
         VStack(alignment: .leading, spacing: 16) {
             headerControls
@@ -39,17 +43,21 @@ struct FanCurveEditorView: View {
         .glassContainerIfAvailable()
         .background(GlassBackdrop())
         .confirmationDialog(
-            "Reset the fan curve?",
+            "Fan curve presets",
             isPresented: $confirmingCurveReset,
             titleVisibility: .visible
         ) {
-            Button("Reset to Default", role: .destructive) {
+            Button("Default (Balanced)") {
                 settings.resetCurveToDefault()
+                selectedID = nil
+            }
+            Button("Intel Anti-Throttle (Aggressive Cooling)") {
+                settings.applyCurveProfile(.intelAntiThrottle)
                 selectedID = nil
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Your current curve points will be replaced with the balanced default curve.")
+            Text("Choose the balanced default curve or the aggressive Intel Anti-Throttle preset designed to combat heat-soak.")
         }
     }
 
@@ -165,7 +173,7 @@ struct FanCurveEditorView: View {
                         || settings.settings.mode != .smartCurve
                 )
             Spacer()
-            Button("Reset Curve…") {
+            Button("Presets…") {
                 confirmingCurveReset = true
             }
         }

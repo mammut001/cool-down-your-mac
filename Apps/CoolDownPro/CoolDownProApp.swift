@@ -4,7 +4,10 @@ import AppKit
 
 @main
 struct CoolDownProApp: App {
-    @StateObject private var appModel = ProAppModel()
+    // StateObject lazily creates one owner. The owner does not forward telemetry
+    // notifications, so Scene invalidation cannot create another polling model.
+    @StateObject private var modelOwner = AppModelOwner()
+    private var appModel: ProAppModel { modelOwner.model }
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
@@ -47,9 +50,16 @@ struct CoolDownProApp: App {
     }
 }
 
+@MainActor
+private final class AppModelOwner: ObservableObject {
+    let model = ProAppModel()
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        // Useful for login/CLI launches and reproducible menu-bar-only profiling.
+        guard !CommandLine.arguments.contains("--background") else { return }
         // Open dashboard shortly after launch so sensors/RPM are visible without hunting the menu bar.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             NotificationCenter.default.post(name: .coolDownOpenDashboard, object: nil)

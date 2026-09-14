@@ -6,6 +6,25 @@ import ServiceManagement
 import UserNotifications
 import os
 
+/// Scope telemetry invalidation to visible live content, not the scene, tabs,
+/// settings, or closed popover. On reappearance, read the latest model values.
+struct TelemetryContent<Content: View>: View {
+    let updates: PassthroughSubject<Void, Never>
+    @ViewBuilder let content: () -> Content
+    @State private var isVisible = false
+    @State private var revision = 0
+
+    var body: some View {
+        let _ = revision
+        content()
+            .onReceive(updates) { _ in
+                if isVisible { revision &+= 1 }
+            }
+            .onAppear { isVisible = true; revision &+= 1 }
+            .onDisappear { isVisible = false }
+    }
+}
+
 @MainActor
 final class MenuBarTitleModel: ObservableObject {
     @Published private(set) var title: String
@@ -35,19 +54,37 @@ final class ProAppModel: ObservableObject {
         sharedInstance?.prepareForQuit()
     }
 
-    @Published var snapshot = SensorSnapshot()
+    var snapshot = SensorSnapshot() {
+        willSet {
+            if newValue.helperAvailable != snapshot.helperAvailable
+                || newValue.canControlFans != snapshot.canControlFans
+                || newValue.fans.isEmpty != snapshot.fans.isEmpty {
+                objectWillChange.send()
+            }
+            telemetryWillChange()
+        }
+    }
     @Published var showAllSensors = false
     @Published var isDashboardVisible = false
-    @Published var statusMessage: String?
+    var statusMessage: String? {
+        willSet { if newValue != statusMessage { objectWillChange.send() } }
+    }
     @Published var isBusy = false
-    @Published var targetFanPercent: Double = 0
-    @Published var loadBoostPercent: Double = 0
-    @Published var controlTemperatureC: Double?
+    var targetFanPercent: Double = 0 {
+        willSet { if newValue != targetFanPercent { telemetryWillChange() } }
+    }
+    var loadBoostPercent: Double = 0 {
+        willSet { if newValue != loadBoostPercent { telemetryWillChange() } }
+    }
+    var controlTemperatureC: Double? {
+        willSet { if newValue != controlTemperatureC { telemetryWillChange() } }
+    }
     @Published var shouldPresentHelperSetup = false
     @Published private(set) var helperLaunchFailed = false
     @Published private(set) var hasCompletedInitialHelperProbe = false
 
     let menuBarTitleModel = MenuBarTitleModel()
+    let telemetryUpdates = PassthroughSubject<Void, Never>()
     let settings = SettingsStore()
     let helper = HelperClient.shared
     let loadMonitor = LoadMonitor()
@@ -59,6 +96,7 @@ final class ProAppModel: ObservableObject {
     private var lastAppliedFanCommand: String?
     private var controlGeneration = 0
     private var isTicking = false
+    private var hasPendingTelemetryChange = false
     private var cancellables = Set<AnyCancellable>()
     private let helperInstallationSigningIssue = HelperClient.blessingSignatureIssue()
 
@@ -192,6 +230,10 @@ final class ProAppModel: ObservableObject {
 
     private var isDisplayAsleep = false
 
+    deinit {
+        timer?.invalidate()
+    }
+
     private func handleDisplaySleep(_ asleep: Bool) {
         guard isDisplayAsleep != asleep else { return }
         isDisplayAsleep = asleep
@@ -217,6 +259,8 @@ final class ProAppModel: ObservableObject {
                 await self?.tick()
             }
         }
+        // Let the OS coalesce timer wakeups without changing the sampling cadence.
+        pollingTimer.tolerance = min(0.2, interval * 0.1)
         RunLoop.main.add(pollingTimer, forMode: .common)
         timer = pollingTimer
         if !isDisplayAsleep {
@@ -243,7 +287,13 @@ final class ProAppModel: ObservableObject {
     func tick() async {
         guard !isTicking else { return }
         isTicking = true
-        defer { isTicking = false }
+        defer {
+            isTicking = false
+            if hasPendingTelemetryChange {
+                hasPendingTelemetryChange = false
+                if hasVisibleTelemetryUI { telemetryUpdates.send(()) }
+            }
+        }
         if shouldSampleCPULoad {
             loadMonitor.refresh()
         }
@@ -257,14 +307,31 @@ final class ProAppModel: ObservableObject {
         if settings.settings.mode == .smartCurve && settings.settings.loadBoostMax > 0 {
             return true
         }
-        return NSApp.windows.contains { $0.isVisible && $0.canBecomeKey }
+        return hasVisibleTelemetryUI
+    }
+
+    private var hasVisibleTelemetryUI: Bool {
+        !NSApp.isHidden && NSApp.windows.contains {
+            $0.isVisible && !$0.isMiniaturized && $0.canBecomeKey
+        }
+    }
+
+    private func telemetryWillChange() {
+        // A tick updates sensors, control temperature, boost and target, with
+        // possible XPC suspension between them. Publish that transaction once.
+        // The independent menu-bar title model continues updating when closed.
+        if isTicking {
+            hasPendingTelemetryChange = true
+        } else if hasVisibleTelemetryUI {
+            telemetryUpdates.send(())
+        }
     }
 
     func refreshSnapshot() async {
         let showAll = showAllSensors && isDashboardVisible
         let (localSMC, displayTemps, controlTemps) = await Task.detached(priority: .utility) {
             let hidTemps = IOHIDTemperatureReader.readAll()
-            let localSMC = DirectSMCReader.readSnapshot()
+            let localSMC = DirectSMCReader.readSnapshot(includeAllTemperatures: showAll)
             let smcTemps = (localSMC?.temperatures ?? []).map(SensorMerge.annotateSMC)
             let displayTemps = showAll
                 ? SensorCatalog.allMerged(smc: smcTemps, hid: hidTemps)
@@ -283,14 +350,14 @@ final class ProAppModel: ObservableObject {
             local.helperAvailable = helper.isHelperInstalled
             snapshot = local
             if helper.isHelperInstalled {
-                helperLaunchFailed = false
+                if helperLaunchFailed { helperLaunchFailed = false }
                 if fanControlUnavailableOnThisMac {
                     targetFanPercent = 0
                     loadBoostPercent = 0
                     lastAppliedFanCommand = nil
                     statusMessage = "Fan telemetry is unavailable on this Mac. Manual speed was not applied."
                 } else {
-                    statusMessage = nil
+                    if statusMessage != nil { statusMessage = nil }
                 }
                 if !hasCompletedInitialHelperProbe || !helper.isConnected {
                     helper.ping()
@@ -305,14 +372,14 @@ final class ProAppModel: ObservableObject {
                 remote.temperatures = displayTemps
                 remote.fans = preferredFans(remote: remote.fans, local: localFans)
                 snapshot = remote
-                helperLaunchFailed = false
+                if helperLaunchFailed { helperLaunchFailed = false }
                 if fanControlUnavailableOnThisMac {
                     targetFanPercent = 0
                     loadBoostPercent = 0
                     lastAppliedFanCommand = nil
                     statusMessage = "Fan telemetry is unavailable on this Mac. Manual speed was not applied."
                 } else {
-                    statusMessage = nil
+                    if statusMessage != nil { statusMessage = nil }
                 }
             } catch {
                 helperLaunchFailed = helperIsRegistered
@@ -321,7 +388,7 @@ final class ProAppModel: ObservableObject {
         } else {
             applyLocalSnapshot(localSMC: localSMC, temperatures: displayTemps, helperError: nil)
         }
-        hasCompletedInitialHelperProbe = true
+        if !hasCompletedInitialHelperProbe { hasCompletedInitialHelperProbe = true }
         presentInitialHelperSetupIfNeeded()
 
         let newControlTemp = controlTemps.map(\.celsius).filter { $0.isFinite && $0 > 0 && $0 < 150 }.max()

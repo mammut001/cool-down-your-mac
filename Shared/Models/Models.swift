@@ -155,6 +155,21 @@ public struct CurveProfile: Codable, Hashable, Sendable {
         CurvePoint(temperatureC: 82, fanPercent: 1.00)
     ]
 
+    /// Aggressive cooling preset tuned for Intel MacBooks / high-TDP workloads.
+    /// Establishes strong airflow early (65% at 65°C, 100% at 78°C) to prevent
+    /// thermal throttling before heat-pipe saturation.
+    public static let intelAntiThrottlePoints: [CurvePoint] = [
+        CurvePoint(temperatureC: 45, fanPercent: 0.25),
+        CurvePoint(temperatureC: 55, fanPercent: 0.45),
+        CurvePoint(temperatureC: 65, fanPercent: 0.65),
+        CurvePoint(temperatureC: 72, fanPercent: 0.85),
+        CurvePoint(temperatureC: 78, fanPercent: 1.00)
+    ]
+
+    public static var intelAntiThrottle: CurveProfile {
+        CurveProfile(name: "Intel Anti-Throttle", points: intelAntiThrottlePoints, hysteresisC: 2.0)
+    }
+
     private static let legacyDefaultShape: [(Double, Double)] = [
         (45, 0.15),
         (55, 0.30),

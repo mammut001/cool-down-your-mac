@@ -36,7 +36,7 @@ enum SensorCatalog {
         let cpuKeys = uniqueSMC.values
             .filter { isCPUKey($0.key) && $0.key.count == 4 }
             .filter { $0.celsius.isFinite && $0.celsius > 5 && $0.celsius < 150 }
-            .sorted { $0.key.localizedCaseInsensitiveCompare($1.key) == .orderedAscending }
+            .sorted { keyPrecedes($0.key, $1.key) }
 
         // Prefer the dense Tp0* block first (Performance + Super on M-series Pro).
         let primaryCPU = cpuKeys.filter {
@@ -113,7 +113,7 @@ enum SensorCatalog {
         let gpuKeys = uniqueSMC.values
             .filter { isGPUKey($0.key) && $0.key.count == 4 }
             .filter { $0.celsius.isFinite && $0.celsius > 5 && $0.celsius < 150 }
-            .sorted { $0.key.localizedCaseInsensitiveCompare($1.key) == .orderedAscending }
+            .sorted { keyPrecedes($0.key, $1.key) }
         if gpuKeys.isEmpty {
             let hidGPU = hid.filter { $0.group == .gpu && $0.celsius.isFinite && $0.celsius > 5 && $0.celsius < 150 }
             list.append(contentsOf: hidGPU.prefix(4))
@@ -157,9 +157,13 @@ enum SensorCatalog {
         addSMC("Ts0P", name: "Trackpad", group: .other)
         addSMC("Ts1P", name: "Trackpad Actuator", group: .other)
         addSMC("TM0P", name: "Memory Proximity", group: .other)
+        addSMC("TM0S", name: "Memory Slot", group: .other)
         addSMC("TA0P", name: "Ambient Airflow", group: .other)
+        addSMC("TA1P", name: "Ambient 2", group: .other)
         addSMC("TN0P", name: "Platform Controller Hub", group: .other)
+        addSMC("TN0D", name: "PCH Die", group: .other)
         addSMC("Th0H", name: "Heatsink", group: .other)
+        addSMC("Th1H", name: "Heatsink 2", group: .other)
 
         if let nand = hid.first(where: { $0.name.localizedCaseInsensitiveContains("NAND") || $0.name.localizedCaseInsensitiveContains("SSD") }) {
             list.append(
@@ -178,8 +182,16 @@ enum SensorCatalog {
             let li = displayRank(for: lhs.name)
             let ri = displayRank(for: rhs.name)
             if li != ri { return li < ri }
-            return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+            let order = lhs.name.localizedStandardCompare(rhs.name)
+            return order == .orderedSame ? lhs.key < rhs.key : order == .orderedAscending
         }
+    }
+
+    // SMC keys are case-sensitive. Break case-insensitive ties explicitly so
+    // dictionary iteration cannot change the selected clusters or row identity.
+    private static func keyPrecedes(_ lhs: String, _ rhs: String) -> Bool {
+        let order = lhs.localizedCaseInsensitiveCompare(rhs)
+        return order == .orderedSame ? lhs < rhs : order == .orderedAscending
     }
 
     @inline(__always)

@@ -46,4 +46,8 @@ public final class SettingsStore: ObservableObject {
     public func resetCurveToDefault() {
         settings.curve = CurveProfile()
     }
+
+    public func applyCurveProfile(_ profile: CurveProfile) {
+        settings.curve = profile
+    }
 }

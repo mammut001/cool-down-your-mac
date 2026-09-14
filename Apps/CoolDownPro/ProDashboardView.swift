@@ -26,7 +26,7 @@ struct ProDashboardView: View {
                 .tag(DashboardTab.fanCurve)
         }
         .frame(minWidth: 640, minHeight: 700)
-        .background(GlassBackdrop())
+        .background(Color(nsColor: .windowBackgroundColor))
         .alert(model.helperSetupTitle, isPresented: $model.shouldPresentHelperSetup) {
             Button("Not Now", role: .cancel) {}
             Button(model.helperSetupConfirmTitle) { model.performHelperSetup() }
@@ -52,55 +52,33 @@ struct ProDashboardView: View {
     private var sensorsTab: some View {
         ScrollView {
             VStack(spacing: 16) {
-                sensorsHeader
-                liveMetrics
+                TelemetryContent(updates: model.telemetryUpdates) { sensorsHeader }
+                TelemetryContent(updates: model.telemetryUpdates) { liveMetrics }
                 if let status = model.statusMessage {
                     statusBanner(status)
                 }
-                sensorTable
+                TelemetryContent(updates: model.telemetryUpdates) { sensorTable }
             }
             .padding(20)
         }
-        .glassContainerIfAvailable()
     }
 
     private var sensorsHeader: some View {
-        GlassCard {
-            HStack(alignment: .center, spacing: 20) {
-            VStack(alignment: .leading, spacing: 4) {
-                Label("Cool Down Pro", systemImage: "fanblades.fill")
-                    .font(.system(size: 23, weight: .bold, design: .rounded))
-                    .foregroundStyle(.primary)
-                Text("\(settings.settings.mode.displayName) · \(model.snapshot.temperatures.count) sensors live")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Toggle("Show all raw sensors", isOn: $model.showAllSensors)
-                    .font(.caption)
-                    .toggleStyle(.switch)
-                    .controlSize(.small)
-                    .onChange(of: model.showAllSensors) { _, _ in
-                        Task { await model.refreshSnapshot() }
-                    }
+        DashboardSensorHeader(
+            mode: settings.settings.mode.displayName,
+            count: model.snapshot.temperatures.count,
+            temperature: SensorFormatting.temperature(model.snapshot.maxTemperatureC),
+            tint: CoolDownTheme.temperatureColor(model.snapshot.maxTemperatureC),
+            showAll: model.showAllSensors,
+            setShowAll: { value in
+                model.showAllSensors = value
+                Task { await model.refreshSnapshot() }
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 3) {
-                Text(SensorFormatting.temperature(model.snapshot.maxTemperatureC))
-                    .font(.system(size: 42, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(CoolDownTheme.temperatureColor(model.snapshot.maxTemperatureC))
-                Text("hottest component")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        }
+        ).equatable()
     }
 
     private var liveMetrics: some View {
-        LazyVGrid(
-            columns: Array(repeating: GridItem(.flexible(minimum: 110), spacing: 12), count: 4),
-            spacing: 12
-        ) {
+        HStack(spacing: 12) {
             metricCard("Control", value: settings.settings.mode.displayName, icon: "slider.horizontal.3", tint: CoolDownTheme.accent)
             metricCard(
                 "Fan target",
@@ -141,24 +119,11 @@ struct ProDashboardView: View {
     }
 
     private func metricCard(_ title: String, value: String, icon: String, tint: Color) -> some View {
-        GlassCard {
-            VStack(alignment: .leading, spacing: 9) {
-                Image(systemName: icon)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(tint)
-                Text(title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(value)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
+        DashboardMetricCard(title: title, value: value, icon: icon, tint: tint).equatable()
     }
 
     private var sensorTable: some View {
-        GlassCard {
+        DashboardCard {
             VStack(spacing: 0) {
             HStack {
                 Label("Sensors", systemImage: "thermometer.medium")
@@ -186,39 +151,8 @@ struct ProDashboardView: View {
                 ContentUnavailableView.search(text: sensorSearchText)
                     .frame(minHeight: 180)
             } else {
-                LazyVStack(spacing: 0) {
-                    ForEach(groupedSensors, id: \.group) { section in
-                        HStack {
-                            Text(section.group.displayName)
-                            Spacer()
-                            Text("\(section.items.count)")
-                                .monospacedDigit()
-                        }
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 7)
-                        .background(.primary.opacity(0.035))
-
-                        ForEach(section.items) { reading in
-                            HStack(spacing: 10) {
-                                Image(systemName: icon(for: reading.group))
-                                    .foregroundStyle(CoolDownTheme.temperatureColor(reading.celsius))
-                                    .frame(width: 16)
-                                Text(reading.name)
-                                    .font(.body)
-                                Spacer()
-                                Text(SensorFormatting.temperature(reading.celsius))
-                                    .font(.body.monospacedDigit().weight(.medium))
-                                    .foregroundStyle(CoolDownTheme.temperatureColor(reading.celsius))
-                                    .frame(width: 72, alignment: .trailing)
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 7)
-                            Divider().padding(.leading, 36)
-                        }
-                    }
-                }
+                NativeSensorTable(sections: groupedSensors)
+                    .frame(height: 380)
             }
         }
         }
@@ -243,14 +177,185 @@ struct ProDashboardView: View {
         }
     }
 
-    private func icon(for group: SensorGroup) -> String {
-        switch group {
-        case .cpu: return "cpu"
-        case .gpu: return "rectangle.3.group.fill"
-        case .battery: return "battery.100"
-        case .storage: return "internaldrive"
-        case .wireless: return "wifi"
-        case .other: return "thermometer.medium"
+}
+
+/// Native cell reuse keeps the full sensor view cheap even with hundreds of keys.
+/// Only changed, visible cells receive text/color updates; telemetry stays full precision.
+private struct NativeSensorTable: NSViewRepresentable {
+    let sections: [(group: SensorGroup, items: [TemperatureReading])]
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let table = NSTableView()
+        table.headerView = nil
+        table.rowHeight = 30
+        table.intercellSpacing = NSSize(width: 0, height: 1)
+        table.backgroundColor = .clear
+        table.selectionHighlightStyle = .none
+        table.columnAutoresizingStyle = .firstColumnOnlyAutoresizingStyle
+        table.autoresizingMask = [.width]
+        table.setAccessibilityLabel("Temperature sensors")
+        let name = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("name"))
+        name.title = "Sensor"
+        name.width = 360
+        name.minWidth = 150
+        let value = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("value"))
+        value.title = "Temperature"
+        value.width = 90
+        value.minWidth = 90
+        value.maxWidth = 90
+        // Cell-based drawing avoids an Auto Layout view tree for every value.
+        for column in [name, value] {
+            let cell = NSTextFieldCell(textCell: "")
+            cell.isEditable = false
+            cell.lineBreakMode = .byTruncatingTail
+            cell.alignment = column === value ? .right : .left
+            column.dataCell = cell
+        }
+        table.addTableColumn(name)
+        table.addTableColumn(value)
+        table.delegate = context.coordinator
+        table.dataSource = context.coordinator
+        let scroll = NSScrollView()
+        scroll.hasVerticalScroller = true
+        scroll.drawsBackground = false
+        scroll.documentView = table
+        return scroll
+    }
+
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        guard let table = scroll.documentView as? NSTableView else { return }
+        context.coordinator.update(sections: sections, table: table)
+    }
+
+    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate {
+        struct Row {
+            let id: String
+            let name: String
+            let value: String
+            let color: NSColor
+            let isGroup: Bool
+        }
+        private var rows: [Row] = []
+        private let groupFont = NSFont.systemFont(ofSize: 12, weight: .semibold)
+        private let nameFont = NSFont.systemFont(ofSize: 13)
+        private let valueFont = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium)
+
+        func update(sections: [(group: SensorGroup, items: [TemperatureReading])], table: NSTableView) {
+            var next: [Row] = []
+            for section in sections {
+                next.append(Row(id: "group.\(section.group.rawValue)", name: section.group.displayName,
+                                value: "\(section.items.count)", color: .secondaryLabelColor, isGroup: true))
+                for item in section.items {
+                    next.append(Row(id: "sensor.\(item.key)", name: item.name,
+                                    value: SensorFormatting.temperature(item.celsius),
+                                    color: NSColor(CoolDownTheme.temperatureColor(item.celsius)), isGroup: false))
+                }
+            }
+            let structureChanged = rows.map(\.id) != next.map(\.id)
+            let previous = rows
+            rows = next
+            if structureChanged {
+                table.reloadData()
+                return
+            }
+            let visible = table.rows(in: table.visibleRect)
+            guard visible.location != NSNotFound else { return }
+            var changed = IndexSet()
+            for index in visible.location..<min(NSMaxRange(visible), rows.count) {
+                let old = previous[index], new = rows[index]
+                if old.name != new.name || old.value != new.value || old.color != new.color {
+                    changed.insert(index)
+                }
+            }
+            if !changed.isEmpty {
+                table.reloadData(forRowIndexes: changed, columnIndexes: IndexSet(integersIn: 0..<2))
+            }
+        }
+
+        func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
+        func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool { false }
+
+        func tableView(_ tableView: NSTableView, objectValueFor tableColumn: NSTableColumn?, row: Int) -> Any? {
+            guard rows.indices.contains(row) else { return nil }
+            return tableColumn?.identifier.rawValue == "value" ? rows[row].value : rows[row].name
+        }
+
+        func tableView(_ tableView: NSTableView, willDisplayCell cell: Any, for tableColumn: NSTableColumn?, row: Int) {
+            guard rows.indices.contains(row), let cell = cell as? NSTextFieldCell else { return }
+            let item = rows[row]
+            let isValue = tableColumn?.identifier.rawValue == "value"
+            cell.font = item.isGroup ? groupFont : (isValue ? valueFont : nameFont)
+            cell.textColor = item.isGroup ? .secondaryLabelColor : (isValue ? item.color : .labelColor)
+        }
+    }
+}
+
+private struct DashboardSensorHeader: View, Equatable {
+    let mode: String
+    let count: Int
+    let temperature: String
+    let tint: Color
+    let showAll: Bool
+    let setShowAll: (Bool) -> Void
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.mode == rhs.mode && lhs.count == rhs.count && lhs.temperature == rhs.temperature
+            && lhs.tint == rhs.tint && lhs.showAll == rhs.showAll
+    }
+
+    var body: some View {
+        DashboardCard {
+            HStack(alignment: .center, spacing: 20) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("Cool Down Pro", systemImage: "fanblades.fill")
+                        .font(.system(size: 23, weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary)
+                    Text("\(mode) · \(count) sensors live").font(.caption).foregroundStyle(.secondary)
+                    Toggle("Show all raw sensors", isOn: Binding(get: { showAll }, set: setShowAll))
+                        .font(.caption).toggleStyle(.switch).controlSize(.small)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(temperature)
+                        .font(.system(size: 42, weight: .bold, design: .rounded))
+                        .monospacedDigit().foregroundStyle(tint)
+                    Text("hottest component").font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+}
+
+/// Static colors avoid recompositing live glass surfaces on every sensor update.
+private struct DashboardCard<Content: View>: View {
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        content()
+            .padding(16)
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12).strokeBorder(.primary.opacity(0.06), lineWidth: 1)
+            }
+    }
+}
+
+private struct DashboardMetricCard: View, Equatable {
+    let title: String
+    let value: String
+    let icon: String
+    let tint: Color
+
+    var body: some View {
+        DashboardCard {
+            VStack(alignment: .leading, spacing: 9) {
+                Image(systemName: icon).font(.title3.weight(.semibold)).foregroundStyle(tint)
+                Text(title).font(.caption).foregroundStyle(.secondary)
+                Text(value).font(.subheadline.weight(.semibold)).lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

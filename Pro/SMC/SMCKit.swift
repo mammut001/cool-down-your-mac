@@ -24,6 +24,9 @@ final class SMCKit {
     }
 
     private var connection: io_connect_t = 0
+    // Key types/sizes are static for the lifetime of an SMC connection.
+    // Cache only metadata: values (including fan modes) must always be read live.
+    private var keyInfoCache: [String: (type: String, size: UInt32)] = [:]
     private var cachedTemperatureKeys: [SMCTempKey]?
     private var cachedTemperatureKeysUptime: TimeInterval = 0
     private var cachedFanMetas: [FanMeta]?
@@ -41,6 +44,16 @@ final class SMCKit {
         let key: String
         let type: String
         let size: UInt32
+        let name: String
+        let regularlySampled: Bool
+
+        init(key: String, type: String, size: UInt32) {
+            self.key = key
+            self.type = type
+            self.size = size
+            self.name = SMCKnownNames.name(for: key)
+            self.regularlySampled = SMCKnownNames.isRegularlySampledTemperatureKey(key)
+        }
     }
 
     private struct FanMeta {
@@ -112,8 +125,9 @@ final class SMCKit {
         return fans
     }
 
-    func readTemperatures() -> [SMCTempReading] {
-        let keys = discoveredTemperatureKeys()
+    func readTemperatures(includeAll: Bool = true) -> [SMCTempReading] {
+        let discovered = discoveredTemperatureKeys()
+        let keys = includeAll ? discovered : discovered.filter(\.regularlySampled)
         var results: [SMCTempReading] = []
         results.reserveCapacity(keys.count)
         var failures = 0
@@ -124,7 +138,7 @@ final class SMCKit {
             }
             guard value > 5, value < 110 else { continue }
             results.append(
-                SMCTempReading(key: entry.key, name: SMCKnownNames.name(for: entry.key), celsius: value)
+                SMCTempReading(key: entry.key, name: entry.name, celsius: value)
             )
         }
         if !keys.isEmpty, failures * 2 > keys.count {
@@ -134,6 +148,7 @@ final class SMCKit {
     }
 
     func invalidateCaches() {
+        keyInfoCache.removeAll(keepingCapacity: true)
         cachedTemperatureKeys = nil
         cachedTemperatureKeysUptime = 0
         cachedFanMetas = nil
@@ -238,7 +253,7 @@ final class SMCKit {
 
     private func fanMetas() throws -> [FanMeta] {
         let now = ProcessInfo.processInfo.systemUptime
-        if let cachedFanMetas, !cachedFanMetas.isEmpty, now - cachedFanMetasUptime < fanMetaCacheSeconds {
+        if let cachedFanMetas, now - cachedFanMetasUptime < (cachedFanMetas.isEmpty ? 8 : fanMetaCacheSeconds) {
             return cachedFanMetas
         }
         let indices = try fanIndices()
@@ -266,7 +281,7 @@ final class SMCKit {
 
     private func discoveredTemperatureKeys() -> [SMCTempKey] {
         let now = ProcessInfo.processInfo.systemUptime
-        if let cachedTemperatureKeys, now - cachedTemperatureKeysUptime < temperatureKeyCacheSeconds {
+        if let cachedTemperatureKeys, now - cachedTemperatureKeysUptime < (cachedTemperatureKeys.isEmpty ? 8 : temperatureKeyCacheSeconds) {
             return cachedTemperatureKeys
         }
         var discovered: [SMCTempKey] = []
@@ -323,10 +338,8 @@ final class SMCKit {
             }
         }
 
-        if !discovered.isEmpty {
-            cachedTemperatureKeys = discovered
-            cachedTemperatureKeysUptime = now
-        }
+        cachedTemperatureKeys = discovered
+        cachedTemperatureKeysUptime = now
         return discovered
     }
 
@@ -443,12 +456,15 @@ final class SMCKit {
     }
 
     private func keyInfo(key: String) throws -> (type: String, size: UInt32) {
+        if let info = keyInfoCache[key] { return info }
         var input = blankKeyData()
         var output = blankKeyData()
         input.key = fourCC(key)
         input.data8 = CChar(bitPattern: UInt8(kSMCGetKeyInfo))
         try invoke(input: &input, output: &output)
-        return (fourCCString(output.keyInfo.dataType), output.keyInfo.dataSize)
+        let info = (type: fourCCString(output.keyInfo.dataType), size: output.keyInfo.dataSize)
+        keyInfoCache[key] = info
+        return info
     }
 
     private func readBytes(key: String, type: String, size: UInt32) throws -> [UInt8] {
@@ -458,7 +474,12 @@ final class SMCKit {
         readInput.data8 = CChar(bitPattern: UInt8(kSMCReadKey))
         readInput.keyInfo.dataSize = size
         readInput.keyInfo.dataType = fourCC(type)
-        try invoke(input: &readInput, output: &readOutput)
+        do {
+            try invoke(input: &readInput, output: &readOutput)
+        } catch {
+            keyInfoCache.removeValue(forKey: key)
+            throw error
+        }
 
         var bytes = [UInt8](repeating: 0, count: 32)
         withUnsafeBytes(of: readOutput.bytes) { buf in
@@ -552,5 +573,3 @@ private func blankKeyData() -> SMCKeyData {
     memset(&data, 0, MemoryLayout<SMCKeyData>.size)
     return data
 }
-
-

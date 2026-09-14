@@ -11,6 +11,10 @@ struct ProMenuBarView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        TelemetryContent(updates: model.telemetryUpdates) { menuContent }
+    }
+
+    private var menuContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             Button {
                 openDashboard()

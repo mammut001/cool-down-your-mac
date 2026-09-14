@@ -12,7 +12,7 @@ enum DirectSMCReader {
 
     private static let state = State()
 
-    static func readSnapshot() -> SensorSnapshot? {
+    static func readSnapshot(includeAllTemperatures: Bool = true) -> SensorSnapshot? {
         state.lock.lock()
         defer { state.lock.unlock() }
         do {
@@ -28,7 +28,7 @@ enum DirectSMCReader {
                     isManual: $0.isManual
                 )
             }
-            let temps = kit.readTemperatures().map {
+            let temps = kit.readTemperatures(includeAll: includeAllTemperatures).map {
                 TemperatureReading(key: $0.key, name: $0.name, celsius: $0.celsius)
             }
             let snapshot = SensorSnapshot(
