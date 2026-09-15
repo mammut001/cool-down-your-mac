@@ -1,119 +1,190 @@
 # Cool Down Pro
 
-**Smart thermal fan control for macOS without the constant ramp-up / ramp-down cycle.**
+**Smart, acoustic-aware thermal fan control for macOS without the annoying fan hunting or constant ramp-up / ramp-down cycle.**
 
 [![Latest Release](https://img.shields.io/github/v/release/mammut001/cool-down-your-mac?label=latest)](https://github.com/mammut001/cool-down-your-mac/releases/latest)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black?logo=apple)](https://github.com/mammut001/cool-down-your-mac/releases/latest)
+[![Architecture Universal](https://img.shields.io/badge/arch-Apple%20Silicon%20%7C%20Intel-orange)](https://github.com/mammut001/cool-down-your-mac/releases/latest)
+[![Notarized by Apple](https://img.shields.io/badge/Apple-Notarized-success?logo=apple)](https://github.com/mammut001/cool-down-your-mac/releases/latest)
 [![License GPL-2.0](https://img.shields.io/badge/license-GPL--2.0-blue)](LICENSE)
 
-### [⬇️ Download the latest notarized DMG](https://github.com/mammut001/cool-down-your-mac/releases/latest/download/CoolDownPro.dmg)
+### [⬇️ Download the latest notarized DMG (Universal Binary)](https://github.com/mammut001/cool-down-your-mac/releases/latest/download/CoolDownPro.dmg)
 
-Cool Down Pro is a native macOS menu bar utility that combines Apple SMC fan control with filtered thermal signals and a smarter control curve. Instead of reacting to every short temperature spike, it uses hysteresis, asymmetric EWMA filtering, cooldown hold, and hot/emergency bypass logic to stay responsive without causing constant fan-speed oscillation.
+Cool Down Pro is a high-performance native macOS menu bar utility that combines direct Apple SMC fan control with filtered thermal signals, transient micro-burst suppression, and an asymmetric smart control curve. Instead of violently reacting to every 200ms single-core thermal spike, it models real physical heat accumulation through hysteresis, asymmetric EWMA low-pass filtering, cooldown hold timers, and sustained emergency overrides.
 
-[**Release notes**](https://github.com/mammut001/cool-down-your-mac/releases/latest) · [Distribution guide](Docs/DISTRIBUTION.md) · [License](LICENSE)
+[**Release Notes**](https://github.com/mammut001/cool-down-your-mac/releases/latest) · [Performance Benchmarks](Docs/PERFORMANCE.md) · [Distribution Guide](Docs/DISTRIBUTION.md) · [Privacy](Docs/PRIVACY.md) · [License](LICENSE)
 
 ![Cool Down Pro overview](Docs/images/cool-down-pro-overview.jpg)
 
-## Why this project exists
+---
 
-Most simple fan curves map the current temperature directly to a fan percentage. On a real Mac, temperatures move quickly under bursty workloads, so the result can be an annoying loop:
+## Why Cool Down Pro?
+
+Traditional fan control utilities map instantaneous sensor readings directly to fan speeds:
 
 ```text
-load rises → temperature rises → fan jumps → temperature drops → fan falls → repeat
+micro-burst workload → single-core temp spikes → fans scream → core idles → fans slam down → repeat
 ```
 
-Cool Down Pro adds state and filtering around that feedback loop so short spikes do not immediately become audible fan changes, while genuinely hot conditions can still bypass the smoothing path.
+On modern multi-core processors—especially **Apple Silicon (M1–M5)** and **Intel Core/Xeon Macs**—individual CPU performance cores frequently experience **sub-second micro-bursts** to 90°C–100°C when launching an app, rendering a web page, or compiling a file.
 
-## Highlights
+Because a single core junction is microscopic (a fraction of a square millimeter), its thermal mass is virtually zero. However, your Mac's aluminum chassis, copper heat pipes, and heatsink fins have **thousands of times greater thermal mass**. Blasting the fans at 5,700 RPM on a 200ms core spike does **zero cooling for the chassis**, while creating jarring fan whining and user anxiety.
 
-- **Native SMC fan control** through a privileged helper using `SMJobBless` + XPC
-- **Smart Curve engine** with hysteresis, asymmetric EWMA filtering, cooldown hold, and hot/emergency bypass
-- **HID + SMC sensor fusion** with curated CPU, GPU, Battery, Storage, and Other sensor groups
-- **Menu bar workflow** designed for quick status checks and fan-curve adjustments
-- **Hardened runtime + notarized DMG pipeline** for website / GitHub distribution
-- **In-app updates via Sparkle 2** with EdDSA cryptographic verification (available starting with v1.0.9)
+**Cool Down Pro solves this at the algorithmic level:**
+1. **Transient Micro-Burst Suppression**: Filters momentary single-core spikes so fans remain calm and composed.
+2. **Sustained High-Heat Protection**: If heat persists for ≥3.5 seconds or filtered die temperature crosses safety thresholds, airflow spools up decisively to combat thermal saturation.
+3. **Contextual Clarity**: The menu bar and popover header display the die average temperature alongside an `Avg · Peak XX°C` indicator when an individual core spikes, matching what your hands actually feel on the Mac.
 
-## Smart Fan Curve
+---
 
-![Cool Down Pro smart fan curve](Docs/images/cool-down-pro-fan-curve.jpg)
+## Key Features
 
-The controller separates fast “getting hot” behavior from slower “cooling down” behavior. That asymmetry is intentional: it can respond quickly when thermals deteriorate, but it does not immediately drop the fans after a brief recovery.
+### 🌪️ Smart Curve Engine
+* **Asymmetric Thermal Smoothing**: Fast spool-up when heat is sustained, deliberately gradual spool-down (`0.75%/s`) to prevent thermal bouncing.
+* **Transient Spike Suppression**: Sub-second core spikes never falsely trigger emergency fan howling.
+* **Built-in Curve Presets**:
+  * **Default (Balanced)**: Calm acoustic profile for everyday productivity and quiet office environments.
+  * **Intel Anti-Throttle (Aggressive Cooling)**: Tuned specifically for high-TDP Intel MacBooks (initiating 65% airflow at 65°C and 100% at 78°C) to prevent thermal throttling before heat-soak.
+* **Hysteresis & Cooldown Hold**: Prevents fan hunting around inflection points; holds cooling for 10 seconds post-load.
+
+### 🍎 Comprehensive Hardware Support (Apple Silicon & Intel)
+* **Universal Fat Binary**: Native slices compiled for both `arm64` (Apple Silicon) and `x86_64` (Intel).
+* **Apple Silicon Sensor Fusion**: Blends `IOHIDEventSystem` with direct AppleSMC registers for per-core P/E cluster and GPU die monitoring.
+* **Intel Mac "Furnace" Telemetry**:
+  * Hexadecimal core indexing (`TCAC`–`TCFC`) for 10-core iMacs and up to 16/28-core Xeon iMac Pro / Mac Pro systems.
+  * Curated monitoring for Intel Platform Controller Hub (`TN0D`), GPU heatsink (`Th1H`), Integrated GPU (`TCGC`), and CPU System Agent (`TCSA`).
+  * Faster rise alpha (`0.50` vs `0.35`) on x86_64 to immediately counter rapid Intel Turbo Boost thermal spikes.
+
+### ⚡ Ultra-Low Overhead Telemetry (<0.3% CPU)
+* **50%+ Lower Polling Footprint**: Routine sampling reads ~75 curated CPU/GPU keys instead of 250+ keys, cutting sample latency to ~2.4ms.
+* **Native Cell-Based `NSTableView`**: Uses an AppKit native table with differential row reloading in the dashboard instead of heavy SwiftUI view hierarchy recomposition.
+* **Zero Background Render Waste**: UI updates are completely suspended when the dashboard is minimized or popover is closed.
+* **Kernel Timer Coalescing**: 200ms timer tolerance allows macOS to coalesce wakeups and preserve battery life.
+
+### 🔐 Security & Integration
+* **Privileged Helper Boundary**: Fan writes execute through an isolated helper installed via `SMJobBless` with Apple Developer ID signing and Hardened Runtime.
+* **Sparkle 2 Updates**: Seamless in-app updates cryptographically signed with EdDSA keys.
+
+---
+
+## Control Modes
+
+| Mode | Description |
+| :--- | :--- |
+| **System Auto** | Hands full fan speed control back to the native macOS SMC thermal management firmware. |
+| **Smart Curve** | Custom user-defined fan curve with asymmetric low-pass filtering, hysteresis, load boost, and sustained emergency failsafe. |
+| **Manual** | Precise user-selected manual fan percentage slider. |
+
+---
 
 ## Architecture
 
 ```text
-┌─────────────────────┐
-│   CoolDownPro.app   │
-│  menu bar + sensors │
-└─────────┬───────────┘
-          │ XPC
-          ▼
-┌─────────────────────┐
-│ Privileged Helper   │
-│    SMJobBless       │
-└─────────┬───────────┘
-          │ IOKit / AppleSMC
-          ▼
-┌─────────────────────┐
-│  Mac thermal / fan  │
-│      hardware       │
-└─────────────────────┘
-
-Sensor stream → SmartCurveEngine → target fan % → privileged helper
+┌────────────────────────────────────────────────────────┐
+│                    CoolDownPro.app                     │
+│  MenuBar · Dashboard (NSTableView) · Curve Editor UI   │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+                 Telemetry Polling Tick
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│                   Sensor Sampling                      │
+│     Direct AppleSMC  +  IOHIDEventSystem Client        │
+│          (~75 Curated Keys · ~2.4ms latency)           │
+└──────────────────────────┬─────────────────────────────┘
+                           │ Raw Temperatures
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│                  SmartCurveEngine                      │
+│  - Asymmetric EWMA Filter (Rise α=0.35/0.50, Fall α)  │
+│  - Sustained Emergency Hold (≥3.5s at ≥90°C)          │
+│  - Curve Interpolation + Load Boost + Hysteresis       │
+│  - Slew-Rate Limiter (Normal/Warm/Hot rise rates)      │
+└──────────────────────────┬─────────────────────────────┘
+                           │ Target Fan %
+                           │ (XPC Protocol)
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│             Privileged Helper Daemon                   │
+│        com.cooldown.CoolDownPro.PrivilegedHelper       │
+│             (SMJobBless · Root Authority)              │
+└──────────────────────────┬─────────────────────────────┘
+                           │ IOKit SMC Call
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│              AppleSMC Hardware Controller              │
+│                 Fans & Thermal Registers               │
+└────────────────────────────────────────────────────────┘
 ```
+
+---
 
 ## Requirements
 
-- macOS 14+
-- Xcode 15+
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen)
+* **macOS 14.0 (Sonoma)** or later
+* **Hardware**: Apple Silicon (M1/M2/M3/M4/M5) or Intel Core/Xeon Mac
+* **Xcode 15+** (for building from source)
+* **[XcodeGen](https://github.com/yonaskolb/XcodeGen)**
 
-Install XcodeGen with Homebrew:
+Install XcodeGen via Homebrew:
 
 ```bash
 brew install xcodegen
 ```
 
-## Build
+---
+
+## Build from Source
+
+Generate the Xcode project and open it:
 
 ```bash
 xcodegen generate
 open CoolDownYourMac.xcodeproj
 ```
 
-Or build from the command line:
+Or build and run all tests from the command line:
 
 ```bash
-xcodebuild \
-  -project CoolDownYourMac.xcodeproj \
+# Run unit test suite
+xcodebuild test -scheme CoolDownPro -destination 'platform=macOS'
+
+# Build Release binary
+xcodebuild -project CoolDownYourMac.xcodeproj \
   -scheme CoolDownPro \
-  -configuration Debug \
+  -configuration Release \
   build
 ```
 
-## Build a distributable release
+---
 
-On a Mac configured with a Developer ID Application identity and a `notarytool` keychain profile:
+## Packaging & Distributable Release
+
+On a Mac configured with an Apple Developer ID Application certificate and `notarytool` keychain profile:
 
 ```bash
+# Build Universal Fat binary, Developer ID sign, Apple Notarize, staple, package DMG, and generate Sparkle archive:
 bash Packaging/scripts/release.sh Release
+
+# Publish release assets to GitHub Releases:
+bash Packaging/scripts/publish-release.sh
 ```
 
-The release pipeline builds, signs, notarizes, creates and notarizes the DMG, verifies Gatekeeper / stapler state, and writes a SHA-256 checksum.
+Expected output in `dist/`:
+* `CoolDownPro.dmg` (Notarized & Stapled disk image)
+* `CoolDownPro.dmg.sha256` (Cryptographic verification checksum)
+* `CoolDownPro-x.y.z.zip` (Sparkle 2 EdDSA-signed update bundle)
 
-Expected output:
+---
 
-```text
-dist/CoolDownPro.dmg
-dist/CoolDownPro.dmg.sha256
-```
+## Project Focus
 
-See [`Docs/DISTRIBUTION.md`](Docs/DISTRIBUTION.md) for prerequisites and the complete release checklist.
+This repository is focused on **predictable, stable, and acoustically pleasant thermal control**. Rather than simply exposing an unbuffered fan slider or raw sensor threshold, Cool Down Pro implements closed-loop control dynamics: asymmetric rise/fall smoothing, micro-burst suppression, thermal inertia tracking, and secure privileged boundaries.
 
-## Project focus
+For detailed profiling and telemetry benchmarks, see [Docs/PERFORMANCE.md](Docs/PERFORMANCE.md).
 
-This repository is intentionally focused on **stable thermal control**, not simply exposing a manual fan slider. The interesting part is the feedback controller: sensor selection, smoothing, hysteresis, cooldown behavior, safety bypasses, and the privileged macOS boundary required to apply fan targets.
+---
 
 ## License
 
-Licensed under the [GNU General Public License v2.0 only](LICENSE).
+Distributed under the [GNU General Public License v2.0 only](LICENSE).
