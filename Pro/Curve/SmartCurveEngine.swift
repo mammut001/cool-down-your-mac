@@ -135,7 +135,11 @@ public final class SmartCurveEngine: @unchecked Sendable {
 
         if temperatureC >= emergencyTemperatureC {
             sustainedHighTempSeconds += dt
-        } else {
+        } else if temperatureC < hotTemperatureC {
+            // Only reset when temperature drops well below the emergency
+            // threshold. Oscillating between 89°C and 91°C must not
+            // continuously zero the counter and prevent the sustained
+            // emergency from engaging.
             sustainedHighTempSeconds = 0
         }
 
@@ -199,8 +203,9 @@ public final class SmartCurveEngine: @unchecked Sendable {
 
         // At 85C and above, reach the hot floor immediately instead of taking
         // several polling intervals to slew through a dangerous temperature.
-        if isHotResponse && last < desired {
-            let next = desired
+        // Above the floor, the slew rate logic handles the remaining ramp.
+        if isHotResponse && last < hotFanFloor {
+            let next = hotFanFloor
             lastAppliedPercent = next
             cooldownRemainingSeconds = decreaseHoldSeconds
             #if DEBUG
@@ -221,8 +226,8 @@ public final class SmartCurveEngine: @unchecked Sendable {
 
         // At 80C and above, reach the warm floor immediately instead of taking
         // several polling intervals to slew from a low previous target.
-        if isWarmResponse && last < desired {
-            let next = desired
+        if isWarmResponse && last < warmFanFloor {
+            let next = warmFanFloor
             lastAppliedPercent = next
             cooldownRemainingSeconds = decreaseHoldSeconds
             #if DEBUG
@@ -334,8 +339,9 @@ public final class SmartCurveEngine: @unchecked Sendable {
         defer { lastUpdateUptime = now }
         guard let lastUpdateUptime else { return 2 }
         // Clamp long sleeps / debugger pauses so one delayed poll cannot create
-        // an enormous ramp step.
-        return (now - lastUpdateUptime).clamped(to: 0.25...10)
+        // an enormous ramp step. No lower bound — the math handles small dt
+        // correctly and clamping up would accelerate all time-dependent logic.
+        return min(now - lastUpdateUptime, 10)
     }
 
     private func filterTemperature(_ raw: Double, elapsedSeconds dt: TimeInterval) -> Double {

@@ -31,6 +31,10 @@ public struct SnapshotHeaderView: View {
                     Text("Avg · Peak \(SensorFormatting.temperature(maxTemp))")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                } else if displayTemp == nil {
+                    Text("No Data")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 } else {
                     Text(avgTemp != nil ? "Average" : "Hottest")
                         .font(.caption2)

@@ -176,6 +176,10 @@ void CoolDownEnumerateHIDTemperatures(void (NS_NOESCAPE ^block)(NSString *name, 
     uint16_t *snapshotIndices = (total <= STACK_CAPACITY)
         ? stackIndices
         : (uint16_t *)malloc(sizeof(uint16_t) * total);
+    if (!snapshotIndices) {
+        os_unfair_lock_unlock(&gLock);
+        return;
+    }
     memcpy(snapshotIndices, gServiceUniqueIndices, sizeof(uint16_t) * total);
 
     os_unfair_lock_unlock(&gLock);
@@ -191,6 +195,13 @@ void CoolDownEnumerateHIDTemperatures(void (NS_NOESCAPE ^block)(NSString *name, 
     uint16_t *counts = (uniqueCount <= STACK_CAPACITY)
         ? stackCounts
         : (uint16_t *)calloc(uniqueCount, sizeof(uint16_t));
+    if (!sums || !counts) {
+        if (snapshotIndices != stackIndices) free(snapshotIndices);
+        if (sums && sums != stackSums) free(sums);
+        if (counts && counts != stackCounts) free(counts);
+        CFRelease(snapshotServices);
+        return;
+    }
     NSInteger nullEventCount = 0;
 
     for (CFIndex i = 0; i < total; i++) {

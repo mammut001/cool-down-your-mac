@@ -35,7 +35,8 @@ final class HelperService: NSObject, CoolDownHelperProtocol {
             do {
                 smc = try SMCKit(allowKeysEndpointFallback: false)
                 Self.log.info("SMC reopened after I/O failure")
-                return try body(smc!)
+                guard let reopened = smc else { throw CoolDownXPCError.smcFailed.nsError }
+                return try body(reopened)
             } catch {
                 Self.log.error("SMC reopen failed: \(String(describing: error), privacy: .public)")
                 throw error
@@ -122,7 +123,7 @@ final class HelperService: NSObject, CoolDownHelperProtocol {
 
     func setFanRPM(index: Int, rpm: Double, reply: @escaping (NSError?) -> Void) {
         queue.async {
-            guard (0..<8).contains(index), rpm.isFinite, rpm > 0, rpm < 20000 else {
+            guard (0..<8).contains(index), rpm.isFinite, rpm >= 300, rpm <= 12000 else {
                 Self.log.error("setFanRPM rejected bad args index=\(index) rpm=\(rpm, privacy: .public)")
                 reply(NSError(domain: "com.cooldown.CoolDownPro.XPC", code: CoolDownXPCError.smcFailed.rawValue, userInfo: [NSLocalizedDescriptionKey: "Invalid fan RPM"]))
                 return

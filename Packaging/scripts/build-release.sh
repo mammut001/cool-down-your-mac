@@ -11,6 +11,7 @@ xcodegen generate
 xcodebuild -project CoolDownYourMac.xcodeproj \
   -scheme CoolDownPro \
   -configuration "${CONFIG}" \
+  -destination 'generic/platform=macOS' \
   -derivedDataPath "${DEST}" \
   build
 

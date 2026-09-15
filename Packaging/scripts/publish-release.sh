@@ -4,7 +4,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 DIST="${ROOT}/dist"
-APP="${DIST}/build/Build/Products/Release/CoolDownPro.app"
+CONFIG="${1:-Release}"
+APP="${DIST}/build/Build/Products/${CONFIG}/CoolDownPro.app"
 APPCAST="${ROOT}/Packaging/Sparkle/appcast.xml"
 
 if [[ ! -d "${APP}" ]]; then

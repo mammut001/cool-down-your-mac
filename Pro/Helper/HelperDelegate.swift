@@ -10,6 +10,11 @@ final class HelperDelegate: NSObject, NSXPCListenerDelegate {
         }
         newConnection.exportedInterface = NSXPCInterface(with: CoolDownHelperProtocol.self)
         newConnection.exportedObject = HelperService()
+        newConnection.interruptionHandler = {
+            // XPC interruption (client crash mid-call) may not trigger
+            // invalidation immediately. Restore fans during this window.
+            HelperService.restoreFansBestEffort()
+        }
         newConnection.invalidationHandler = {
             // Force-quit / crash skip applicationWillTerminate. Put fans back
             // to firmware auto when the trusted client goes away.

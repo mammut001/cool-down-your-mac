@@ -198,8 +198,15 @@ final class SMCKit {
             }
         }
         if failures.count == indices.count {
+            // All mode switches failed — write minRPM as a safety fallback
+            // rather than 0, which could stop a fan entirely in manual mode.
             for index in indices {
-                try writeTypedFanTarget(key: "F\(index)Tg", rpm: 0)
+                do {
+                    let minRPM = Double((try? readFloat(key: "F\(index)Mn")) ?? 1350)
+                    try writeTypedFanTarget(key: "F\(index)Tg", rpm: minRPM)
+                } catch {
+                    // Best-effort: continue to remaining fans even if one fails
+                }
             }
             throw SMCError.ioFailed("setAllFansAuto")
         }

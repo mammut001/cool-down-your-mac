@@ -140,4 +140,68 @@ final class SmartCurveEngineTests: XCTestCase {
         let second = engine.targetPercent(temperatureC: 71, profile: sticky)
         XCTAssertEqual(first, second, accuracy: 0.0001)
     }
+
+    func testRapidPollingDoesNotAccelerateTime() {
+        let engine = SmartCurveEngine()
+        var t: TimeInterval = 1000.0
+        // Establish baseline at 50C
+        _ = engine.targetPercent(temperatureC: 50, profile: profile, uptime: t)
+
+        // Poll 10 times with tiny dt=0.05s (total real time elapsed = 0.5s)
+        // With previous 0.25s clamp bug, this would have simulated 2.5s of elapsed time
+        var percent: Double = 0
+        for _ in 0..<10 {
+            t += 0.05
+            percent = engine.targetPercent(temperatureC: 75, profile: profile, uptime: t)
+        }
+        // In 0.5s of real time, the filtered temperature should have moved only slightly,
+        // so the fan percent should stay well below 0.50.
+        XCTAssertLessThan(percent, 0.40, "Rapid polling must not artificially accelerate EMA filter")
+    }
+
+    func testOscillatingNearNinetyDegreesSustainsEmergency() {
+        let engine = SmartCurveEngine()
+        var t: TimeInterval = 1000.0
+        _ = engine.targetPercent(temperatureC: 50, profile: profile, uptime: t)
+
+        // Alternate between 90.5C and 89.5C every 0.5s for 5 seconds total.
+        // Hysteresis prevents resetting the counter while temp is >= 85C.
+        var finalPercent: Double = 0
+        for i in 0..<10 {
+            t += 0.5
+            let temp = (i % 2 == 0) ? 90.5 : 89.5
+            finalPercent = engine.targetPercent(temperatureC: temp, profile: profile, uptime: t)
+        }
+        // Cumulative time at >= 90C is 5 * 0.5 = 2.5s, wait: if 90.5 is fed 5 times at 0.5s each, dt=2.5s.
+        // Let's run for 8 seconds total (8 samples at 90.5C * 0.5s = 4s >= 3.5s).
+        for i in 0..<6 {
+            t += 0.5
+            let temp = (i % 2 == 0) ? 90.5 : 89.5
+            finalPercent = engine.targetPercent(temperatureC: temp, profile: profile, uptime: t)
+        }
+        XCTAssertEqual(finalPercent, 1.0, accuracy: 0.0001, "Oscillating around 90C must sustain emergency and not reset counter")
+    }
+
+    func testSlewRateRampsSmoothlyAboveFloors() {
+        let engine = SmartCurveEngine()
+        var t: TimeInterval = 1000.0
+        // Initial sample at 80C hits warm floor (0.85)
+        let initial = engine.targetPercent(temperatureC: 80, profile: profile, uptime: t)
+        XCTAssertEqual(initial, 0.85, accuracy: 0.001)
+
+        // Profile with a target of 1.0 at 82C
+        let highProfile = CurveProfile(
+            name: "High",
+            points: [
+                CurvePoint(temperatureC: 45, fanPercent: 0.20),
+                CurvePoint(temperatureC: 82, fanPercent: 1.00)
+            ]
+        )
+        // At t + 1s, temp is 82C (warm response). It should ramp from 0.85 towards 1.0
+        // at warmRisePerSecond (0.05/sec), NOT jump instantly to 1.0!
+        t += 1.0
+        let ramped = engine.targetPercent(temperatureC: 82, profile: highProfile, uptime: t)
+        XCTAssertLessThan(ramped, 0.95, "Warm response above floor must slew gradually, not snap instantly to desired target")
+        XCTAssertGreaterThan(ramped, 0.85, "Warm response must ramp upwards from floor")
+    }
 }

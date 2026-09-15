@@ -33,15 +33,15 @@ fi
 echo "==> Codesign frameworks"
 if [[ -d "${APP_PATH}/Contents/Frameworks" ]]; then
   # Sign any nested XPC services and executables inside frameworks (e.g. Sparkle)
-  find "${APP_PATH}/Contents/Frameworks" -type d \( -name "*.xpc" -o -name "*.app" \) 2>/dev/null | while read -r nested; do
+  find "${APP_PATH}/Contents/Frameworks" -type d \( -name "*.xpc" -o -name "*.app" \) -print0 2>/dev/null | while IFS= read -r -d '' nested; do
     sign "${nested}"
   done
-  find "${APP_PATH}/Contents/Frameworks" -type f -perm +111 2>/dev/null | while read -r bin; do
+  find "${APP_PATH}/Contents/Frameworks" -type f -perm +111 -print0 2>/dev/null | while IFS= read -r -d '' bin; do
     if file "${bin}" | grep -q "Mach-O"; then
       sign "${bin}"
     fi
   done
-  find "${APP_PATH}/Contents/Frameworks" -name "*.framework" -maxdepth 1 2>/dev/null | while read -r fw; do
+  find "${APP_PATH}/Contents/Frameworks" -maxdepth 1 -name "*.framework" -print0 2>/dev/null | while IFS= read -r -d '' fw; do
     sign "${fw}"
   done
 fi
