@@ -2,10 +2,12 @@ import SwiftUI
 
 public struct SnapshotHeaderView: View {
     public let maxTemp: Double?
+    public let avgTemp: Double?
     public let modeLabel: String
 
-    public init(maxTemp: Double?, modeLabel: String) {
+    public init(maxTemp: Double?, avgTemp: Double? = nil, modeLabel: String) {
         self.maxTemp = maxTemp
+        self.avgTemp = avgTemp
         self.modeLabel = modeLabel
     }
 
@@ -20,17 +22,23 @@ public struct SnapshotHeaderView: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 1) {
-                Text(SensorFormatting.temperature(maxTemp))
+                let displayTemp = avgTemp ?? maxTemp
+                Text(SensorFormatting.temperature(displayTemp))
                     .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundStyle(CoolDownTheme.temperatureColor(maxTemp))
+                    .foregroundStyle(CoolDownTheme.temperatureColor(displayTemp))
                     .contentTransition(.numericText())
-                Text("Hottest")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                if let maxTemp, let displayTemp, maxTemp - displayTemp >= 8.0 {
+                    Text("Avg · Peak \(SensorFormatting.temperature(maxTemp))")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(avgTemp != nil ? "Average" : "Hottest")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .padding(.bottom, 4)
-
     }
 }
 

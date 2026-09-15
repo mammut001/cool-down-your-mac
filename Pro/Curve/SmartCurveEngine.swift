@@ -52,6 +52,8 @@ public final class SmartCurveEngine: @unchecked Sendable {
     private var lastAppliedPercent: Double?
     private var lastUpdateUptime: TimeInterval?
     private var cooldownRemainingSeconds: TimeInterval = 0
+    private var sustainedHighTempSeconds: TimeInterval = 0
+    private let sustainedEmergencyThresholdSeconds: TimeInterval = 3.5
     #if DEBUG
     private var lastDiagnostics: Diagnostics?
     #endif
@@ -108,6 +110,7 @@ public final class SmartCurveEngine: @unchecked Sendable {
         lastAppliedPercent = nil
         lastUpdateUptime = nil
         cooldownRemainingSeconds = 0
+        sustainedHighTempSeconds = 0
         #if DEBUG
         lastDiagnostics = nil
         #endif
@@ -129,13 +132,21 @@ public final class SmartCurveEngine: @unchecked Sendable {
         let filtered = filterTemperature(temperatureC, elapsedSeconds: dt)
         let curvePercent = stabilizedCurvePercent(temperatureC: filtered, profile: profile)
         var desired = (curvePercent + loadBoost).clamped(to: 0...1)
-        let isEmergency = temperatureC >= emergencyTemperatureC
-        let isHotResponse = temperatureC >= hotTemperatureC
-        let isWarmResponse = temperatureC >= warmTemperatureC
+
+        if temperatureC >= emergencyTemperatureC {
+            sustainedHighTempSeconds += dt
+        } else {
+            sustainedHighTempSeconds = 0
+        }
+
+        let isEmergency = filtered >= emergencyTemperatureC
+            || sustainedHighTempSeconds >= sustainedEmergencyThresholdSeconds
+        let isHotResponse = filtered >= hotTemperatureC
+        let isWarmResponse = filtered >= warmTemperatureC
 
         // Safety bypasses: do not let smoothing make the machine sluggish at
-        // genuinely high temperatures. 90C goes straight to full fan. Warm
-        // and hot floors start building airflow before thermal saturation.
+        // genuinely high temperatures. Sustained or filtered 90C goes straight to full fan.
+        // Warm and hot floors start building airflow before thermal saturation.
         if isEmergency {
             lastAppliedPercent = 1
             cooldownRemainingSeconds = decreaseHoldSeconds
@@ -156,9 +167,9 @@ public final class SmartCurveEngine: @unchecked Sendable {
         }
 
         if isWarmResponse || isHotResponse {
-            let rawCurvePercent = profile.fanPercent(for: temperatureC)
-            let rawDesired = (rawCurvePercent + loadBoost).clamped(to: 0...1)
-            desired = max(desired, rawDesired)
+            let filteredCurvePercent = profile.fanPercent(for: filtered)
+            let filteredDesired = (filteredCurvePercent + loadBoost).clamped(to: 0...1)
+            desired = max(desired, filteredDesired)
         }
 
         if isHotResponse {

@@ -30,6 +30,7 @@ struct ProMenuBarView: View {
                 VStack(spacing: 10) {
                     SnapshotHeaderView(
                         maxTemp: model.snapshot.maxTemperatureC,
+                        avgTemp: model.snapshot.displayTemperatureC,
                         modeLabel: settings.settings.mode.displayName
                     )
                     Divider()

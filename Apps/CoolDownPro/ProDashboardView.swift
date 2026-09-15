@@ -64,11 +64,20 @@ struct ProDashboardView: View {
     }
 
     private var sensorsHeader: some View {
-        DashboardSensorHeader(
+        let displayTemp = model.snapshot.displayTemperatureC ?? model.snapshot.maxTemperatureC
+        let maxTemp = model.snapshot.maxTemperatureC
+        let label: String
+        if let maxTemp, let displayTemp, maxTemp - displayTemp >= 8.0 {
+            label = "avg · peak \(SensorFormatting.temperature(maxTemp))"
+        } else {
+            label = model.snapshot.displayTemperatureC != nil ? "chip average" : "hottest component"
+        }
+        return DashboardSensorHeader(
             mode: settings.settings.mode.displayName,
             count: model.snapshot.temperatures.count,
-            temperature: SensorFormatting.temperature(model.snapshot.maxTemperatureC),
-            tint: CoolDownTheme.temperatureColor(model.snapshot.maxTemperatureC),
+            temperature: SensorFormatting.temperature(displayTemp),
+            label: label,
+            tint: CoolDownTheme.temperatureColor(displayTemp),
             showAll: model.showAllSensors,
             setShowAll: { value in
                 model.showAllSensors = value
@@ -296,13 +305,14 @@ private struct DashboardSensorHeader: View, Equatable {
     let mode: String
     let count: Int
     let temperature: String
+    let label: String
     let tint: Color
     let showAll: Bool
     let setShowAll: (Bool) -> Void
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.mode == rhs.mode && lhs.count == rhs.count && lhs.temperature == rhs.temperature
-            && lhs.tint == rhs.tint && lhs.showAll == rhs.showAll
+            && lhs.label == rhs.label && lhs.tint == rhs.tint && lhs.showAll == rhs.showAll
     }
 
     var body: some View {
@@ -321,7 +331,7 @@ private struct DashboardSensorHeader: View, Equatable {
                     Text(temperature)
                         .font(.system(size: 42, weight: .bold, design: .rounded))
                         .monospacedDigit().foregroundStyle(tint)
-                    Text("hottest component").font(.caption2).foregroundStyle(.secondary)
+                    Text(label).font(.caption2).foregroundStyle(.secondary)
                 }
             }
         }
