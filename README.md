@@ -14,7 +14,9 @@ Cool Down Pro is a high-performance native macOS menu bar utility that combines 
 
 [**Release Notes**](https://github.com/mammut001/cool-down-your-mac/releases/latest) · [Performance Benchmarks](Docs/PERFORMANCE.md) · [Distribution Guide](Docs/DISTRIBUTION.md) · [Privacy](Docs/PRIVACY.md) · [License](LICENSE)
 
-![Cool Down Pro overview](Docs/images/cool-down-pro-overview.jpg)
+<p align="center">
+  <img src="Docs/images/cool-down-pro-overview.png" width="380" alt="Cool Down Pro Menu Bar Overview">
+</p>
 
 ---
 
@@ -40,6 +42,11 @@ Because a single core junction is microscopic (a fraction of a square millimeter
 ## Key Features
 
 ### 🌪️ Smart Curve Engine
+
+<p align="center">
+  <img src="Docs/images/cool-down-pro-fan-curve.png" alt="Cool Down Pro Fan Curve Editor" width="100%">
+</p>
+
 * **Asymmetric Thermal Smoothing**: Fast spool-up when heat is sustained, deliberately gradual spool-down (`0.75%/s`) to prevent thermal bouncing.
 * **Transient Spike Suppression**: Sub-second core spikes never falsely trigger emergency fan howling.
 * **Built-in Curve Presets**:
