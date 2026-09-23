@@ -30,7 +30,8 @@ enum SensorMerge {
     private static func inferGroup(key: String, name: String) -> SensorGroup {
         let blob = (key + " " + name).lowercased()
         if blob.contains("battery") || key.hasPrefix("TB") { return .battery }
-        if key.hasPrefix("Tg") || key.hasPrefix("TG") || blob.contains("gpu") { return .gpu }
+        if blob.contains("power supply") || key == "TCHP" || key == "TPSP" { return .other }
+        if key == "TCGC" || key.hasPrefix("Tg") || key.hasPrefix("TG") || blob.contains("gpu") { return .gpu }
         if key.hasPrefix("Tp") || key.hasPrefix("TC") || key.hasPrefix("Te") || blob.contains("cpu") {
             return .cpu
         }

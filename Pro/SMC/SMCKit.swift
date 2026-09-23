@@ -294,38 +294,35 @@ final class SMCKit {
         var discovered: [SMCTempKey] = []
         let count = (try? keyCount()) ?? 0
         if count > 0 {
-            // Binary search to find the start of 'T' keys in the sorted SMC key table
-            var low = 0
-            var high = count - 1
-            var firstTIndex = -1
-            while low <= high {
-                let mid = (low + high) / 2
-                guard let key = try? keyAt(index: mid), !key.isEmpty else { break }
-                if key >= "T" {
-                    if SMCKnownNames.isTemperatureKey(key) {
-                        firstTIndex = mid
+            func scanPrefix(_ prefix: String) {
+                var low = 0
+                var high = count - 1
+                var firstIndex = -1
+                while low <= high {
+                    let mid = (low + high) / 2
+                    guard let key = try? keyAt(index: mid), !key.isEmpty else { break }
+                    if key >= prefix {
+                        if key.hasPrefix(prefix) {
+                            firstIndex = mid
+                        }
+                        high = mid - 1
+                    } else {
+                        low = mid + 1
                     }
-                    high = mid - 1
-                } else {
-                    low = mid + 1
                 }
-            }
-
-            if firstTIndex >= 0 {
-                var idx = firstTIndex
+                guard firstIndex >= 0 else { return }
+                var idx = firstIndex
                 while idx < count {
-                    guard let key = try? keyAt(index: idx), !key.isEmpty else { break }
-                    if !SMCKnownNames.isTemperatureKey(key) {
-                        if key > "T" { break }
-                        idx += 1
-                        continue
-                    }
+                    guard let key = try? keyAt(index: idx), key.hasPrefix(prefix) else { break }
                     if let info = try? keyInfo(key: key) {
                         discovered.append(SMCTempKey(key: key, type: info.type, size: info.size))
                     }
                     idx += 1
                 }
             }
+
+            scanPrefix("T")
+            scanPrefix("t")
 
             // Fallback: if binary search found nothing (e.g. non-standard key ordering), scan linearly
             if discovered.isEmpty {

@@ -123,6 +123,10 @@ static void CoolDownHIDRefreshServicesLocked(void) {
     NSMutableArray<NSString *> *uniqueNames = [NSMutableArray array];
     NSMutableDictionary<NSString *, NSNumber *> *nameIndexMap = [NSMutableDictionary dictionary];
     uint16_t *indices = totalServices > 0 ? (uint16_t *)malloc(sizeof(uint16_t) * totalServices) : NULL;
+    if (totalServices > 0 && !indices) {
+        CFRelease(nextServices);
+        return;
+    }
 
     for (CFIndex i = 0; i < totalServices; i++) {
         NSString *name = nextNames[i];

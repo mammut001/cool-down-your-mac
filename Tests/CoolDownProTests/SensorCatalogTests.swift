@@ -202,4 +202,33 @@ final class SensorCatalogTests: XCTestCase {
         XCTAssertEqual(profile.fanPercent(for: 78), 1.00)
         XCTAssertEqual(profile.fanPercent(for: 90), 1.00)
     }
+
+    func testTCHPPowerSupplyNotClassifiedAsCPU() {
+        let reading = TemperatureReading(key: "TCHP", name: "TCHP", celsius: 45)
+        let annotated = SensorMerge.annotateSMC(reading)
+        XCTAssertEqual(annotated.group, .other)
+        XCTAssertFalse(annotated.group.affectsThermalControl)
+    }
+
+    func testTCGCClassifiedAsGPU() {
+        let reading = TemperatureReading(key: "TCGC", name: "TCGC", celsius: 50)
+        let annotated = SensorMerge.annotateSMC(reading)
+        XCTAssertEqual(annotated.group, .gpu)
+        XCTAssertTrue(annotated.group.affectsThermalControl)
+    }
+
+    func testControlReadingsFiltersOutlier128SensorGlitch() {
+        let normal = TemperatureReading(key: "Tp00", name: "CPU 1", celsius: 42, group: .cpu)
+        let glitch = TemperatureReading(key: "Tp01", name: "Glitch Sensor", celsius: 128, group: .cpu)
+        let control = SensorCatalog.controlReadings(smc: [normal, glitch], hid: [])
+        XCTAssertEqual(control.count, 1)
+        XCTAssertEqual(control.first?.celsius, 42)
+    }
+
+    func testSnapshotFiltersOutlier128SensorGlitch() {
+        let normal = TemperatureReading(key: "Tp00", name: "CPU 1", celsius: 42, group: .cpu)
+        let glitch = TemperatureReading(key: "Tp01", name: "Glitch Sensor", celsius: 128, group: .cpu)
+        let snapshot = SensorSnapshot(temperatures: [normal, glitch])
+        XCTAssertEqual(snapshot.maxTemperatureC, 42)
+    }
 }

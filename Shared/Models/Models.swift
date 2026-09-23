@@ -264,7 +264,7 @@ public struct SensorSnapshot: Codable, Hashable, Sendable {
         var maxTemp: Double?
         for t in temperatures {
             let val = t.celsius
-            guard val.isFinite, val > 0, val < 150 else { continue }
+            guard val.isFinite, val > 0, val < 115 else { continue }
             if maxTemp == nil || val > maxTemp! {
                 maxTemp = val
             }
@@ -298,7 +298,7 @@ public struct SensorSnapshot: Codable, Hashable, Sendable {
         var anyMax: Double?
         for t in temperatures {
             let val = t.celsius
-            guard val.isFinite, val > 0, val < 150 else { continue }
+            guard val.isFinite, val > 0, val < 115 else { continue }
             if anyMax == nil || val > anyMax! {
                 anyMax = val
             }

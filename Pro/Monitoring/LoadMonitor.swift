@@ -133,7 +133,7 @@ final class LoadMonitor: ObservableObject {
     private func elapsedBoostSeconds(now: TimeInterval) -> TimeInterval {
         defer { lastBoostUpdateUptime = now }
         guard let lastBoostUpdateUptime else { return 2 }
-        return (now - lastBoostUpdateUptime).clamped(to: 0.25...10)
+        return min(now - lastBoostUpdateUptime, 10)
     }
 
     #if DEBUG

@@ -242,9 +242,14 @@ final class ProAppModel: ObservableObject {
 
     private func handleSystemSleep() {
         stopPolling()
+        restoreAutoOnExitSync()
+        lastAppliedFanCommand = nil
     }
 
     private func handleSystemWake() {
+        lastAppliedFanCommand = nil
+        curveEngine.reset()
+        loadMonitor.resetFanBoost()
         DirectSMCReader.invalidateReadConnection()
         CoolDownHIDTeardown()
         startPolling()
@@ -391,7 +396,7 @@ final class ProAppModel: ObservableObject {
         if !hasCompletedInitialHelperProbe { hasCompletedInitialHelperProbe = true }
         presentInitialHelperSetupIfNeeded()
 
-        let newControlTemp = controlTemps.map(\.celsius).filter { $0.isFinite && $0 > 0 && $0 < 150 }.max()
+        let newControlTemp = controlTemps.map(\.celsius).filter { $0.isFinite && $0 > 5 && $0 < 115 }.max()
         if controlTemperatureC != newControlTemp {
             controlTemperatureC = newControlTemp
         }
@@ -440,6 +445,40 @@ final class ProAppModel: ObservableObject {
         }
     }
 
+    /// Battery safe operating threshold:
+    /// Lithium-ion battery health degrades rapidly above 40°C, and temperatures
+    /// above 45°C pose swelling / thermal runaway risks during fast charging.
+    /// When battery sensors exceed safe bounds, enforce a cooling floor.
+    var batterySafetyFloorPercent: Double? {
+        guard let battTemp = snapshot.temperatures
+            .filter({ $0.group == .battery && $0.celsius.isFinite && $0.celsius > 5 && $0.celsius < 115 })
+            .map(\.celsius)
+            .max() else { return nil }
+        if battTemp >= 48 {
+            return 1.0 // Emergency battery cooling
+        } else if battTemp >= 43 {
+            return 0.50 // Active airflow to dissipate battery/charging heat
+        }
+        return nil
+    }
+
+    /// High-temperature safety override for Manual mode.
+    /// Prevents silent hardware damage / battery baking if the user leaves fans
+    /// at low manual RPM while system temperatures or battery reach dangerous levels.
+    var thermalSafetyOverridePercent: Double? {
+        if let battFloor = batterySafetyFloorPercent {
+            return battFloor
+        }
+        if let temp = controlTemperatureC {
+            if temp >= 95 {
+                return 1.0 // Failsafe emergency
+            } else if temp >= 90 {
+                return 0.75 // High temperature protection
+            }
+        }
+        return nil
+    }
+
     func applyControlPolicy() async {
         controlGeneration += 1
         let generation = controlGeneration
@@ -469,10 +508,13 @@ final class ProAppModel: ObservableObject {
                 )
             case .manual:
                 if loadBoostPercent != 0 { loadBoostPercent = 0 }
-                let percent = settings.settings.manualPercent
-                if abs(targetFanPercent - percent) > 0.001 { targetFanPercent = percent }
+                var percent = settings.settings.manualPercent
                 curveEngine.reset()
                 loadMonitor.resetFanBoost()
+                if let override = thermalSafetyOverridePercent {
+                    percent = max(percent, override)
+                }
+                if abs(targetFanPercent - percent) > 0.001 { targetFanPercent = percent }
                 try await applyFanWrite(
                     commandKey: String(format: "manual-%.3f", percent),
                     generation: generation,
@@ -494,11 +536,14 @@ final class ProAppModel: ObservableObject {
                 if abs(loadBoostPercent - boost) > 0.001 {
                     loadBoostPercent = boost
                 }
-                let percent = curveEngine.targetPercent(
+                var percent = curveEngine.targetPercent(
                     temperatureC: temp,
                     profile: settings.settings.curve,
                     loadBoost: boost
                 )
+                if let battFloor = batterySafetyFloorPercent {
+                    percent = max(percent, battFloor)
+                }
                 if abs(targetFanPercent - percent) > 0.001 {
                     targetFanPercent = percent
                 }
@@ -682,14 +727,14 @@ final class ProAppModel: ObservableObject {
     }
 
     func restoreAutoOnExit() async {
-        guard settings.settings.mode != .systemAuto else { return }
+        guard settings.settings.mode != .systemAuto || snapshot.fans.contains(where: \.isManual) else { return }
         try? await helper.setFansAuto()
     }
 
     /// Synchronous restore for applicationWillTerminate. Must not wait on a
     /// MainActor Task — that deadlocks the terminate callback.
     func restoreAutoOnExitSync(timeoutSeconds: TimeInterval = 1.2) {
-        guard settings.settings.mode != .systemAuto else { return }
+        guard settings.settings.mode != .systemAuto || snapshot.fans.contains(where: \.isManual) else { return }
         HelperClient.setFansAutoBlocking(timeout: timeoutSeconds)
     }
 

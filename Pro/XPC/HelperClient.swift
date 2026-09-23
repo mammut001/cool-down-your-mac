@@ -184,10 +184,12 @@ public final class HelperClient: ObservableObject {
         defer { conn.invalidate() }
 
         let sema = DispatchSemaphore(value: 0)
-        let proxy = conn.remoteObjectProxyWithErrorHandler { _ in
+        guard let proxy = conn.remoteObjectProxyWithErrorHandler({ _ in
             sema.signal()
-        } as? CoolDownHelperProtocol
-        proxy?.setFansAuto { _ in
+        }) as? CoolDownHelperProtocol else {
+            return
+        }
+        proxy.setFansAuto { _ in
             sema.signal()
         }
         _ = sema.wait(timeout: .now() + timeout)

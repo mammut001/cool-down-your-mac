@@ -35,7 +35,7 @@ enum SensorCatalog {
         // CPU cores: Tp/TC/Te keys around SoC temps (deduped; last write wins).
         let cpuKeys = uniqueSMC.values
             .filter { isCPUKey($0.key) && $0.key.count == 4 }
-            .filter { $0.celsius.isFinite && $0.celsius > 5 && $0.celsius < 150 }
+            .filter { $0.celsius.isFinite && $0.celsius > 5 && $0.celsius < 115 }
             .sorted { keyPrecedes($0.key, $1.key) }
 
         // Prefer the dense Tp0* block first (Performance + Super on M-series Pro).
@@ -91,7 +91,7 @@ enum SensorCatalog {
                     && $0.key != "hid.cpu.avg"
                     && $0.celsius.isFinite
                     && $0.celsius > 5
-                    && $0.celsius < 150
+                    && $0.celsius < 115
             }
             list.append(contentsOf: hidCPU.prefix(18))
         }
@@ -112,10 +112,10 @@ enum SensorCatalog {
         // GPU clusters: pick 4 evenly spaced Tg/TG samples (deduped; last write wins).
         let gpuKeys = uniqueSMC.values
             .filter { isGPUKey($0.key) && $0.key.count == 4 }
-            .filter { $0.celsius.isFinite && $0.celsius > 5 && $0.celsius < 150 }
+            .filter { $0.celsius.isFinite && $0.celsius > 5 && $0.celsius < 115 }
             .sorted { keyPrecedes($0.key, $1.key) }
         if gpuKeys.isEmpty {
-            let hidGPU = hid.filter { $0.group == .gpu && $0.celsius.isFinite && $0.celsius > 5 && $0.celsius < 150 }
+            let hidGPU = hid.filter { $0.group == .gpu && $0.celsius.isFinite && $0.celsius > 5 && $0.celsius < 115 }
             list.append(contentsOf: hidGPU.prefix(4))
         } else if !gpuKeys.isEmpty {
             let isAppleSiliconGPU = gpuKeys.contains { $0.key.hasPrefix("Tg") }
@@ -219,18 +219,19 @@ enum SensorCatalog {
         var readings = uniqueSMC.values.filter { reading in
             reading.celsius.isFinite
                 && reading.celsius > 5
-                && reading.celsius < 150
+                && reading.celsius < 115
                 && (isCPUKey(reading.key) || isGPUKey(reading.key) || reading.group.affectsThermalControl)
         }
         for item in hid where item.group.affectsThermalControl {
-            guard item.celsius.isFinite, item.celsius > 5, item.celsius < 150 else { continue }
+            guard item.celsius.isFinite, item.celsius > 5, item.celsius < 115 else { continue }
             readings.append(item)
         }
         return readings
     }
 
     private static func isCPUKey(_ key: String) -> Bool {
-        key.hasPrefix("Tp") || key.hasPrefix("TC") || key.hasPrefix("Te") || key.hasPrefix("tp")
+        guard key != "TCHP" && key != "TCGC" else { return false }
+        return key.hasPrefix("Tp") || key.hasPrefix("TC") || key.hasPrefix("Te") || key.hasPrefix("tp")
     }
 
     private static func isGPUKey(_ key: String) -> Bool {
