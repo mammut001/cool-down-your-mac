@@ -65,6 +65,27 @@ public struct XPCSnapshotDTO: Codable, Sendable {
     public var fans: [FanDTO]
     public var temperatures: [TempDTO]
     public var canControlFans: Bool
+    /// Missing in pre-lease helpers. An upgraded app must not use their writes.
+    public var supportsFanLease: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case fans, temperatures, canControlFans, supportsFanLease
+    }
+
+    public init(fans: [FanDTO], temperatures: [TempDTO], canControlFans: Bool, supportsFanLease: Bool = true) {
+        self.fans = fans
+        self.temperatures = temperatures
+        self.canControlFans = canControlFans
+        self.supportsFanLease = supportsFanLease
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        fans = try c.decode([FanDTO].self, forKey: .fans)
+        temperatures = try c.decode([TempDTO].self, forKey: .temperatures)
+        canControlFans = try c.decode(Bool.self, forKey: .canControlFans)
+        supportsFanLease = try c.decodeIfPresent(Bool.self, forKey: .supportsFanLease) ?? false
+    }
 
     public struct FanDTO: Codable, Sendable {
         public var index: Int

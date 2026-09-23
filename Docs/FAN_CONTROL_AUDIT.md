@@ -11,6 +11,7 @@ Baseline: `main` at `55ee7f8a0676212bd3a268424b0d7e671600b729` (Cool Down Pro 1.
 | P1 | Each connection had an independent SMC queue. An old connection's asynchronous disconnect restore could execute after a new command. | All commands, disconnect restores, SIGTERM handling, and lease expiry share one helper queue. Only the connection that owns the current manual lease can trigger a disconnect restore or renew it. |
 | P1 | Failure on fan N could leave earlier fans in manual mode; an unsuccessful auto reset wrote minimum RPM. Successful I/O was not checked against the target and mode keys. | Partial manual writes attempt auto rollback. Failed restores remain pending for watchdog retries, with a maximum-RPM target attempted on any fan still stuck in manual mode. Fan mode and target writes require immediate key read-back; failure triggers rollback. |
 | P2 | Missing `FNum` threw before the per-fan discovery fallback. | Both fan count and writable fan discovery probe `F*Ac` when `FNum` is missing or zero. |
+| P0 | An updated GUI could connect to an already-installed older helper that has no lease, then continue issuing manual commands. | Helper snapshots advertise lease support. Missing support decodes as false; the GUI blocks manual control, requests auto if an old helper reports manual fans, and exposes the explicit helper repair path. |
 
 The 45-second lease exceeds the longest normal 25-second display-asleep polling interval (10-second UI setting multiplied by 2.5). A stalled helper queue or a process killed without a signal cannot run its watchdog. macOS firmware protection is independent, but this app cannot claim its own recovery in those cases.
 
@@ -27,6 +28,7 @@ Do not run failure injection during critical work or with the machine unattended
 5. Inject a failure on the second fan's mode or target write. Confirm the first fan returns to auto. Inject an auto-restore failure, clear it, and confirm the helper retries restoration on the next watchdog tick.
 6. Exercise display sleep, system sleep/wake, normal quit, helper SIGTERM, and an app poll interval of 10 seconds. Confirm no unintended low-speed hold or repeated authorization prompt.
 7. On a model with no `FNum` key, confirm per-fan discovery works. Verify that a controller which acknowledges a key write without changing its read-back is treated as a failure.
+8. Upgrade the GUI while leaving the pre-lease helper installed. Confirm manual controls remain disabled, any existing manual fan is returned to auto, and the Repair flow installs a lease-capable helper before manual control becomes available.
 
 ## Remaining limits
 

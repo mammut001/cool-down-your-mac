@@ -35,4 +35,16 @@ final class FanControlLeaseTests: XCTestCase {
         XCTAssertFalse(lease.renew(clientID: client, now: 110, duration: 45))
         XCTAssertFalse(lease.hasExpired(now: 1000))
     }
+
+    func testOldHelperSnapshotCannotClaimLeaseSupport() throws {
+        let oldPayload = Data(#"{"fans":[],"temperatures":[],"canControlFans":true}"#.utf8)
+        let old = try JSONDecoder().decode(XPCSnapshotDTO.self, from: oldPayload)
+        XCTAssertFalse(old.supportsFanLease)
+
+        let currentPayload = try JSONEncoder().encode(
+            XPCSnapshotDTO(fans: [], temperatures: [], canControlFans: true)
+        )
+        let current = try JSONDecoder().decode(XPCSnapshotDTO.self, from: currentPayload)
+        XCTAssertTrue(current.supportsFanLease)
+    }
 }

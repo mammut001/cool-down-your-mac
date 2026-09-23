@@ -8,6 +8,8 @@ public final class HelperClient: ObservableObject {
     public static let shared = HelperClient()
 
     @Published public private(set) var isConnected = false
+    @Published public private(set) var supportsFanLease = false
+    @Published public private(set) var hasCheckedFanLease = false
     @Published public private(set) var lastError: String?
 
     private var connection: NSXPCConnection?
@@ -107,6 +109,12 @@ public final class HelperClient: ObservableObject {
         proxy.ping { [weak self] ok in
             Task { @MainActor in
                 self?.isConnected = ok
+                if ok {
+                    // The local SMC read path normally avoids fetchSnapshot.
+                    // Probe once per connection so an installed old helper
+                    // cannot silently bypass the new safety lease.
+                    _ = try? await self?.fetchSnapshot()
+                }
             }
         }
     }
@@ -125,6 +133,8 @@ public final class HelperClient: ObservableObject {
         }
         let dto = try JSONDecoder().decode(XPCSnapshotDTO.self, from: data)
         isConnected = true
+        supportsFanLease = dto.supportsFanLease
+        hasCheckedFanLease = true
         return SensorSnapshot(
             fans: dto.fans.map {
                 FanInfo(
@@ -247,6 +257,8 @@ public final class HelperClient: ObservableObject {
         let existing = connection
         connection = nil
         isConnected = false
+        supportsFanLease = false
+        hasCheckedFanLease = false
         existing?.invalidationHandler = nil
         existing?.interruptionHandler = nil
         existing?.invalidate()

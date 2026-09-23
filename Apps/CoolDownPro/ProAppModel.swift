@@ -116,7 +116,7 @@ final class ProAppModel: ObservableObject {
     }
 
     var helperControlIsReady: Bool {
-        helper.isConnected && snapshot.helperAvailable && snapshot.canControlFans && !snapshot.fans.isEmpty
+        helper.isConnected && helper.supportsFanLease && snapshot.helperAvailable && snapshot.canControlFans && !snapshot.fans.isEmpty
     }
 
     var helperPresentationState: HelperPresentationState {
@@ -133,7 +133,11 @@ final class ProAppModel: ObservableObject {
     }
 
     var helperNeedsSetup: Bool {
-        hasCompletedInitialHelperProbe && (!helperIsRegistered || helperLaunchFailed || (helper.isConnected && !snapshot.helperAvailable))
+        hasCompletedInitialHelperProbe && (!helperIsRegistered || helperLaunchFailed || (helper.isConnected && !snapshot.helperAvailable) || helperNeedsLeaseUpgrade)
+    }
+
+    private var helperNeedsLeaseUpgrade: Bool {
+        helper.isConnected && helperIsRegistered && helper.hasCheckedFanLease && !helper.supportsFanLease
     }
 
     var helperActionTitle: String {
@@ -145,6 +149,7 @@ final class ProAppModel: ObservableObject {
         }
         if !hasCompletedInitialHelperProbe { return "Checking Helper…" }
         if !helperIsRegistered { return "Enable Fan Control…" }
+        if helperNeedsLeaseUpgrade { return "Repair Fan Control…" }
         if helperLaunchFailed { return "Repair Fan Control…" }
         if !helperControlIsReady { return "Reconnect Fan Control" }
         return "Fan Control Enabled"
@@ -159,6 +164,7 @@ final class ProAppModel: ObservableObject {
     }
 
     var helperStatusText: String {
+        if helperNeedsLeaseUpgrade { return "Installed fan-control helper needs an update" }
         helperPresentationState.rawValue
     }
 
@@ -490,10 +496,15 @@ final class ProAppModel: ObservableObject {
         // administrator AppleScript here makes a timer look like repeated user
         // authorization requests, which is both surprising and disruptive.
         guard helperControlIsReady else {
+            if helperNeedsLeaseUpgrade && snapshot.fans.contains(where: \.isManual) {
+                try? await helper.setFansAuto()
+            }
             if settings.settings.mode != .systemAuto {
-                statusMessage = fanControlUnavailableOnThisMac
-                    ? "Manual fan control is unavailable on this Mac."
-                    : "Enable fan control once to use Manual or Smart Curve."
+                statusMessage = helperNeedsLeaseUpgrade
+                    ? "Repair the installed fan-control helper before using Manual or Smart Curve."
+                    : (fanControlUnavailableOnThisMac
+                        ? "Manual fan control is unavailable on this Mac."
+                        : "Enable fan control once to use Manual or Smart Curve.")
             }
             return
         }
@@ -697,7 +708,7 @@ final class ProAppModel: ObservableObject {
             statusMessage = helperInstallationSigningIssue
             return
         }
-        if !helperIsRegistered || helperLaunchFailed {
+        if !helperIsRegistered || helperLaunchFailed || helperNeedsLeaseUpgrade {
             requestHelperSetup()
         } else {
             isBusy = true
