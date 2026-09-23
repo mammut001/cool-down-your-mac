@@ -19,14 +19,20 @@ The repository's macOS 15 / Xcode 16.4 CI could not compile the pre-existing mac
 
 ## Signed Mac validation
 
-On 2026-09-23, a signed Debug app and its bundled helper were tested on an M5 Pro with two fans. The installed helper was checked against the bundled binary. The 75 unit tests passed. The first live attempt found that immediate `F0Tg` read-back rejected manual writes; bounded read-back retries resolved the failure on this machine. Both fans then entered manual mode at 50% and reached approximately 3350/3560 RPM. The final tests used the independent `cooldown-smc read` output:
+On 2026-09-23, a signed Debug app and its bundled helper were tested on an M5 Pro with two fans. The installed helper was checked against the bundled binary. The first live attempt found that immediate `F0Tg` read-back rejected manual writes; bounded read-back retries resolved the failure on this machine. Both fans then entered manual mode at 50% and reached approximately 3350/3560 RPM. The final tests used the independent `cooldown-smc read` output:
 
 | Test | Before fault | After fault | Result |
 | --- | --- | --- | --- |
 | T2: `kill -STOP` on the GUI PID, wait 50 s | Both fans `manual=true`, targets 3349/3563 RPM | Both `manual=false` while GUI was still stopped; helper logged lease expiry and auto restore | Pass |
 | T3: `kill -9` on the GUI PID, wait 5 s | Both fans `manual=true`, targets 3349/3563 RPM | Both `manual=false`; helper logged controlling client gone and auto restore | Pass |
 
-After the tests, the saved app mode was returned to System Auto, the app was quit, and both fans read `manual=false`.
+The later sleep and fault-injection pass expanded the local test suite from 75 to 84 tests. Five `SMCFaultInjectionTests` drive the real `SMCKit` path through a DEBUG-only fake AppleSMC transport: consecutive temperature read failures without reuse of an old sample, second-fan target failure and rollback, failed auto restore and retry, delayed target read-back, and persistent read-back failure. Four `SMCConnectionRecoveryTests` cover successful reopen, two I/O failures, initial open failure, and reopen failure. All 84 tests passed locally. These are controlled fault tests; no failure was deliberately induced in the physical AppleSMC.
+
+The first full system sleep/wake trial found a GUI crash in `IOHIDServiceClientCopyEvent` after wake. The HID bridge now stops sampling, releases cached client and service handles before sleep, and recreates them after wake, with teardown serialized against an in-flight read. A display-sleep cycle kept both fans manual. Subsequent full system sleep cycles of 11 and 54 seconds kept the GUI alive, but the 54-second trial exposed a second race: an in-flight control tick sent a manual command after the sleep handler had restored auto. The app now blocks policy writes while sleeping, invalidates the previous control generation, drains pending commands with an auto request on the same XPC connection, then disconnects until wake.
+
+The final signed Debug retest entered full system sleep at 15:09:11 and woke at 15:14:04, a 293-second sleep according to `pmset -g log`. The helper logged `setFansAuto OK` at 15:09:06 and no further manual command until `setFansPercent 0.500000 OK` at 15:14:07, after wake. The same GUI PID remained alive, 32 live sensors returned, both fans reached their manual targets, and no new Cool Down Pro crash report appeared. The app was then returned to System Auto and both fans read `manual=false`.
+
+The installed helper during the sleep retest was the previously validated lease-capable build. The connection-recovery extraction added in this follow-up was exercised by unit tests, not by a new privileged-helper installation.
 
 The following wider fault-injection matrix remains useful for release qualification, especially on Intel hardware. Its unexecuted scenarios are not claimed as live passes here.
 
@@ -45,4 +51,4 @@ Do not run failure injection during critical work or with the machine unattended
 
 - Key read-back verifies the SMC mode and requested target, not the physical fan response. A hardware test must check actual RPM and account for spin-up delay.
 - Restoration is best effort if the SMC rejects auto-mode writes. The helper attempts a maximum-RPM target for affected fans, retries auto while running, and logs failures; it cannot guarantee a hardware outcome after its process is forcibly killed.
-- The remaining injected SMC failures, sleep and wake behavior, and Intel hardware scenarios above require separate live validation before claiming support for those specific conditions.
+- Faults injected through the test transport do not prove that every physical AppleSMC controller will behave identically. Intel hardware remains untested in this audit.

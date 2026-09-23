@@ -54,30 +54,23 @@ final class HelperService: NSObject, CoolDownHelperProtocol {
     }
 
     private static func withSMC<T>(_ body: (SMCKit) throws -> T) throws -> T {
-        if smc == nil {
-            do {
-                smc = try SMCKit(allowKeysEndpointFallback: false)
-                Self.log.info("SMC open OK")
-            } catch {
-                Self.log.error("SMC open failed: \(String(describing: error), privacy: .public)")
-                throw error
-            }
-        }
-        guard let open = smc else { throw CoolDownXPCError.smcFailed.nsError }
-        do {
-            return try body(open)
-        } catch {
-            smc = nil
-            do {
-                smc = try SMCKit(allowKeysEndpointFallback: false)
+        try SMCConnectionRecovery.run(
+            cached: &smc,
+            open: {
+                do {
+                    let kit = try SMCKit(allowKeysEndpointFallback: false)
+                    Self.log.info("SMC open OK")
+                    return kit
+                } catch {
+                    Self.log.error("SMC open failed: \(String(describing: error), privacy: .public)")
+                    throw error
+                }
+            },
+            onReopen: {
                 Self.log.info("SMC reopened after I/O failure")
-                guard let reopened = smc else { throw CoolDownXPCError.smcFailed.nsError }
-                return try body(reopened)
-            } catch {
-                Self.log.error("SMC reopen failed: \(String(describing: error), privacy: .public)")
-                throw error
-            }
-        }
+            },
+            operation: body
+        )
     }
 
     func ping(reply: @escaping (Bool) -> Void) {

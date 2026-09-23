@@ -235,6 +235,7 @@ final class ProAppModel: ObservableObject {
     }
 
     private var isDisplayAsleep = false
+    private var isSystemSleeping = false
 
     deinit {
         timer?.invalidate()
@@ -247,17 +248,26 @@ final class ProAppModel: ObservableObject {
     }
 
     private func handleSystemSleep() {
+        isSystemSleeping = true
+        controlGeneration += 1
         stopPolling()
-        restoreAutoOnExitSync()
+        CoolDownHIDPrepareForSleep()
+        if helper.isHelperInstalled {
+            helper.setFansAutoForSleepBlocking()
+        }
+        helper.disconnect()
         lastAppliedFanCommand = nil
     }
 
     private func handleSystemWake() {
+        isSystemSleeping = false
+        controlGeneration += 1
         lastAppliedFanCommand = nil
         curveEngine.reset()
         loadMonitor.resetFanBoost()
         DirectSMCReader.invalidateReadConnection()
-        CoolDownHIDTeardown()
+        CoolDownHIDResumeAfterWake()
+        helper.reconnect()
         startPolling()
     }
 
@@ -296,6 +306,7 @@ final class ProAppModel: ObservableObject {
     }
 
     func tick() async {
+        guard !isSystemSleeping else { return }
         guard !isTicking else { return }
         isTicking = true
         defer {
@@ -309,6 +320,7 @@ final class ProAppModel: ObservableObject {
             loadMonitor.refresh()
         }
         await refreshSnapshot()
+        guard !isSystemSleeping else { return }
         await applyControlPolicy()
         evaluateAlerts()
         menuBarTitleModel.update(title: menuBarTitle)
@@ -489,6 +501,7 @@ final class ProAppModel: ObservableObject {
     }
 
     func applyControlPolicy() async {
+        guard !isSystemSleeping else { return }
         controlGeneration += 1
         let generation = controlGeneration
         let mode = fanControlUnavailableOnThisMac ? .systemAuto : settings.settings.mode
@@ -618,6 +631,7 @@ final class ProAppModel: ObservableObject {
         generation: Int,
         remote: () async throws -> Void
     ) async throws {
+        guard !isSystemSleeping, generation == controlGeneration else { return }
         if lastAppliedFanCommand == commandKey {
             if commandKey.hasPrefix("manual-") || commandKey.hasPrefix("smart-") {
                 do {
@@ -631,6 +645,7 @@ final class ProAppModel: ObservableObject {
                 return
             }
         }
+        guard !isSystemSleeping, generation == controlGeneration else { return }
         try await remote()
         guard generation == controlGeneration else { return }
         lastAppliedFanCommand = commandKey

@@ -13,4 +13,10 @@ void CoolDownEnumerateHIDTemperatures(void (NS_NOESCAPE ^block)(NSString *name, 
 /// any thread; the next CoolDownCopyHIDTemperatures call will re-create them.
 void CoolDownHIDTeardown(void);
 
+/// Stop new HID samples and release cached handles before system sleep.
+void CoolDownHIDPrepareForSleep(void);
+
+/// Re-enable sampling with fresh services after system wake.
+void CoolDownHIDResumeAfterWake(void);
+
 NS_ASSUME_NONNULL_END

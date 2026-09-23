@@ -24,6 +24,11 @@ final class SMCKit {
     }
 
     private var connection: io_connect_t = 0
+    #if DEBUG
+    // Test-only transport lets fault tests exercise the real fan-write path
+    // without touching AppleSMC or requiring a privileged test process.
+    private var injectedInvoke: ((inout SMCKeyData, inout SMCKeyData) throws -> Void)?
+    #endif
     // Key types/sizes are static for the lifetime of an SMC connection.
     // Cache only metadata: values (including fan modes) must always be read live.
     private var keyInfoCache: [String: (type: String, size: UInt32)] = [:]
@@ -87,6 +92,12 @@ final class SMCKit {
         }
         throw lastOpenFailed ? SMCError.openFailed : SMCError.serviceNotFound
     }
+
+    #if DEBUG
+    init(injecting invoke: @escaping (inout SMCKeyData, inout SMCKeyData) throws -> Void) {
+        injectedInvoke = invoke
+    }
+    #endif
 
     deinit {
         if connection != 0 {
@@ -561,6 +572,15 @@ final class SMCKit {
     }
 
     private func invoke(input: inout SMCKeyData, output: inout SMCKeyData) throws {
+        #if DEBUG
+        if let injectedInvoke {
+            try injectedInvoke(&input, &output)
+            guard output.result == 0 else {
+                throw SMCError.keyNotFound(fourCCString(input.key))
+            }
+            return
+        }
+        #endif
         let inputSize = MemoryLayout<SMCKeyData>.stride
         var outputSize = MemoryLayout<SMCKeyData>.stride
         let kr = IOConnectCallStructMethod(

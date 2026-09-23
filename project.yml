@@ -179,6 +179,9 @@ targets:
       - path: Pro/Sensors/SensorMerge.swift
       - path: Pro/Sensors/SensorNameMapper.swift
       - path: Pro/SMC/SMCKnownNames.swift
+      - path: Pro/SMC/SMCKit.swift
+      - path: Pro/SMC/SMCTypes.swift
+      - path: Pro/Helper/SMCConnectionRecovery.swift
       - path: Pro/XPC/CoolDownXPCProtocol.swift
     dependencies:
       - target: CoolDownKit
@@ -191,3 +194,6 @@ targets:
         ENABLE_HARDENED_RUNTIME: NO
         CODE_SIGN_INJECT_BASE_ENTITLEMENTS: YES
         LD_RUNPATH_SEARCH_PATHS: ["$(inherited)", "@executable_path/../Frameworks", "@loader_path/../Frameworks"]
+        OTHER_LDFLAGS: ["-framework", "IOKit"]
+        SWIFT_OBJC_BRIDGING_HEADER: Pro/SMC/CoolDown-Bridging-Header.h
+        HEADER_SEARCH_PATHS: ["$(SRCROOT)/Pro/SMC"]

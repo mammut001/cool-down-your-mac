@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		00FFCFF62B74A54B69FBF3A2 /* SMCKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DF5BC3A7FEBD06E75E979D2 /* SMCKit.swift */; };
 		01CBEC0F892ABB390344E47F /* HelperDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69C82F10765E14D59786E63E /* HelperDelegate.swift */; };
 		023B8BEE07C60CCEE67AD904 /* SMCKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DF5BC3A7FEBD06E75E979D2 /* SMCKit.swift */; };
 		08A21046BD962F55197F1D76 /* AppMarketingVersionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48621CC58AAD45AB3B7FBBF2 /* AppMarketingVersionTests.swift */; };
@@ -25,7 +26,9 @@
 		40057656CE9FFBCE40D44651 /* ProSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E85BB2EEB5DCF1B905877FA8 /* ProSettingsView.swift */; };
 		521C5E8FAE847AD28F6BFF18 /* AppMarketingVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05BD3D4A9412CD309C040CC2 /* AppMarketingVersion.swift */; };
 		524392DB56B334D8D68A68C6 /* SMCKnownNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6EC64FC138684DE07E9104A /* SMCKnownNames.swift */; };
+		568003C1670B87AC32EBC8A1 /* SMCTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A495F20E2BAC3D09A61D2EDE /* SMCTypes.swift */; };
 		56C33770F88B5B43CE838625 /* HelperPresentationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4FC71492ED8B4F9BDD7D37A /* HelperPresentationState.swift */; };
+		58DBD08F152425EE0698B5C4 /* SMCFaultInjectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A82FCEF790767A744AD43ACB /* SMCFaultInjectionTests.swift */; };
 		61408E7A1A70717F646B29EB /* UpdateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B54C83BEEF4E919342ED89 /* UpdateController.swift */; };
 		61AEC91CC2697F2AE3C09549 /* SMCKnownNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6EC64FC138684DE07E9104A /* SMCKnownNames.swift */; };
 		665720AFEA76D59327A0983B /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76D8C21F054C99D0A6F97EF9 /* main.swift */; };
@@ -34,8 +37,6 @@
 		7A274C93DFFD33DDB1CC11AC /* ProAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEE4767EB79E79CE7C834339 /* ProAppModel.swift */; };
 		7E295A6637E0369ED2788136 /* SmartCurveEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD358E304D25608848FDA922 /* SmartCurveEngineTests.swift */; };
 		815763FD3D0352E8AE1DF885 /* CoolDownXPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC54DA1FFFDF6CE6FCD04B41 /* CoolDownXPCProtocol.swift */; };
-		C0DEC0DE0000000000000001 /* CoolDownXPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC54DA1FFFDF6CE6FCD04B41 /* CoolDownXPCProtocol.swift */; };
-		C0DEC0DE0000000000000002 /* FanControlLeaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEC0DE0000000000000003 /* FanControlLeaseTests.swift */; };
 		84C49EB2EF6402158CAF4DDC /* CurveProfileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6C7E4DC737078AA0109588F /* CurveProfileTests.swift */; };
 		871688265E25D24D5F46DC1C /* HelperSecurity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4ED7415458EDEF37B87A2DC /* HelperSecurity.swift */; };
 		887FCB9A949E402D9F506279 /* SensorCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5736AFC158D743FCCDFC670D /* SensorCatalog.swift */; };
@@ -50,14 +51,18 @@
 		A2FD84C75DA7189FED977E6B /* SensorCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5736AFC158D743FCCDFC670D /* SensorCatalog.swift */; };
 		A3BA3F2215F1D8E364DD0B74 /* HelperPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF4A06FC652FFCA6BB1C0DD6 /* HelperPresentationTests.swift */; };
 		A6479DF4DEC2325DDF4D7FA9 /* SMCTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A495F20E2BAC3D09A61D2EDE /* SMCTypes.swift */; };
+		A8E3735F516D46B1724A3867 /* CoolDownXPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC54DA1FFFDF6CE6FCD04B41 /* CoolDownXPCProtocol.swift */; };
 		B17A6B3ACC9753A59C023C5D /* CoolDownKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D659E0B1C0BD93F2C4F46EA5 /* CoolDownKit.framework */; };
+		B57C27088A1C5848E0379200 /* SMCConnectionRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49DC6DFBBB1A137468966F0 /* SMCConnectionRecovery.swift */; };
 		B64A625593A6332A1EF24985 /* CoolDownXPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC54DA1FFFDF6CE6FCD04B41 /* CoolDownXPCProtocol.swift */; };
 		B728EB40E8F0E79133380A3B /* CoolDownProApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1999F521A2D837A3A57D50B7 /* CoolDownProApp.swift */; };
 		B9FCB0E44166A687454EC79B /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 713C850A8476463CC249575F /* Models.swift */; };
 		BAC5214E94CF13EC125F1BD7 /* IOHIDTemperatureBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = FBA0ABB1F9F3871DF1BC54F3 /* IOHIDTemperatureBridge.m */; };
+		BF201B1D19D902B6DCBB8C37 /* FanControlLeaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EABBF31D2DB1E0CD49E99B88 /* FanControlLeaseTests.swift */; };
 		C3C4787E171335E5FA33D86E /* UpdateFormattingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D67747CC8214BF21404D571 /* UpdateFormattingTests.swift */; };
 		CDB92F6AF882392CBA29FDBE /* SensorFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A80C8DC327953632B6C645 /* SensorFormatting.swift */; };
 		D6F7019AC010F7507BF9714E /* SmartCurveEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA750041E0AA15A1D38D0451 /* SmartCurveEngine.swift */; };
+		D8D4D9A04C123548FA7B7F46 /* SMCConnectionRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 786614FD6E36DBCE0EF5DE8C /* SMCConnectionRecoveryTests.swift */; };
 		E383F2386F33E94FA8A79E0E /* SMCKnownNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6EC64FC138684DE07E9104A /* SMCKnownNames.swift */; };
 		E548458BD603363610AFFFF0 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87D7A9C65112DDBD260AD995 /* Theme.swift */; };
 		E628898E87F26E822E87AE1E /* SensorMerge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59509D94EA949B1949637FFA /* SensorMerge.swift */; };
@@ -67,6 +72,7 @@
 		EE027C7789FD8E5C371B13B2 /* CoolDownKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D659E0B1C0BD93F2C4F46EA5 /* CoolDownKit.framework */; };
 		F761E08292D0801C8D464813 /* DirectSMCReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6FD2DD739CD721AE0B4AD8 /* DirectSMCReader.swift */; };
 		F891F0C615320577EAF66595 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6959BA725D2FDF9653AF5295 /* Localizable.strings */; };
+		FE8032AB5519C9B0BC5386A8 /* SMCConnectionRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49DC6DFBBB1A137468966F0 /* SMCConnectionRecovery.swift */; };
 		FFA7ADB41B5ACBAEE7432A17 /* HelperService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 847F65571158D9C7149024BD /* HelperService.swift */; };
 /* End PBXBuildFile section */
 
@@ -150,6 +156,7 @@
 		713C850A8476463CC249575F /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		73245B21E66A3CB27BCCCA9E /* CoolDownSMCCLI */ = {isa = PBXFileReference; includeInIndex = 0; path = CoolDownSMCCLI; sourceTree = BUILT_PRODUCTS_DIR; };
 		76D8C21F054C99D0A6F97EF9 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		786614FD6E36DBCE0EF5DE8C /* SMCConnectionRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMCConnectionRecoveryTests.swift; sourceTree = "<group>"; };
 		847F65571158D9C7149024BD /* HelperService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperService.swift; sourceTree = "<group>"; };
 		84EC56875C15D4AF51B14E1A /* CoolDown-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "CoolDown-Bridging-Header.h"; sourceTree = "<group>"; };
 		87D7A9C65112DDBD260AD995 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
@@ -160,12 +167,13 @@
 		9B11E196FE00AF46D8E45D3E /* HelperClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperClient.swift; sourceTree = "<group>"; };
 		9D228D6B3F83B1130C0308B3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		A495F20E2BAC3D09A61D2EDE /* SMCTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMCTypes.swift; sourceTree = "<group>"; };
+		A82FCEF790767A744AD43ACB /* SMCFaultInjectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMCFaultInjectionTests.swift; sourceTree = "<group>"; };
 		AC54DA1FFFDF6CE6FCD04B41 /* CoolDownXPCProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoolDownXPCProtocol.swift; sourceTree = "<group>"; };
-		C0DEC0DE0000000000000003 /* FanControlLeaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FanControlLeaseTests.swift; sourceTree = "<group>"; };
 		AF4A06FC652FFCA6BB1C0DD6 /* HelperPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperPresentationTests.swift; sourceTree = "<group>"; };
 		B5CB6FAB0508E157FB0B655B /* smc_cli_main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = smc_cli_main.swift; sourceTree = "<group>"; };
 		B7C17F1BD5681F50B327E7B2 /* FanCurveEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FanCurveEditorView.swift; sourceTree = "<group>"; };
 		B9925D2CA28326BD01BF81B2 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		C49DC6DFBBB1A137468966F0 /* SMCConnectionRecovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMCConnectionRecovery.swift; sourceTree = "<group>"; };
 		C6EC64FC138684DE07E9104A /* SMCKnownNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMCKnownNames.swift; sourceTree = "<group>"; };
 		CA750041E0AA15A1D38D0451 /* SmartCurveEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartCurveEngine.swift; sourceTree = "<group>"; };
 		D4FC71492ED8B4F9BDD7D37A /* HelperPresentationState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperPresentationState.swift; sourceTree = "<group>"; };
@@ -176,6 +184,7 @@
 		DEE4767EB79E79CE7C834339 /* ProAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProAppModel.swift; sourceTree = "<group>"; };
 		E7D3E9463AFC71F31E0BC0B7 /* smc_bridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = smc_bridge.h; sourceTree = "<group>"; };
 		E85BB2EEB5DCF1B905877FA8 /* ProSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProSettingsView.swift; sourceTree = "<group>"; };
+		EABBF31D2DB1E0CD49E99B88 /* FanControlLeaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FanControlLeaseTests.swift; sourceTree = "<group>"; };
 		ED466DC9776DA02F92A14824 /* CoolDownHelper */ = {isa = PBXFileReference; includeInIndex = 0; path = CoolDownHelper; sourceTree = BUILT_PRODUCTS_DIR; };
 		EF6FD2DD739CD721AE0B4AD8 /* DirectSMCReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectSMCReader.swift; sourceTree = "<group>"; };
 		F4ED7415458EDEF37B87A2DC /* HelperSecurity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperSecurity.swift; sourceTree = "<group>"; };
@@ -334,6 +343,7 @@
 				F4ED7415458EDEF37B87A2DC /* HelperSecurity.swift */,
 				847F65571158D9C7149024BD /* HelperService.swift */,
 				76D8C21F054C99D0A6F97EF9 /* main.swift */,
+				C49DC6DFBBB1A137468966F0 /* SMCConnectionRecovery.swift */,
 			);
 			path = Helper;
 			sourceTree = "<group>";
@@ -351,10 +361,12 @@
 			children = (
 				48621CC58AAD45AB3B7FBBF2 /* AppMarketingVersionTests.swift */,
 				F6C7E4DC737078AA0109588F /* CurveProfileTests.swift */,
+				EABBF31D2DB1E0CD49E99B88 /* FanControlLeaseTests.swift */,
 				AF4A06FC652FFCA6BB1C0DD6 /* HelperPresentationTests.swift */,
-				C0DEC0DE0000000000000003 /* FanControlLeaseTests.swift */,
 				677E2E2BD10AFE4A51DA8C84 /* SensorCatalogTests.swift */,
 				FD358E304D25608848FDA922 /* SmartCurveEngineTests.swift */,
+				786614FD6E36DBCE0EF5DE8C /* SMCConnectionRecoveryTests.swift */,
+				A82FCEF790767A744AD43ACB /* SMCFaultInjectionTests.swift */,
 				3D67747CC8214BF21404D571 /* UpdateFormattingTests.swift */,
 			);
 			path = CoolDownProTests;
@@ -633,6 +645,7 @@
 				01CBEC0F892ABB390344E47F /* HelperDelegate.swift in Sources */,
 				871688265E25D24D5F46DC1C /* HelperSecurity.swift in Sources */,
 				FFA7ADB41B5ACBAEE7432A17 /* HelperService.swift in Sources */,
+				B57C27088A1C5848E0379200 /* SMCConnectionRecovery.swift in Sources */,
 				79B7D2DAC93294F64B891F1A /* SMCKit.swift in Sources */,
 				61AEC91CC2697F2AE3C09549 /* SMCKnownNames.swift in Sources */,
 				E725C225038EA2C4D636F559 /* SMCTypes.swift in Sources */,
@@ -673,11 +686,16 @@
 			buildActionMask = 2147483647;
 			files = (
 				08A21046BD962F55197F1D76 /* AppMarketingVersionTests.swift in Sources */,
+				A8E3735F516D46B1724A3867 /* CoolDownXPCProtocol.swift in Sources */,
 				84C49EB2EF6402158CAF4DDC /* CurveProfileTests.swift in Sources */,
-				C0DEC0DE0000000000000001 /* CoolDownXPCProtocol.swift in Sources */,
-				C0DEC0DE0000000000000002 /* FanControlLeaseTests.swift in Sources */,
+				BF201B1D19D902B6DCBB8C37 /* FanControlLeaseTests.swift in Sources */,
 				A3BA3F2215F1D8E364DD0B74 /* HelperPresentationTests.swift in Sources */,
+				FE8032AB5519C9B0BC5386A8 /* SMCConnectionRecovery.swift in Sources */,
+				D8D4D9A04C123548FA7B7F46 /* SMCConnectionRecoveryTests.swift in Sources */,
+				58DBD08F152425EE0698B5C4 /* SMCFaultInjectionTests.swift in Sources */,
+				00FFCFF62B74A54B69FBF3A2 /* SMCKit.swift in Sources */,
 				3FD231B688DB607C4A7C2890 /* SMCKnownNames.swift in Sources */,
+				568003C1670B87AC32EBC8A1 /* SMCTypes.swift in Sources */,
 				887FCB9A949E402D9F506279 /* SensorCatalog.swift in Sources */,
 				3AE55911BF6A35B5721DD437 /* SensorCatalogTests.swift in Sources */,
 				EB4E383C27A9A2B045B0597B /* SensorMerge.swift in Sources */,
@@ -786,14 +804,22 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/Pro/SMC",
+				);
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
+				OTHER_LDFLAGS = (
+					"-framework",
+					IOKit,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.cooldown.CoolDownProTests;
 				PRODUCT_NAME = CoolDownProTests;
 				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = "Pro/SMC/CoolDown-Bridging-Header.h";
 			};
 			name = Release;
 		};
@@ -1051,14 +1077,22 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/Pro/SMC",
+				);
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
+				OTHER_LDFLAGS = (
+					"-framework",
+					IOKit,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.cooldown.CoolDownProTests;
 				PRODUCT_NAME = CoolDownProTests;
 				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = "Pro/SMC/CoolDown-Bridging-Header.h";
 			};
 			name = Debug;
 		};

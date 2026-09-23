@@ -191,6 +191,37 @@ public final class HelperClient: ObservableObject {
         }
     }
 
+    /// Drain already-sent fan commands on this XPC connection before sleep.
+    /// A separate blocking connection can race an in-flight manual write.
+    public func setFansAutoForSleepBlocking(timeout: TimeInterval = 1.2) {
+        guard let connection else {
+            Self.setFansAutoBlocking(timeout: timeout)
+            return
+        }
+        let semaphore = DispatchSemaphore(value: 0)
+        let lock = NSLock()
+        var succeeded = false
+        guard let proxy = connection.remoteObjectProxyWithErrorHandler({ _ in
+            semaphore.signal()
+        }) as? CoolDownHelperProtocol else {
+            Self.setFansAutoBlocking(timeout: timeout)
+            return
+        }
+        proxy.setFansAuto { error in
+            lock.lock()
+            succeeded = error == nil
+            lock.unlock()
+            semaphore.signal()
+        }
+        let waitResult = semaphore.wait(timeout: .now() + timeout)
+        lock.lock()
+        let confirmed = succeeded
+        lock.unlock()
+        if waitResult == .timedOut || !confirmed {
+            Self.setFansAutoBlocking(timeout: timeout)
+        }
+    }
+
     /// Blocking auto-restore for `applicationWillTerminate`. Must not hop to
     /// the main actor — the terminate callback already owns that thread.
     nonisolated public static func setFansAutoBlocking(timeout: TimeInterval = 1.0) {
