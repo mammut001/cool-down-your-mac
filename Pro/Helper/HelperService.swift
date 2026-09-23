@@ -122,6 +122,7 @@ final class HelperService: NSObject, CoolDownHelperProtocol {
 
     func setFansAuto(reply: @escaping (NSError?) -> Void) {
         Self.queue.async {
+            _ = Self.watchdog
             do {
                 try Self.restoreAutoLocked()
                 Self.log.info("setFansAuto OK")
