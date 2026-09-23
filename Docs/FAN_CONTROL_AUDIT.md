@@ -2,7 +2,7 @@
 
 Baseline: `main` at `55ee7f8a0676212bd3a268424b0d7e671600b729` (Cool Down Pro 1.0.19). Review covers the app's sensor sampling and policy, XPC ownership, privileged helper, and AppleSMC writes. The lease and disconnect recovery paths were also tested on a signed M5 Pro build, as recorded below.
 
-## Findings and changes in this PR
+## Findings and changes for v1.0.20
 
 | Priority | Baseline failure path | Change |
 | --- | --- | --- |
@@ -17,7 +17,7 @@ Baseline: `main` at `55ee7f8a0676212bd3a268424b0d7e671600b729` (Cool Down Pro 1.
 
 The 45-second lease exceeds the longest normal 25-second display-asleep polling interval (10-second UI setting multiplied by 2.5). A stalled helper queue or a process killed without a signal cannot run its watchdog. macOS firmware protection is independent, but this app cannot claim its own recovery in those cases.
 
-The repository's macOS 15 / Xcode 16.4 CI could not compile the pre-existing macOS 26 Liquid Glass calls even behind a runtime availability check. This PR also adds a compiler-version guard so that CI builds the existing legacy appearance with the older SDK; Xcode 26 retains the Liquid Glass path.
+The repository's macOS 15 / Xcode 16.4 CI could not compile the pre-existing macOS 26 Liquid Glass calls even behind a runtime availability check. The audit changes add a compiler-version guard so that CI builds the existing legacy appearance with the older SDK; Xcode 26 retains the Liquid Glass path.
 
 ## Signed Mac validation
 

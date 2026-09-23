@@ -12,7 +12,7 @@
 
 Cool Down Pro is a high-performance native macOS menu bar utility that combines direct Apple SMC fan control with filtered thermal signals, transient micro-burst suppression, and an asymmetric smart control curve. Instead of violently reacting to every 200ms single-core thermal spike, it models real physical heat accumulation through hysteresis, asymmetric EWMA low-pass filtering, cooldown hold timers, and sustained emergency overrides.
 
-[**Release Notes**](https://github.com/mammut001/cool-down-your-mac/releases/latest) · [Performance Benchmarks](Docs/PERFORMANCE.md) · [Distribution Guide](Docs/DISTRIBUTION.md) · [Privacy](Docs/PRIVACY.md) · [License](LICENSE)
+[**Release Notes**](https://github.com/mammut001/cool-down-your-mac/releases/latest) · [Fan Control Safety Audit](Docs/FAN_CONTROL_AUDIT.md) · [Performance Benchmarks](Docs/PERFORMANCE.md) · [Distribution Guide](Docs/DISTRIBUTION.md) · [Privacy](Docs/PRIVACY.md) · [License](LICENSE)
 
 <p align="center">
   <img src="Docs/images/cool-down-pro-overview.png" width="380" alt="Cool Down Pro Menu Bar Overview">

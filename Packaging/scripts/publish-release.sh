@@ -15,6 +15,7 @@ fi
 
 VERSION="$(defaults read "${APP}/Contents/Info.plist" CFBundleShortVersionString | xargs)"
 BUILD="$(defaults read "${APP}/Contents/Info.plist" CFBundleVersion | xargs)"
+NOTES="${ROOT}/Docs/RELEASE_NOTES_v${VERSION}.md"
 
 if [[ -z "${VERSION}" || "${VERSION}" =~ [[:space:]] ]]; then
   echo "error: invalid or empty CFBundleShortVersionString: '${VERSION}'" >&2
@@ -33,7 +34,7 @@ SPARKLE_ZIP="${DIST}/CoolDownPro-${VERSION}.zip"
 EXPECTED_ZIP_URL="https://github.com/mammut001/cool-down-your-mac/releases/download/v${VERSION}/CoolDownPro-${VERSION}.zip"
 
 # Verify all release artifacts exist
-for artifact in "${DMG}" "${CHECKSUM}" "${SPARKLE_ZIP}" "${APPCAST}"; do
+for artifact in "${DMG}" "${CHECKSUM}" "${SPARKLE_ZIP}" "${APPCAST}" "${NOTES}"; do
   if [[ ! -f "${artifact}" || ! -s "${artifact}" ]]; then
     echo "error: required release artifact missing or empty: ${artifact}" >&2
     exit 1
@@ -46,6 +47,12 @@ done
   shasum -a 256 -c "$(basename "${CHECKSUM}")"
 )
 
+DMG_SHA256="$(awk '{print $1}' "${CHECKSUM}")"
+if ! grep -Fq "${DMG_SHA256}" "${NOTES}"; then
+  echo "error: release notes do not contain the verified DMG SHA-256" >&2
+  exit 1
+fi
+
 # Validate appcast matches the payload to be published
 bash "${ROOT}/Packaging/scripts/validate-appcast.sh" "${APPCAST}" "${VERSION}" "${BUILD}" "${EXPECTED_ZIP_URL}"
 
@@ -55,7 +62,7 @@ gh release create "${TAG}" \
   "${CHECKSUM}" \
   "${SPARKLE_ZIP}" \
   --title "Cool Down Pro ${TAG}" \
-  --notes "Cool Down Pro ${TAG} (build ${BUILD}) release with DMG and Sparkle in-app update archive."
+  --notes-file "${NOTES}"
 
 echo
 echo "=================================================="
