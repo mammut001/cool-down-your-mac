@@ -34,6 +34,8 @@
 		7A274C93DFFD33DDB1CC11AC /* ProAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEE4767EB79E79CE7C834339 /* ProAppModel.swift */; };
 		7E295A6637E0369ED2788136 /* SmartCurveEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD358E304D25608848FDA922 /* SmartCurveEngineTests.swift */; };
 		815763FD3D0352E8AE1DF885 /* CoolDownXPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC54DA1FFFDF6CE6FCD04B41 /* CoolDownXPCProtocol.swift */; };
+		C0DEC0DE0000000000000001 /* CoolDownXPCProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC54DA1FFFDF6CE6FCD04B41 /* CoolDownXPCProtocol.swift */; };
+		C0DEC0DE0000000000000002 /* FanControlLeaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEC0DE0000000000000003 /* FanControlLeaseTests.swift */; };
 		84C49EB2EF6402158CAF4DDC /* CurveProfileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6C7E4DC737078AA0109588F /* CurveProfileTests.swift */; };
 		871688265E25D24D5F46DC1C /* HelperSecurity.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4ED7415458EDEF37B87A2DC /* HelperSecurity.swift */; };
 		887FCB9A949E402D9F506279 /* SensorCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5736AFC158D743FCCDFC670D /* SensorCatalog.swift */; };
@@ -159,6 +161,7 @@
 		9D228D6B3F83B1130C0308B3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		A495F20E2BAC3D09A61D2EDE /* SMCTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMCTypes.swift; sourceTree = "<group>"; };
 		AC54DA1FFFDF6CE6FCD04B41 /* CoolDownXPCProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoolDownXPCProtocol.swift; sourceTree = "<group>"; };
+		C0DEC0DE0000000000000003 /* FanControlLeaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FanControlLeaseTests.swift; sourceTree = "<group>"; };
 		AF4A06FC652FFCA6BB1C0DD6 /* HelperPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperPresentationTests.swift; sourceTree = "<group>"; };
 		B5CB6FAB0508E157FB0B655B /* smc_cli_main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = smc_cli_main.swift; sourceTree = "<group>"; };
 		B7C17F1BD5681F50B327E7B2 /* FanCurveEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FanCurveEditorView.swift; sourceTree = "<group>"; };
@@ -349,6 +352,7 @@
 				48621CC58AAD45AB3B7FBBF2 /* AppMarketingVersionTests.swift */,
 				F6C7E4DC737078AA0109588F /* CurveProfileTests.swift */,
 				AF4A06FC652FFCA6BB1C0DD6 /* HelperPresentationTests.swift */,
+				C0DEC0DE0000000000000003 /* FanControlLeaseTests.swift */,
 				677E2E2BD10AFE4A51DA8C84 /* SensorCatalogTests.swift */,
 				FD358E304D25608848FDA922 /* SmartCurveEngineTests.swift */,
 				3D67747CC8214BF21404D571 /* UpdateFormattingTests.swift */,
@@ -670,6 +674,8 @@
 			files = (
 				08A21046BD962F55197F1D76 /* AppMarketingVersionTests.swift in Sources */,
 				84C49EB2EF6402158CAF4DDC /* CurveProfileTests.swift in Sources */,
+				C0DEC0DE0000000000000001 /* CoolDownXPCProtocol.swift in Sources */,
+				C0DEC0DE0000000000000002 /* FanControlLeaseTests.swift in Sources */,
 				A3BA3F2215F1D8E364DD0B74 /* HelperPresentationTests.swift in Sources */,
 				3FD231B688DB607C4A7C2890 /* SMCKnownNames.swift in Sources */,
 				887FCB9A949E402D9F506279 /* SensorCatalog.swift in Sources */,

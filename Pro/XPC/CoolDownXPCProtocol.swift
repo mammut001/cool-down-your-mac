@@ -2,12 +2,42 @@ import Foundation
 
 public let coolDownHelperMachServiceName = "com.cooldown.CoolDownPro.PrivilegedHelper"
 
+/// Pure lease state; the helper owns serialization and SMC recovery.
+struct FanControlLease {
+    private(set) var owner: UUID?
+    private(set) var deadline: TimeInterval?
+
+    mutating func acquire(clientID: UUID, now: TimeInterval, duration: TimeInterval) {
+        owner = clientID
+        deadline = now + duration
+    }
+
+    mutating func renew(clientID: UUID, now: TimeInterval, duration: TimeInterval) -> Bool {
+        guard owner == clientID, let deadline, now < deadline else { return false }
+        self.deadline = now + duration
+        return true
+    }
+
+    func isOwned(by clientID: UUID) -> Bool { owner == clientID }
+
+    func hasExpired(now: TimeInterval) -> Bool {
+        deadline.map { now >= $0 } ?? false
+    }
+
+    mutating func clear() {
+        owner = nil
+        deadline = nil
+    }
+}
+
 @objc public protocol CoolDownHelperProtocol {
     func ping(reply: @escaping (Bool) -> Void)
     func fetchSnapshot(reply: @escaping (Data?, NSError?) -> Void)
     func setFansAuto(reply: @escaping (NSError?) -> Void)
     func setFansPercent(_ percent: Double, reply: @escaping (NSError?) -> Void)
     func setFanRPM(index: Int, rpm: Double, reply: @escaping (NSError?) -> Void)
+    /// Keeps an unchanged manual target alive without repeating an SMC write.
+    func renewFanControlLease(reply: @escaping (NSError?) -> Void)
 }
 
 public enum CoolDownXPCError: Int {

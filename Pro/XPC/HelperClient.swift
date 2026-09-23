@@ -172,6 +172,15 @@ public final class HelperClient: ObservableObject {
         }
     }
 
+    public func renewFanControlLease() async throws {
+        try await invoke { (proxy: CoolDownHelperProtocol, finish: @escaping (Result<Void, Error>) -> Void) in
+            proxy.renewFanControlLease { error in
+                if let error { finish(.failure(error)) }
+                else { finish(.success(())) }
+            }
+        }
+    }
+
     /// Blocking auto-restore for `applicationWillTerminate`. Must not hop to
     /// the main actor — the terminate callback already owns that thread.
     nonisolated public static func setFansAutoBlocking(timeout: TimeInterval = 1.0) {

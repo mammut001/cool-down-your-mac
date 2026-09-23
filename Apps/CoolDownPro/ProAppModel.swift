@@ -440,8 +440,11 @@ final class ProAppModel: ObservableObject {
             )
             statusMessage = "Sensors available — install helper to control fans"
         } else if let helperError {
+            snapshot = SensorSnapshot()
             lastAppliedFanCommand = nil
             statusMessage = helperError.localizedDescription
+        } else {
+            snapshot = SensorSnapshot()
         }
     }
 
@@ -508,6 +511,16 @@ final class ProAppModel: ObservableObject {
                 )
             case .manual:
                 if loadBoostPercent != 0 { loadBoostPercent = 0 }
+                guard controlTemperatureC != nil else {
+                    if targetFanPercent != 0 { targetFanPercent = 0 }
+                    try await applyFanWrite(
+                        commandKey: "auto-no-temperature",
+                        generation: generation,
+                        remote: { try await helper.setFansAuto() }
+                    )
+                    statusMessage = "Temperature sensors unavailable — fans returned to System Auto"
+                    return
+                }
                 var percent = settings.settings.manualPercent
                 curveEngine.reset()
                 loadMonitor.resetFanBoost()
@@ -595,7 +608,17 @@ final class ProAppModel: ObservableObject {
         remote: () async throws -> Void
     ) async throws {
         if lastAppliedFanCommand == commandKey {
-            return
+            if commandKey.hasPrefix("manual-") || commandKey.hasPrefix("smart-") {
+                do {
+                    try await helper.renewFanControlLease()
+                    return
+                } catch {
+                    // The helper lost the old lease. Reapply the current target.
+                    lastAppliedFanCommand = nil
+                }
+            } else {
+                return
+            }
         }
         try await remote()
         guard generation == controlGeneration else { return }

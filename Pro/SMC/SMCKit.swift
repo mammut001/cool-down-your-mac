@@ -95,7 +95,7 @@ final class SMCKit {
     }
 
     func fanCount() throws -> Int {
-        let declared = min(8, max(0, Int(try readBytes(key: "FNum")[0])))
+        let declared = min(8, max(0, Int((try? readBytes(key: "FNum").first) ?? 0)))
         if declared > 0 { return declared }
         // Newer Apple Silicon models can expose per-fan keys while reporting
         // zero (or an unavailable value) for the legacy FNum key.
@@ -110,6 +110,8 @@ final class SMCKit {
             let current = Double((try? readFloat(key: "F\(meta.index)Ac")) ?? 0)
             let target = try? readFloat(key: "F\(meta.index)Tg")
             let mode = (try? readBytes(key: meta.modeKey))?.first ?? 0
+            let alternateKey = meta.modeKey == "F\(meta.index)Md" ? "F\(meta.index)md" : "F\(meta.index)Md"
+            let alternateMode = (try? readBytes(key: alternateKey))?.first ?? 0
             fans.append(
                 SMCFanReading(
                     index: meta.index,
@@ -118,7 +120,7 @@ final class SMCKit {
                     maxRPM: meta.maxRPM,
                     currentRPM: current,
                     targetRPM: target.map(Double.init),
-                    isManual: mode != 0
+                    isManual: mode != 0 || alternateMode != 0
                 )
             )
         }
@@ -165,14 +167,29 @@ final class SMCKit {
         // thermalmonitord, so probe both and never silently pretend it worked.
         let keys = ["F\(index)Md", "F\(index)md"]
         var lastError: Error?
+        var verified = false
         for key in keys {
             do {
                 try writeBytes(key: key, bytes: bytes, type: "ui8 ", size: 1)
-                return
+                if (try readBytes(key: key).first ?? 0) == bytes[0] {
+                    verified = true
+                } else {
+                    lastError = SMCError.ioFailed("\(key) mode read-back")
+                }
             } catch {
                 lastError = error
             }
         }
+        // In auto mode, both readable mode keys must be clear. Some Macs
+        // expose a legacy key that accepts writes but does not control the fan.
+        if !enabled {
+            for key in keys {
+                if let mode = try? readBytes(key: key).first, mode != 0 {
+                    throw SMCError.ioFailed("\(key) remains manual")
+                }
+            }
+        }
+        if verified { return }
         throw lastError ?? SMCError.keyNotFound("F\(index)Md/F\(index)md")
     }
 
@@ -183,7 +200,16 @@ final class SMCKit {
         let hi = maxRPM > lo ? maxRPM : max(lo + 1000, 6000)
         let clamped = min(max(rpm, lo), hi)
         try setFanManual(index: index, enabled: true)
-        try writeTypedFanTarget(key: "F\(index)Tg", rpm: clamped)
+        do {
+            try writeTypedFanTarget(key: "F\(index)Tg", rpm: clamped)
+            let actualTarget = Double(try readFloat(key: "F\(index)Tg"))
+            guard actualTarget.isFinite, abs(actualTarget - clamped) <= max(5, clamped * 0.01) else {
+                throw SMCError.ioFailed("F\(index)Tg target read-back")
+            }
+        } catch {
+            try? setFanManual(index: index, enabled: false)
+            throw error
+        }
     }
 
     func setAllFansAuto() throws {
@@ -197,19 +223,6 @@ final class SMCKit {
                 failures.append(error)
             }
         }
-        if failures.count == indices.count {
-            // All mode switches failed — write minRPM as a safety fallback
-            // rather than 0, which could stop a fan entirely in manual mode.
-            for index in indices {
-                do {
-                    let minRPM = Double((try? readFloat(key: "F\(index)Mn")) ?? 1350)
-                    try writeTypedFanTarget(key: "F\(index)Tg", rpm: minRPM)
-                } catch {
-                    // Best-effort: continue to remaining fans even if one fails
-                }
-            }
-            throw SMCError.ioFailed("setAllFansAuto")
-        }
         if !failures.isEmpty {
             throw SMCError.ioFailed("setAllFansAuto")
         }
@@ -221,10 +234,17 @@ final class SMCKit {
         // Never report a successful manual change when discovery found no
         // writable fans. On newer Macs that would make the slider a no-op.
         guard !fans.isEmpty else { throw SMCError.noControllableFans }
-        for fan in fans {
-            let lo = fan.minRPM > 200 ? fan.minRPM : 1350
-            let hi = fan.maxRPM > lo ? fan.maxRPM : max(lo + 1000, 6000)
-            try setFanRPM(index: fan.index, rpm: lo + (hi - lo) * p)
+        do {
+            for fan in fans {
+                let lo = fan.minRPM > 200 ? fan.minRPM : 1350
+                let hi = fan.maxRPM > lo ? fan.maxRPM : max(lo + 1000, 6000)
+                try setFanRPM(index: fan.index, rpm: lo + (hi - lo) * p)
+            }
+        } catch {
+            // A failure on fan N must not leave fans 0...(N-1) in manual mode.
+            // The helper also retries auto if this best-effort rollback fails.
+            try? setAllFansAuto()
+            throw error
         }
     }
 
@@ -348,7 +368,7 @@ final class SMCKit {
     }
 
     private func fanIndices() throws -> [Int] {
-        let declared = min(8, max(0, Int(try readBytes(key: "FNum")[0])))
+        let declared = min(8, max(0, Int((try? readBytes(key: "FNum").first) ?? 0)))
         if declared > 0 { return Array(0..<declared) }
         return discoverFanIndices()
     }

@@ -179,6 +179,7 @@ targets:
       - path: Pro/Sensors/SensorMerge.swift
       - path: Pro/Sensors/SensorNameMapper.swift
       - path: Pro/SMC/SMCKnownNames.swift
+      - path: Pro/XPC/CoolDownXPCProtocol.swift
     dependencies:
       - target: CoolDownKit
         embed: true
