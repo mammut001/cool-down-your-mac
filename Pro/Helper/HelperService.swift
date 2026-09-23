@@ -10,16 +10,16 @@ final class HelperService: NSObject, CoolDownHelperProtocol {
     private static var restorePending = false
     private static let leaseSeconds: TimeInterval = 45 // 10s sample interval becomes 25s with display asleep
     private static let watchdog: DispatchSourceTimer = {
-        let timer = DispatchSource.makeTimerSource(queue: Self.queue)
+        let timer = DispatchSource.makeTimerSource(queue: HelperService.queue)
         timer.schedule(deadline: .now() + 5, repeating: 5)
         timer.setEventHandler {
-            let expired = Self.lease.hasExpired(now: ProcessInfo.processInfo.systemUptime)
-            guard Self.restorePending || expired else { return }
+            let expired = HelperService.lease.hasExpired(now: ProcessInfo.processInfo.systemUptime)
+            guard HelperService.restorePending || expired else { return }
             do {
-                try Self.restoreAutoLocked()
-                Self.log.info("fan lease expired or restore retried — system auto restored")
+                try HelperService.restoreAutoLocked()
+                HelperService.log.info("fan lease expired or restore retried — system auto restored")
             } catch {
-                Self.log.error("fan lease restore failed; retrying: \(String(describing: error), privacy: .public)")
+                HelperService.log.error("fan lease restore failed; retrying: \(String(describing: error), privacy: .public)")
             }
         }
         timer.resume()

@@ -215,15 +215,23 @@ final class SMCKit {
     func setAllFansAuto() throws {
         let indices = try fanIndices()
         guard !indices.isEmpty else { throw SMCError.noControllableFans }
-        var failures: [Error] = []
+        var failedIndices: [Int] = []
         for index in indices {
             do {
                 try setFanManual(index: index, enabled: false)
             } catch {
-                failures.append(error)
+                failedIndices.append(index)
             }
         }
-        if !failures.isEmpty {
+        if !failedIndices.isEmpty {
+            // If a fan remains in manual mode, raise its target while the
+            // helper retries restoring auto. Never leave a low manual target
+            // as the fallback for a failed auto switch.
+            for index in failedIndices {
+                let reported = (try? readFloat(key: "F\(index)Mx")) ?? 6000
+                let emergencyRPM = reported.isFinite && reported > 200 ? reported : 6000
+                try? writeTypedFanTarget(key: "F\(index)Tg", rpm: Double(emergencyRPM))
+            }
             throw SMCError.ioFailed("setAllFansAuto")
         }
     }
