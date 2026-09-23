@@ -165,7 +165,7 @@ final class ProAppModel: ObservableObject {
 
     var helperStatusText: String {
         if helperNeedsLeaseUpgrade { return "Installed fan-control helper needs an update" }
-        helperPresentationState.rawValue
+        return helperPresentationState.rawValue
     }
 
     var helperSetupTitle: String {
