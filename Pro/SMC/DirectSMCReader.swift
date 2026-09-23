@@ -12,6 +12,9 @@ enum DirectSMCReader {
     private static let state = State()
 
     static func readSnapshot(includeAllTemperatures: Bool = true) -> SensorSnapshot? {
+        #if DEBUG
+        if SensorFaultInjection.isOutageActive { return nil }
+        #endif
         state.lock.lock()
         defer { state.lock.unlock() }
         do {

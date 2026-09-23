@@ -542,7 +542,9 @@ final class ProAppModel: ObservableObject {
                         generation: generation,
                         remote: { try await helper.setFansAuto() }
                     )
-                    statusMessage = "Temperature sensors unavailable — fans returned to System Auto"
+                    if generation == controlGeneration, controlTemperatureC == nil {
+                        statusMessage = "Temperature sensors unavailable — fans returned to System Auto"
+                    }
                     return
                 }
                 var percent = settings.settings.manualPercent
@@ -559,11 +561,18 @@ final class ProAppModel: ObservableObject {
                 )
             case .smartCurve:
                 guard let temp = controlTemperatureC, temp.isFinite else {
+                    if targetFanPercent != 0 { targetFanPercent = 0 }
+                    if loadBoostPercent != 0 { loadBoostPercent = 0 }
+                    curveEngine.reset()
+                    loadMonitor.resetFanBoost()
                     try await applyFanWrite(
                         commandKey: "auto-failsafe",
                         generation: generation,
                         remote: { try await helper.setFansAuto() }
                     )
+                    if generation == controlGeneration, controlTemperatureC == nil {
+                        statusMessage = "Temperature sensors unavailable — fans returned to System Auto"
+                    }
                     return
                 }
                 let boost = loadMonitor.fanBoost(

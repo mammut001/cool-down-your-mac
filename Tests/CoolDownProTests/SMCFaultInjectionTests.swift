@@ -25,6 +25,37 @@ final class SMCFaultInjectionTests: XCTestCase {
         XCTAssertTrue(device.writtenKeys.contains("F1Tg"))
     }
 
+    func testSecondFanModeWriteFailureRollsBackFirstFan() {
+        let device = FakeSMC()
+        device.failedWrites["F1md"] = 1
+        let kit = SMCKit(injecting: device.invoke)
+
+        XCTAssertThrowsError(try kit.setAllFansPercent(0.5))
+        XCTAssertEqual(device.mode(0), 0)
+        XCTAssertEqual(device.mode(1), 0)
+    }
+
+    func testMissingFNumFallsBackToActualFanKeys() throws {
+        let device = FakeSMC()
+        device.removeKey("FNum")
+        let kit = SMCKit(injecting: device.invoke)
+
+        XCTAssertEqual(try kit.fanCount(), 2)
+        try kit.setAllFansPercent(0.5)
+        XCTAssertEqual(device.mode(0), 1)
+        XCTAssertEqual(device.mode(1), 1)
+    }
+
+    func testAcknowledgedButIgnoredTargetWriteFailsReadBack() {
+        let device = FakeSMC()
+        device.ignoredWrites.insert("F0Tg")
+        let kit = SMCKit(injecting: device.invoke)
+
+        XCTAssertThrowsError(try kit.setFanRPM(index: 0, rpm: 3000))
+        XCTAssertEqual(device.mode(0), 0)
+        XCTAssertEqual(device.target(0), 1500, accuracy: 1)
+    }
+
     func testFailedAutoRestoreRaisesAffectedTargetThenCanRetry() throws {
         let device = FakeSMC()
         device.setMode(0, 1)
@@ -63,11 +94,12 @@ final class SMCFaultInjectionTests: XCTestCase {
     }
 }
 
-private final class FakeSMC {
+final class FakeSMC {
     var failedWrites: [String: Int] = [:]
     var failedAutoWrites: [String: Int] = [:]
     var failedReads: [String: Int] = [:]
     var staleTargetReads: [String: Int] = [:]
+    var ignoredWrites: Set<String> = []
     private(set) var writtenKeys: [String] = []
     private var values: [String: [UInt8]] = [:]
 
@@ -87,6 +119,7 @@ private final class FakeSMC {
     func target(_ index: Int) -> Float { values["F\(index)Tg"]!.withUnsafeBytes { $0.loadUnaligned(as: Float.self) } }
     func setMode(_ index: Int, _ mode: UInt8) { values["F\(index)md"] = [mode] }
     func setTemperature(_ value: Float) { values["TC0P"] = floatBytes(value) }
+    func removeKey(_ key: String) { values.removeValue(forKey: key) }
 
     func invoke(_ input: inout SMCKeyData, _ output: inout SMCKeyData) throws {
         let key = keyString(input.key)
@@ -127,6 +160,7 @@ private final class FakeSMC {
                 failedWrites[key] = remaining - 1
                 throw SMCKit.SMCError.ioFailed(key)
             }
+            if ignoredWrites.contains(key) { return }
             values[key] = withUnsafeBytes(of: input.bytes) { Array($0.prefix(stored.count)) }
         default:
             XCTFail("Unexpected fake SMC command \(command)")

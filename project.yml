@@ -182,6 +182,7 @@ targets:
       - path: Pro/SMC/SMCKit.swift
       - path: Pro/SMC/SMCTypes.swift
       - path: Pro/Helper/SMCConnectionRecovery.swift
+      - path: Pro/Helper/HelperService.swift
       - path: Pro/XPC/CoolDownXPCProtocol.swift
     dependencies:
       - target: CoolDownKit

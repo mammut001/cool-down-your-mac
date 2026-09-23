@@ -69,6 +69,7 @@ static void CoolDownHIDResetServicesLocked(void) {
 
 static void CoolDownHIDReleaseClientLocked(void) {
     CoolDownHIDResetServicesLocked();
+    gServicesUptime = 0;
     if (gClient) {
         CFRelease(gClient);
         gClient = NULL;
