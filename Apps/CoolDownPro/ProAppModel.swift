@@ -178,7 +178,7 @@ final class ProAppModel: ObservableObject {
 
     var helperSetupMessage: String {
         if helperIsRegistered {
-            return "Cool Down Pro will replace its fan-control helper. macOS will ask for an administrator password. Only repair it when the installed helper cannot connect."
+            return "Cool Down Pro will replace its fan-control helper with the copy bundled in this app. macOS will ask for an administrator password. Repair it if fan control fails or the bundled helper has changed."
         }
         return "Cool Down Pro needs your approval once to install its fan-control helper. macOS will ask for an administrator password next."
     }

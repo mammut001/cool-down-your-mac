@@ -1,6 +1,6 @@
 # Fan control safety audit
 
-Baseline: `main` at `55ee7f8a0676212bd3a268424b0d7e671600b729` (Cool Down Pro 1.0.19). This is a source audit of the fan-control path, not a claim of hardware validation. Review covers the app's sensor sampling and policy, XPC ownership, privileged helper, and AppleSMC writes.
+Baseline: `main` at `55ee7f8a0676212bd3a268424b0d7e671600b729` (Cool Down Pro 1.0.19). Review covers the app's sensor sampling and policy, XPC ownership, privileged helper, and AppleSMC writes. The lease and disconnect recovery paths were also tested on a signed M5 Pro build, as recorded below.
 
 ## Findings and changes in this PR
 
@@ -9,7 +9,7 @@ Baseline: `main` at `55ee7f8a0676212bd3a268424b0d7e671600b729` (Cool Down Pro 1.
 | P0 | A live but stalled GUI kept its XPC connection and last manual SMC target indefinitely. | The helper owns a 45-second lease on manual commands. Fresh control ticks renew it without another SMC write. A helper timer restores system auto after expiry, including when the GUI remains connected. |
 | P0 | An SMC read failure returned an unlimited-age cached snapshot. The app could use its old low temperature to renew a low manual target. | Failed SMC reads no longer return cached control data. Manual and Smart Curve return to system auto if no current CPU/GPU control temperature is available. |
 | P1 | Each connection had an independent SMC queue. An old connection's asynchronous disconnect restore could execute after a new command. | All commands, disconnect restores, SIGTERM handling, and lease expiry share one helper queue. Only the connection that owns the current manual lease can trigger a disconnect restore or renew it. |
-| P1 | Failure on fan N could leave earlier fans in manual mode; an unsuccessful auto reset wrote minimum RPM. Successful I/O was not checked against the target and mode keys. | Partial manual writes attempt auto rollback. Failed restores remain pending for watchdog retries, with a maximum-RPM target attempted on any fan still stuck in manual mode. Fan mode and target writes require immediate key read-back; failure triggers rollback. |
+| P1 | Failure on fan N could leave earlier fans in manual mode; an unsuccessful auto reset wrote minimum RPM. Successful I/O was not checked against the target and mode keys. | Partial manual writes attempt auto rollback. Failed restores remain pending for watchdog retries, with a maximum-RPM target attempted on any fan still stuck in manual mode. Fan mode and target writes require key read-back; target verification allows up to 900 ms for AppleSMC to publish the new value before rollback. |
 | P2 | Missing `FNum` threw before the per-fan discovery fallback. | Both fan count and writable fan discovery probe `F*Ac` when `FNum` is missing or zero. |
 | P0 | An updated GUI could connect to an already-installed older helper that has no lease, then continue issuing manual commands. | Helper snapshots advertise lease support. Missing support decodes as false; the GUI blocks manual control, requests auto if an old helper reports manual fans, and exposes the explicit helper repair path. |
 
@@ -17,7 +17,18 @@ The 45-second lease exceeds the longest normal 25-second display-asleep polling 
 
 The repository's macOS 15 / Xcode 16.4 CI could not compile the pre-existing macOS 26 Liquid Glass calls even behind a runtime availability check. This PR also adds a compiler-version guard so that CI builds the existing legacy appearance with the older SDK; Xcode 26 retains the Liquid Glass path.
 
-## Validation required on a signed Mac build
+## Signed Mac validation
+
+On 2026-09-23, a signed Debug app and its bundled helper were tested on an M5 Pro with two fans. The installed helper was checked against the bundled binary. The 75 unit tests passed. The first live attempt found that immediate `F0Tg` read-back rejected manual writes; bounded read-back retries resolved the failure on this machine. Both fans then entered manual mode at 50% and reached approximately 3350/3560 RPM. The final tests used the independent `cooldown-smc read` output:
+
+| Test | Before fault | After fault | Result |
+| --- | --- | --- | --- |
+| T2: `kill -STOP` on the GUI PID, wait 50 s | Both fans `manual=true`, targets 3349/3563 RPM | Both `manual=false` while GUI was still stopped; helper logged lease expiry and auto restore | Pass |
+| T3: `kill -9` on the GUI PID, wait 5 s | Both fans `manual=true`, targets 3349/3563 RPM | Both `manual=false`; helper logged controlling client gone and auto restore | Pass |
+
+After the tests, the saved app mode was returned to System Auto, the app was quit, and both fans read `manual=false`.
+
+The following wider fault-injection matrix remains useful for release qualification, especially on Intel hardware. Its unexecuted scenarios are not claimed as live passes here.
 
 Do not run failure injection during critical work or with the machine unattended. Capture the mode key, target RPM, and actual RPM for **each** fan with an independent read-only tool; merely observing the app's displayed target is insufficient. Test on the supported Apple Silicon machine first and on Intel hardware before asserting Intel support.
 
@@ -34,4 +45,4 @@ Do not run failure injection during critical work or with the machine unattended
 
 - Key read-back verifies the SMC mode and requested target, not the physical fan response. A hardware test must check actual RPM and account for spin-up delay.
 - Restoration is best effort if the SMC rejects auto-mode writes. The helper attempts a maximum-RPM target for affected fans, retries auto while running, and logs failures; it cannot guarantee a hardware outcome after its process is forcibly killed.
-- The build and unit tests must pass on macOS. This audit was prepared in a Linux environment without AppleSMC or Xcode; the PR remains Draft until a signed Mac build and the failure tests above pass.
+- The remaining injected SMC failures, sleep and wake behavior, and Intel hardware scenarios above require separate live validation before claiming support for those specific conditions.

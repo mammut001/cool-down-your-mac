@@ -202,9 +202,24 @@ final class SMCKit {
         try setFanManual(index: index, enabled: true)
         do {
             try writeTypedFanTarget(key: "F\(index)Tg", rpm: clamped)
-            let actualTarget = Double(try readFloat(key: "F\(index)Tg"))
-            guard actualTarget.isFinite, abs(actualTarget - clamped) <= max(5, clamped * 0.01) else {
-                throw SMCError.ioFailed("F\(index)Tg target read-back")
+            // AppleSMC can publish the new target after the write returns.
+            // Keep verifying the hardware value, but allow it to settle.
+            var observedTarget: Double?
+            var targetConfirmed = false
+            for attempt in 0..<10 {
+                if attempt > 0 { usleep(100_000) }
+                if let target = try? readFloat(key: "F\(index)Tg") {
+                    observedTarget = Double(target)
+                    if let observedTarget,
+                       observedTarget.isFinite,
+                       abs(observedTarget - clamped) <= max(5, clamped * 0.01) {
+                        targetConfirmed = true
+                        break
+                    }
+                }
+            }
+            guard targetConfirmed else {
+                throw SMCError.ioFailed("F\(index)Tg target read-back (requested \(Int(clamped)), observed \(observedTarget.map { String(format: "%.1f", $0) } ?? "unreadable"))")
             }
         } catch {
             try? setFanManual(index: index, enabled: false)
