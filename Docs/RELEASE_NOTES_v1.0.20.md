@@ -16,7 +16,7 @@ See the [fan control safety audit](https://github.com/mammut001/cool-down-your-m
 - On an M5 Pro with two fans, live pause and force-quit tests restored both fans to automatic control. A 293-second full system sleep/wake test restored auto before sleep and resumed only after wake. UI fault injection returned Manual and Smart Curve to auto within five seconds.
 - Intel runtime behavior and deliberately induced faults in a physical AppleSMC were not tested in this audit.
 
-SHA-256 (`CoolDownPro.dmg`): `PENDING_RELEASE_BUILD`
+<!-- The release pipeline inserts the verified DMG SHA-256 before publishing. -->
 
 ## Install
 
