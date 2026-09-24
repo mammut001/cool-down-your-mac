@@ -73,6 +73,13 @@ struct ProSettingsView: View {
                 .disabled(!model.helperActionIsEnabled)
                 .liquidGlassButtonStyle(prominent: !model.helperControlIsReady)
                 .help("Installs or repairs the privileged helper used to control fan speed.")
+                if model.helperIsRegistered && model.helperControlIsReady {
+                    Button("Repair Fan Control…") {
+                        model.requestHelperSetup()
+                    }
+                    .disabled(model.isBusy)
+                    .help("Replace the installed helper with the copy bundled in this app.")
+                }
                 Text("macOS asks for an administrator password on first install and explicit repairs only.")
                     .font(.caption)
                     .foregroundStyle(.secondary)

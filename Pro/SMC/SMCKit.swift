@@ -24,6 +24,11 @@ final class SMCKit {
     }
 
     private var connection: io_connect_t = 0
+    #if DEBUG
+    // Test-only transport lets fault tests exercise the real fan-write path
+    // without touching AppleSMC or requiring a privileged test process.
+    private var injectedInvoke: ((inout SMCKeyData, inout SMCKeyData) throws -> Void)?
+    #endif
     // Key types/sizes are static for the lifetime of an SMC connection.
     // Cache only metadata: values (including fan modes) must always be read live.
     private var keyInfoCache: [String: (type: String, size: UInt32)] = [:]
@@ -88,6 +93,12 @@ final class SMCKit {
         throw lastOpenFailed ? SMCError.openFailed : SMCError.serviceNotFound
     }
 
+    #if DEBUG
+    init(injecting invoke: @escaping (inout SMCKeyData, inout SMCKeyData) throws -> Void) {
+        injectedInvoke = invoke
+    }
+    #endif
+
     deinit {
         if connection != 0 {
             IOServiceClose(connection)
@@ -95,7 +106,7 @@ final class SMCKit {
     }
 
     func fanCount() throws -> Int {
-        let declared = min(8, max(0, Int(try readBytes(key: "FNum")[0])))
+        let declared = min(8, max(0, Int((try? readBytes(key: "FNum").first) ?? 0)))
         if declared > 0 { return declared }
         // Newer Apple Silicon models can expose per-fan keys while reporting
         // zero (or an unavailable value) for the legacy FNum key.
@@ -110,6 +121,8 @@ final class SMCKit {
             let current = Double((try? readFloat(key: "F\(meta.index)Ac")) ?? 0)
             let target = try? readFloat(key: "F\(meta.index)Tg")
             let mode = (try? readBytes(key: meta.modeKey))?.first ?? 0
+            let alternateKey = meta.modeKey == "F\(meta.index)Md" ? "F\(meta.index)md" : "F\(meta.index)Md"
+            let alternateMode = (try? readBytes(key: alternateKey))?.first ?? 0
             fans.append(
                 SMCFanReading(
                     index: meta.index,
@@ -118,7 +131,7 @@ final class SMCKit {
                     maxRPM: meta.maxRPM,
                     currentRPM: current,
                     targetRPM: target.map(Double.init),
-                    isManual: mode != 0
+                    isManual: mode != 0 || alternateMode != 0
                 )
             )
         }
@@ -165,14 +178,29 @@ final class SMCKit {
         // thermalmonitord, so probe both and never silently pretend it worked.
         let keys = ["F\(index)Md", "F\(index)md"]
         var lastError: Error?
+        var verified = false
         for key in keys {
             do {
                 try writeBytes(key: key, bytes: bytes, type: "ui8 ", size: 1)
-                return
+                if (try readBytes(key: key).first ?? 0) == bytes[0] {
+                    verified = true
+                } else {
+                    lastError = SMCError.ioFailed("\(key) mode read-back")
+                }
             } catch {
                 lastError = error
             }
         }
+        // In auto mode, both readable mode keys must be clear. Some Macs
+        // expose a legacy key that accepts writes but does not control the fan.
+        if !enabled {
+            for key in keys {
+                if let mode = try? readBytes(key: key).first, mode != 0 {
+                    throw SMCError.ioFailed("\(key) remains manual")
+                }
+            }
+        }
+        if verified { return }
         throw lastError ?? SMCError.keyNotFound("F\(index)Md/F\(index)md")
     }
 
@@ -183,34 +211,53 @@ final class SMCKit {
         let hi = maxRPM > lo ? maxRPM : max(lo + 1000, 6000)
         let clamped = min(max(rpm, lo), hi)
         try setFanManual(index: index, enabled: true)
-        try writeTypedFanTarget(key: "F\(index)Tg", rpm: clamped)
+        do {
+            try writeTypedFanTarget(key: "F\(index)Tg", rpm: clamped)
+            // AppleSMC can publish the new target after the write returns.
+            // Keep verifying the hardware value, but allow it to settle.
+            var observedTarget: Double?
+            var targetConfirmed = false
+            for attempt in 0..<10 {
+                if attempt > 0 { usleep(100_000) }
+                if let target = try? readFloat(key: "F\(index)Tg") {
+                    observedTarget = Double(target)
+                    if let observedTarget,
+                       observedTarget.isFinite,
+                       abs(observedTarget - clamped) <= max(5, clamped * 0.01) {
+                        targetConfirmed = true
+                        break
+                    }
+                }
+            }
+            guard targetConfirmed else {
+                throw SMCError.ioFailed("F\(index)Tg target read-back (requested \(Int(clamped)), observed \(observedTarget.map { String(format: "%.1f", $0) } ?? "unreadable"))")
+            }
+        } catch {
+            try? setFanManual(index: index, enabled: false)
+            throw error
+        }
     }
 
     func setAllFansAuto() throws {
         let indices = try fanIndices()
         guard !indices.isEmpty else { throw SMCError.noControllableFans }
-        var failures: [Error] = []
+        var failedIndices: [Int] = []
         for index in indices {
             do {
                 try setFanManual(index: index, enabled: false)
             } catch {
-                failures.append(error)
+                failedIndices.append(index)
             }
         }
-        if failures.count == indices.count {
-            // All mode switches failed — write minRPM as a safety fallback
-            // rather than 0, which could stop a fan entirely in manual mode.
-            for index in indices {
-                do {
-                    let minRPM = Double((try? readFloat(key: "F\(index)Mn")) ?? 1350)
-                    try writeTypedFanTarget(key: "F\(index)Tg", rpm: minRPM)
-                } catch {
-                    // Best-effort: continue to remaining fans even if one fails
-                }
+        if !failedIndices.isEmpty {
+            // If a fan remains in manual mode, raise its target while the
+            // helper retries restoring auto. Never leave a low manual target
+            // as the fallback for a failed auto switch.
+            for index in failedIndices {
+                let reported = (try? readFloat(key: "F\(index)Mx")) ?? 6000
+                let emergencyRPM = reported.isFinite && reported > 200 ? reported : 6000
+                try? writeTypedFanTarget(key: "F\(index)Tg", rpm: Double(emergencyRPM))
             }
-            throw SMCError.ioFailed("setAllFansAuto")
-        }
-        if !failures.isEmpty {
             throw SMCError.ioFailed("setAllFansAuto")
         }
     }
@@ -221,10 +268,17 @@ final class SMCKit {
         // Never report a successful manual change when discovery found no
         // writable fans. On newer Macs that would make the slider a no-op.
         guard !fans.isEmpty else { throw SMCError.noControllableFans }
-        for fan in fans {
-            let lo = fan.minRPM > 200 ? fan.minRPM : 1350
-            let hi = fan.maxRPM > lo ? fan.maxRPM : max(lo + 1000, 6000)
-            try setFanRPM(index: fan.index, rpm: lo + (hi - lo) * p)
+        do {
+            for fan in fans {
+                let lo = fan.minRPM > 200 ? fan.minRPM : 1350
+                let hi = fan.maxRPM > lo ? fan.maxRPM : max(lo + 1000, 6000)
+                try setFanRPM(index: fan.index, rpm: lo + (hi - lo) * p)
+            }
+        } catch {
+            // A failure on fan N must not leave fans 0...(N-1) in manual mode.
+            // The helper also retries auto if this best-effort rollback fails.
+            try? setAllFansAuto()
+            throw error
         }
     }
 
@@ -348,7 +402,7 @@ final class SMCKit {
     }
 
     private func fanIndices() throws -> [Int] {
-        let declared = min(8, max(0, Int(try readBytes(key: "FNum")[0])))
+        let declared = min(8, max(0, Int((try? readBytes(key: "FNum").first) ?? 0)))
         if declared > 0 { return Array(0..<declared) }
         return discoverFanIndices()
     }
@@ -518,6 +572,15 @@ final class SMCKit {
     }
 
     private func invoke(input: inout SMCKeyData, output: inout SMCKeyData) throws {
+        #if DEBUG
+        if let injectedInvoke {
+            try injectedInvoke(&input, &output)
+            guard output.result == 0 else {
+                throw SMCError.keyNotFound(fourCCString(input.key))
+            }
+            return
+        }
+        #endif
         let inputSize = MemoryLayout<SMCKeyData>.stride
         var outputSize = MemoryLayout<SMCKeyData>.stride
         let kr = IOConnectCallStructMethod(

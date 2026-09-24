@@ -18,7 +18,7 @@ let sigSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
 sigSource.setEventHandler {
     logger.info("SIGTERM received — restoring fans to auto")
     do {
-        try SMCKit(allowKeysEndpointFallback: false).setAllFansAuto()
+        try HelperService.restoreFansBeforeExit()
         logger.info("SIGTERM fan restore OK")
     } catch {
         logger.error("SIGTERM fan restore failed: \(String(describing: error), privacy: .public)")

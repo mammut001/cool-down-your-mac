@@ -7,12 +7,14 @@ enum DirectSMCReader {
     private final class State: @unchecked Sendable {
         let lock = NSLock()
         var kit: SMCKit?
-        var snapshot: SensorSnapshot?
     }
 
     private static let state = State()
 
     static func readSnapshot(includeAllTemperatures: Bool = true) -> SensorSnapshot? {
+        #if DEBUG
+        if SensorFaultInjection.isOutageActive { return nil }
+        #endif
         state.lock.lock()
         defer { state.lock.unlock() }
         do {
@@ -37,13 +39,12 @@ enum DirectSMCReader {
                 canControlFans: kit.canControlFans,
                 helperAvailable: false
             )
-            state.snapshot = snapshot
             return snapshot
         } catch {
             state.kit = nil
-            // A transient SMC read should not blank the UI. A slightly stale
-            // snapshot is preferable and the next poll will retry.
-            return state.snapshot
+            // A cached temperature must never be mistaken for a fresh control
+            // sample. The caller may use HID readings or restore system auto.
+            return nil
         }
     }
 

@@ -22,6 +22,10 @@ static CoolDownHIDGetFloat gGetFloat = NULL;
 static BOOL gSymbolsReady = NO;
 
 static os_unfair_lock gLock = OS_UNFAIR_LOCK_INIT;
+// Teardown must not release the HID client while a service event read is in
+// flight. In particular, an async poll can span a system sleep/wake cycle.
+static os_unfair_lock gSamplingLock = OS_UNFAIR_LOCK_INIT;
+static BOOL gSuspendedForSleep = NO;
 static CoolDownHIDClient gClient = NULL;
 static CFMutableArrayRef gServices = NULL;
 static NSArray<NSString *> *gUniqueNames = nil;
@@ -61,6 +65,15 @@ static void CoolDownHIDResetServicesLocked(void) {
         gServiceUniqueIndices = NULL;
     }
     gServiceCount = 0;
+}
+
+static void CoolDownHIDReleaseClientLocked(void) {
+    CoolDownHIDResetServicesLocked();
+    gServicesUptime = 0;
+    if (gClient) {
+        CFRelease(gClient);
+        gClient = NULL;
+    }
 }
 
 static BOOL CoolDownHIDShouldRefreshServices(NSTimeInterval now) {
@@ -155,6 +168,11 @@ void CoolDownEnumerateHIDTemperatures(void (NS_NOESCAPE ^block)(NSString *name, 
         return;
     }
 
+    os_unfair_lock_lock(&gSamplingLock);
+    if (gSuspendedForSleep) {
+        os_unfair_lock_unlock(&gSamplingLock);
+        return;
+    }
     // Phase 1: Under lock, refresh if needed and snapshot the service list.
     os_unfair_lock_lock(&gLock);
 
@@ -165,12 +183,12 @@ void CoolDownEnumerateHIDTemperatures(void (NS_NOESCAPE ^block)(NSString *name, 
 
     if (!gClient || !gServices || gServiceCount == 0 || gUniqueNames.count == 0) {
         os_unfair_lock_unlock(&gLock);
+        os_unfair_lock_unlock(&gSamplingLock);
         return;
     }
 
     // Snapshot: retain current arrays so event sampling can proceed outside
-    // the lock. Other callers that arrive during sampling will block only for
-    // the brief snapshot copy, not for the full I/O sweep.
+    // the state lock. The sampling lock still serializes reads with teardown.
     CFArrayRef snapshotServices = CFRetain(gServices);
     NSArray<NSString *> *snapshotUniqueNames = [gUniqueNames copy];
     CFIndex total = gServiceCount;
@@ -181,7 +199,9 @@ void CoolDownEnumerateHIDTemperatures(void (NS_NOESCAPE ^block)(NSString *name, 
         ? stackIndices
         : (uint16_t *)malloc(sizeof(uint16_t) * total);
     if (!snapshotIndices) {
+        CFRelease(snapshotServices);
         os_unfair_lock_unlock(&gLock);
+        os_unfair_lock_unlock(&gSamplingLock);
         return;
     }
     memcpy(snapshotIndices, gServiceUniqueIndices, sizeof(uint16_t) * total);
@@ -204,6 +224,7 @@ void CoolDownEnumerateHIDTemperatures(void (NS_NOESCAPE ^block)(NSString *name, 
         if (sums && sums != stackSums) free(sums);
         if (counts && counts != stackCounts) free(counts);
         CFRelease(snapshotServices);
+        os_unfair_lock_unlock(&gSamplingLock);
         return;
     }
     NSInteger nullEventCount = 0;
@@ -255,6 +276,7 @@ void CoolDownEnumerateHIDTemperatures(void (NS_NOESCAPE ^block)(NSString *name, 
     if (counts != stackCounts) {
         free(counts);
     }
+    os_unfair_lock_unlock(&gSamplingLock);
 }
 
 NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
@@ -266,11 +288,27 @@ NSArray<NSDictionary<NSString *, id> *> *CoolDownCopyHIDTemperatures(void) {
 }
 
 void CoolDownHIDTeardown(void) {
+    os_unfair_lock_lock(&gSamplingLock);
     os_unfair_lock_lock(&gLock);
-    CoolDownHIDResetServicesLocked();
-    if (gClient) {
-        CFRelease(gClient);
-        gClient = NULL;
-    }
+    CoolDownHIDReleaseClientLocked();
     os_unfair_lock_unlock(&gLock);
+    os_unfair_lock_unlock(&gSamplingLock);
+}
+
+void CoolDownHIDPrepareForSleep(void) {
+    os_unfair_lock_lock(&gSamplingLock);
+    gSuspendedForSleep = YES;
+    os_unfair_lock_lock(&gLock);
+    CoolDownHIDReleaseClientLocked();
+    os_unfair_lock_unlock(&gLock);
+    os_unfair_lock_unlock(&gSamplingLock);
+}
+
+void CoolDownHIDResumeAfterWake(void) {
+    os_unfair_lock_lock(&gSamplingLock);
+    os_unfair_lock_lock(&gLock);
+    CoolDownHIDReleaseClientLocked();
+    os_unfair_lock_unlock(&gLock);
+    gSuspendedForSleep = NO;
+    os_unfair_lock_unlock(&gSamplingLock);
 }

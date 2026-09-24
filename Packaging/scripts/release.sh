@@ -83,9 +83,13 @@ EXPECTED_ZIP_URL="https://github.com/mammut001/cool-down-your-mac/releases/downl
 STAGING_DIR="$(mktemp -d)"
 trap 'rm -rf "${STAGING_DIR}"' EXIT INT TERM
 cp "${SPARKLE_ZIP}" "${STAGING_DIR}/"
+if [[ -s "${APPCAST}" ]]; then
+  cp "${APPCAST}" "${STAGING_DIR}/appcast.xml"
+fi
 
 "${SPARKLE_BIN}/generate_appcast" \
   --download-url-prefix "https://github.com/mammut001/cool-down-your-mac/releases/download/v${VERSION}/" \
+  --full-release-notes-url "https://github.com/mammut001/cool-down-your-mac/releases/tag/v${VERSION}" \
   -o "${APPCAST}" \
   "${STAGING_DIR}"
 

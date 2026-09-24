@@ -32,6 +32,7 @@ public struct GlassCard<Content: View>: View {
     }
 
     public var body: some View {
+        #if compiler(>=6.2)
         if #available(macOS 26.0, *) {
             content
                 .padding(contentPadding)
@@ -42,15 +43,22 @@ public struct GlassCard<Content: View>: View {
                 }
                 .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
         } else {
-            content
-                .padding(contentPadding)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(.primary.opacity(0.08), lineWidth: 1)
-                }
-                .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+            legacyCard
         }
+        #else
+        legacyCard
+        #endif
+    }
+
+    private var legacyCard: some View {
+        content
+            .padding(contentPadding)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(.primary.opacity(0.08), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
     }
 }
 
@@ -79,6 +87,7 @@ public extension View {
     /// on macOS 26.0+, falling back gracefully to standard bordered styles on earlier releases.
     @ViewBuilder
     func liquidGlassButtonStyle(prominent: Bool = false) -> some View {
+        #if compiler(>=6.2)
         if #available(macOS 26.0, *) {
             if prominent {
                 self.buttonStyle(.glassProminent)
@@ -86,11 +95,19 @@ public extension View {
                 self.buttonStyle(.glass)
             }
         } else {
-            if prominent {
-                self.buttonStyle(.borderedProminent)
-            } else {
-                self.buttonStyle(.bordered)
-            }
+            legacyButtonStyle(prominent: prominent)
+        }
+        #else
+        legacyButtonStyle(prominent: prominent)
+        #endif
+    }
+
+    @ViewBuilder
+    private func legacyButtonStyle(prominent: Bool) -> some View {
+        if prominent {
+            self.buttonStyle(.borderedProminent)
+        } else {
+            self.buttonStyle(.bordered)
         }
     }
 
@@ -99,6 +116,7 @@ public extension View {
     /// seamless fluid morphing transitions.
     @ViewBuilder
     func glassContainerIfAvailable() -> some View {
+        #if compiler(>=6.2)
         if #available(macOS 26.0, *) {
             GlassEffectContainer {
                 self
@@ -106,5 +124,8 @@ public extension View {
         } else {
             self
         }
+        #else
+        self
+        #endif
     }
 }

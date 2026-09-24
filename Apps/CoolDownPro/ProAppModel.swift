@@ -116,7 +116,7 @@ final class ProAppModel: ObservableObject {
     }
 
     var helperControlIsReady: Bool {
-        helper.isConnected && snapshot.helperAvailable && snapshot.canControlFans && !snapshot.fans.isEmpty
+        helper.isConnected && helper.supportsFanLease && snapshot.helperAvailable && snapshot.canControlFans && !snapshot.fans.isEmpty
     }
 
     var helperPresentationState: HelperPresentationState {
@@ -133,7 +133,11 @@ final class ProAppModel: ObservableObject {
     }
 
     var helperNeedsSetup: Bool {
-        hasCompletedInitialHelperProbe && (!helperIsRegistered || helperLaunchFailed || (helper.isConnected && !snapshot.helperAvailable))
+        hasCompletedInitialHelperProbe && (!helperIsRegistered || helperLaunchFailed || (helper.isConnected && !snapshot.helperAvailable) || helperNeedsLeaseUpgrade)
+    }
+
+    private var helperNeedsLeaseUpgrade: Bool {
+        helper.isConnected && helperIsRegistered && helper.hasCheckedFanLease && !helper.supportsFanLease
     }
 
     var helperActionTitle: String {
@@ -145,6 +149,7 @@ final class ProAppModel: ObservableObject {
         }
         if !hasCompletedInitialHelperProbe { return "Checking Helper…" }
         if !helperIsRegistered { return "Enable Fan Control…" }
+        if helperNeedsLeaseUpgrade { return "Repair Fan Control…" }
         if helperLaunchFailed { return "Repair Fan Control…" }
         if !helperControlIsReady { return "Reconnect Fan Control" }
         return "Fan Control Enabled"
@@ -159,7 +164,8 @@ final class ProAppModel: ObservableObject {
     }
 
     var helperStatusText: String {
-        helperPresentationState.rawValue
+        if helperNeedsLeaseUpgrade { return "Installed fan-control helper needs an update" }
+        return helperPresentationState.rawValue
     }
 
     var helperSetupTitle: String {
@@ -172,7 +178,7 @@ final class ProAppModel: ObservableObject {
 
     var helperSetupMessage: String {
         if helperIsRegistered {
-            return "Cool Down Pro will replace its fan-control helper. macOS will ask for an administrator password. Only repair it when the installed helper cannot connect."
+            return "Cool Down Pro will replace its fan-control helper with the copy bundled in this app. macOS will ask for an administrator password. Repair it if fan control fails or the bundled helper has changed."
         }
         return "Cool Down Pro needs your approval once to install its fan-control helper. macOS will ask for an administrator password next."
     }
@@ -229,6 +235,7 @@ final class ProAppModel: ObservableObject {
     }
 
     private var isDisplayAsleep = false
+    private var isSystemSleeping = false
 
     deinit {
         timer?.invalidate()
@@ -241,17 +248,26 @@ final class ProAppModel: ObservableObject {
     }
 
     private func handleSystemSleep() {
+        isSystemSleeping = true
+        controlGeneration += 1
         stopPolling()
-        restoreAutoOnExitSync()
+        CoolDownHIDPrepareForSleep()
+        if helper.isHelperInstalled {
+            helper.setFansAutoForSleepBlocking()
+        }
+        helper.disconnect()
         lastAppliedFanCommand = nil
     }
 
     private func handleSystemWake() {
+        isSystemSleeping = false
+        controlGeneration += 1
         lastAppliedFanCommand = nil
         curveEngine.reset()
         loadMonitor.resetFanBoost()
         DirectSMCReader.invalidateReadConnection()
-        CoolDownHIDTeardown()
+        CoolDownHIDResumeAfterWake()
+        helper.reconnect()
         startPolling()
     }
 
@@ -290,6 +306,7 @@ final class ProAppModel: ObservableObject {
     }
 
     func tick() async {
+        guard !isSystemSleeping else { return }
         guard !isTicking else { return }
         isTicking = true
         defer {
@@ -303,6 +320,7 @@ final class ProAppModel: ObservableObject {
             loadMonitor.refresh()
         }
         await refreshSnapshot()
+        guard !isSystemSleeping else { return }
         await applyControlPolicy()
         evaluateAlerts()
         menuBarTitleModel.update(title: menuBarTitle)
@@ -440,8 +458,11 @@ final class ProAppModel: ObservableObject {
             )
             statusMessage = "Sensors available — install helper to control fans"
         } else if let helperError {
+            snapshot = SensorSnapshot()
             lastAppliedFanCommand = nil
             statusMessage = helperError.localizedDescription
+        } else {
+            snapshot = SensorSnapshot()
         }
     }
 
@@ -480,6 +501,7 @@ final class ProAppModel: ObservableObject {
     }
 
     func applyControlPolicy() async {
+        guard !isSystemSleeping else { return }
         controlGeneration += 1
         let generation = controlGeneration
         let mode = fanControlUnavailableOnThisMac ? .systemAuto : settings.settings.mode
@@ -487,10 +509,15 @@ final class ProAppModel: ObservableObject {
         // administrator AppleScript here makes a timer look like repeated user
         // authorization requests, which is both surprising and disruptive.
         guard helperControlIsReady else {
+            if helperNeedsLeaseUpgrade && snapshot.fans.contains(where: \.isManual) {
+                try? await helper.setFansAuto()
+            }
             if settings.settings.mode != .systemAuto {
-                statusMessage = fanControlUnavailableOnThisMac
-                    ? "Manual fan control is unavailable on this Mac."
-                    : "Enable fan control once to use Manual or Smart Curve."
+                statusMessage = helperNeedsLeaseUpgrade
+                    ? "Repair the installed fan-control helper before using Manual or Smart Curve."
+                    : (fanControlUnavailableOnThisMac
+                        ? "Manual fan control is unavailable on this Mac."
+                        : "Enable fan control once to use Manual or Smart Curve.")
             }
             return
         }
@@ -508,6 +535,18 @@ final class ProAppModel: ObservableObject {
                 )
             case .manual:
                 if loadBoostPercent != 0 { loadBoostPercent = 0 }
+                guard controlTemperatureC != nil else {
+                    if targetFanPercent != 0 { targetFanPercent = 0 }
+                    try await applyFanWrite(
+                        commandKey: "auto-no-temperature",
+                        generation: generation,
+                        remote: { try await helper.setFansAuto() }
+                    )
+                    if generation == controlGeneration, controlTemperatureC == nil {
+                        statusMessage = "Temperature sensors unavailable — fans returned to System Auto"
+                    }
+                    return
+                }
                 var percent = settings.settings.manualPercent
                 curveEngine.reset()
                 loadMonitor.resetFanBoost()
@@ -522,11 +561,18 @@ final class ProAppModel: ObservableObject {
                 )
             case .smartCurve:
                 guard let temp = controlTemperatureC, temp.isFinite else {
+                    if targetFanPercent != 0 { targetFanPercent = 0 }
+                    if loadBoostPercent != 0 { loadBoostPercent = 0 }
+                    curveEngine.reset()
+                    loadMonitor.resetFanBoost()
                     try await applyFanWrite(
                         commandKey: "auto-failsafe",
                         generation: generation,
                         remote: { try await helper.setFansAuto() }
                     )
+                    if generation == controlGeneration, controlTemperatureC == nil {
+                        statusMessage = "Temperature sensors unavailable — fans returned to System Auto"
+                    }
                     return
                 }
                 let boost = loadMonitor.fanBoost(
@@ -594,9 +640,21 @@ final class ProAppModel: ObservableObject {
         generation: Int,
         remote: () async throws -> Void
     ) async throws {
+        guard !isSystemSleeping, generation == controlGeneration else { return }
         if lastAppliedFanCommand == commandKey {
-            return
+            if commandKey.hasPrefix("manual-") || commandKey.hasPrefix("smart-") {
+                do {
+                    try await helper.renewFanControlLease()
+                    return
+                } catch {
+                    // The helper lost the old lease. Reapply the current target.
+                    lastAppliedFanCommand = nil
+                }
+            } else {
+                return
+            }
         }
+        guard !isSystemSleeping, generation == controlGeneration else { return }
         try await remote()
         guard generation == controlGeneration else { return }
         lastAppliedFanCommand = commandKey
@@ -674,7 +732,7 @@ final class ProAppModel: ObservableObject {
             statusMessage = helperInstallationSigningIssue
             return
         }
-        if !helperIsRegistered || helperLaunchFailed {
+        if !helperIsRegistered || helperLaunchFailed || helperNeedsLeaseUpgrade {
             requestHelperSetup()
         } else {
             isBusy = true

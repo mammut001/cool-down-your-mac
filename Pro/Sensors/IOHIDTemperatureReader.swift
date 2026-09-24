@@ -6,6 +6,9 @@ import CoolDownKit
 /// tick is expensive enough to dominate app CPU.
 enum IOHIDTemperatureReader {
     static func readAll() -> [TemperatureReading] {
+        #if DEBUG
+        if SensorFaultInjection.isOutageActive { return [] }
+        #endif
         #if arch(arm64)
         var raw: [(String, Double)] = []
         raw.reserveCapacity(64)

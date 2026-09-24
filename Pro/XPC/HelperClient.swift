@@ -8,6 +8,8 @@ public final class HelperClient: ObservableObject {
     public static let shared = HelperClient()
 
     @Published public private(set) var isConnected = false
+    @Published public private(set) var supportsFanLease = false
+    @Published public private(set) var hasCheckedFanLease = false
     @Published public private(set) var lastError: String?
 
     private var connection: NSXPCConnection?
@@ -107,6 +109,12 @@ public final class HelperClient: ObservableObject {
         proxy.ping { [weak self] ok in
             Task { @MainActor in
                 self?.isConnected = ok
+                if ok {
+                    // The local SMC read path normally avoids fetchSnapshot.
+                    // Probe once per connection so an installed old helper
+                    // cannot silently bypass the new safety lease.
+                    _ = try? await self?.fetchSnapshot()
+                }
             }
         }
     }
@@ -125,6 +133,8 @@ public final class HelperClient: ObservableObject {
         }
         let dto = try JSONDecoder().decode(XPCSnapshotDTO.self, from: data)
         isConnected = true
+        supportsFanLease = dto.supportsFanLease
+        hasCheckedFanLease = true
         return SensorSnapshot(
             fans: dto.fans.map {
                 FanInfo(
@@ -169,6 +179,46 @@ public final class HelperClient: ObservableObject {
                 if let error { finish(.failure(error)) }
                 else { finish(.success(())) }
             }
+        }
+    }
+
+    public func renewFanControlLease() async throws {
+        try await invoke { (proxy: CoolDownHelperProtocol, finish: @escaping (Result<Void, Error>) -> Void) in
+            proxy.renewFanControlLease { error in
+                if let error { finish(.failure(error)) }
+                else { finish(.success(())) }
+            }
+        }
+    }
+
+    /// Drain already-sent fan commands on this XPC connection before sleep.
+    /// A separate blocking connection can race an in-flight manual write.
+    public func setFansAutoForSleepBlocking(timeout: TimeInterval = 1.2) {
+        guard let connection else {
+            Self.setFansAutoBlocking(timeout: timeout)
+            return
+        }
+        let semaphore = DispatchSemaphore(value: 0)
+        let lock = NSLock()
+        var succeeded = false
+        guard let proxy = connection.remoteObjectProxyWithErrorHandler({ _ in
+            semaphore.signal()
+        }) as? CoolDownHelperProtocol else {
+            Self.setFansAutoBlocking(timeout: timeout)
+            return
+        }
+        proxy.setFansAuto { error in
+            lock.lock()
+            succeeded = error == nil
+            lock.unlock()
+            semaphore.signal()
+        }
+        let waitResult = semaphore.wait(timeout: .now() + timeout)
+        lock.lock()
+        let confirmed = succeeded
+        lock.unlock()
+        if waitResult == .timedOut || !confirmed {
+            Self.setFansAutoBlocking(timeout: timeout)
         }
     }
 
@@ -238,6 +288,8 @@ public final class HelperClient: ObservableObject {
         let existing = connection
         connection = nil
         isConnected = false
+        supportsFanLease = false
+        hasCheckedFanLease = false
         existing?.invalidationHandler = nil
         existing?.interruptionHandler = nil
         existing?.invalidate()
