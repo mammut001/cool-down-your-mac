@@ -6,6 +6,15 @@
         <description>Updates for Cool Down Pro</description>
         <language>en</language>
         <item>
+            <title>1.0.20</title>
+            <pubDate>Thu, 24 Sep 2026 01:49:17 -0400</pubDate>
+            <sparkle:fullReleaseNotesLink>https://github.com/mammut001/cool-down-your-mac/releases/tag/v1.0.20</sparkle:fullReleaseNotesLink>
+            <sparkle:version>31</sparkle:version>
+            <sparkle:shortVersionString>1.0.20</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/mammut001/cool-down-your-mac/releases/download/v1.0.20/CoolDownPro-1.0.20.zip" length="4141305" type="application/octet-stream" sparkle:edSignature="7UqhZSwpsC+PgSYH6dMaSIuiRZFYHtDWe5HiM5u50VeLYAaekJARiEU4AgHN2ZX8JG7ReXGKpaKNu73TyJ6UAw=="/>
+        </item>
+        <item>
             <title>1.0.19</title>
             <pubDate>Tue, 22 Sep 2026 23:32:53 -0400</pubDate>
             <sparkle:version>30</sparkle:version>
@@ -20,14 +29,6 @@
             <sparkle:shortVersionString>1.0.18</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/mammut001/cool-down-your-mac/releases/download/v1.0.18/CoolDownPro-1.0.18.zip" length="4103398" type="application/octet-stream" sparkle:edSignature="bj/Fnh4cb98w1sDpoMo8xbeIOnXlNCeWBZDrVtXenuETa1AXWl9qSvL/uHh2cyYPQ+TRtx1Qm/A9tGL1qNWFAA=="/>
-        </item>
-        <item>
-            <title>1.0.17</title>
-            <pubDate>Tue, 15 Sep 2026 16:20:10 -0400</pubDate>
-            <sparkle:version>28</sparkle:version>
-            <sparkle:shortVersionString>1.0.17</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/mammut001/cool-down-your-mac/releases/download/v1.0.17/CoolDownPro-1.0.17.zip" length="2486056" type="application/octet-stream" sparkle:edSignature="0/mlLbq47PDf5JkQM/zBiN6YNnXmCtbp51lQSIFQj9vSuTqPtuS5/ZhJ0HY4ASx247RxEOGspytUXmORzL7nBw=="/>
         </item>
     </channel>
 </rss>
