@@ -82,6 +82,12 @@ Because a single core junction is microscopic (a fraction of a square millimeter
 | **Smart Curve** | Custom user-defined fan curve with asymmetric low-pass filtering, hysteresis, load boost, and sustained emergency failsafe. |
 | **Manual** | Precise user-selected manual fan percentage slider. |
 
+## Fan Control Safety Audit
+
+Version 1.0.20 adds a 45-second helper lease that returns fans to macOS automatic control when the app stalls or exits. Stale temperature data no longer keeps Manual or Smart Curve active. Failed fan writes trigger rollback and watchdog retries, and manual control is blocked until the installed helper supports leases. Sleep and wake handling restores automatic control before sleep and waits for fresh sensor data after wake.
+
+The audit passed 93 unit tests and live recovery checks on an M5 Pro with two fans, including app pause, force quit, sensor outage, and a 293-second system sleep/wake cycle. Intel runtime behavior and physical AppleSMC fault injection remain unverified. See the [full fan control safety audit](Docs/FAN_CONTROL_AUDIT.md) for the test matrix and limits.
+
 ---
 
 ## Architecture
