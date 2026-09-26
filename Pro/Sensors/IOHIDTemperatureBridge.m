@@ -238,7 +238,7 @@ void CoolDownEnumerateHIDTemperatures(void (NS_NOESCAPE ^block)(NSString *name, 
         }
         double value = gGetFloat(event, 15u << 16);
         CFRelease(event);
-        if (!isfinite(value) || value <= -20.0 || value >= 120.0) {
+        if (!isfinite(value) || value <= -20.0 || value >= 150.0) {
             continue;
         }
 

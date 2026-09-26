@@ -14,4 +14,6 @@ struct SMCTempReading {
     var key: String
     var name: String
     var celsius: Double
+    /// Fixed-point (`ioft`) keys are auxiliary sensors, not CPU/GPU dies.
+    var isAuxiliary = false
 }

@@ -67,6 +67,7 @@ final class SMCKit {
         let minRPM: Double
         let maxRPM: Double
         let modeKey: String
+        let hasModeKey: Bool
     }
 
     init(allowKeysEndpointFallback: Bool = false) throws {
@@ -120,9 +121,12 @@ final class SMCKit {
         for meta in metas {
             let current = Double((try? readFloat(key: "F\(meta.index)Ac")) ?? 0)
             let target = try? readFloat(key: "F\(meta.index)Tg")
-            let mode = (try? readBytes(key: meta.modeKey))?.first ?? 0
+            let mode = (try? readBytes(key: meta.modeKey))?.first
             let alternateKey = meta.modeKey == "F\(meta.index)Md" ? "F\(meta.index)md" : "F\(meta.index)Md"
-            let alternateMode = (try? readBytes(key: alternateKey))?.first ?? 0
+            let alternateMode = (try? readBytes(key: alternateKey))?.first
+            // An unreadable mode must not be reported as auto: quit and
+            // old-helper recovery only restore fans that look manual.
+            let modeUnknown = meta.hasModeKey && mode == nil && alternateMode == nil
             fans.append(
                 SMCFanReading(
                     index: meta.index,
@@ -131,7 +135,7 @@ final class SMCKit {
                     maxRPM: meta.maxRPM,
                     currentRPM: current,
                     targetRPM: target.map(Double.init),
-                    isManual: mode != 0 || alternateMode != 0
+                    isManual: modeUnknown || (mode ?? 0) != 0 || (alternateMode ?? 0) != 0
                 )
             )
         }
@@ -149,9 +153,17 @@ final class SMCKit {
                 failures += 1
                 continue
             }
-            guard value > 5, value < 110 else { continue }
+            // Keep hot readings: the app decides whether a 110 °C+ value is a
+            // glitch by checking other sensors. Dropping it here hid the
+            // hottest die sensor exactly when fan control needed it.
+            guard value.isFinite, value > 5, value < 150 else { continue }
             results.append(
-                SMCTempReading(key: entry.key, name: entry.name, celsius: value)
+                SMCTempReading(
+                    key: entry.key,
+                    name: entry.name,
+                    celsius: value,
+                    isAuxiliary: entry.type == "ioft"
+                )
             )
         }
         if !keys.isEmpty, failures * 2 > keys.count {
@@ -242,7 +254,7 @@ final class SMCKit {
         let indices = try fanIndices()
         guard !indices.isEmpty else { throw SMCError.noControllableFans }
         var failedIndices: [Int] = []
-        for index in indices {
+        for index in indices where hasModeKey(index: index) {
             do {
                 try setFanManual(index: index, enabled: false)
             } catch {
@@ -260,6 +272,23 @@ final class SMCKit {
             }
             throw SMCError.ioFailed("setAllFansAuto")
         }
+    }
+
+    /// A fan without any mode key (Intel, or no control) cannot be held in
+    /// manual by this app, so there is nothing to restore. Treating the missing
+    /// key as a failed restore wrote maximum RPM and retried forever.
+    private func hasModeKey(index: Int) -> Bool {
+        for key in ["F\(index)Md", "F\(index)md"] {
+            do {
+                _ = try keyInfo(key: key)
+                return true
+            } catch SMCError.keyNotFound {
+                continue
+            } catch {
+                return true // Unknown after an I/O failure: attempt the restore.
+            }
+        }
+        return false
     }
 
     func setAllFansPercent(_ percent: Double) throws {
@@ -320,19 +349,22 @@ final class SMCKit {
         let indices = try fanIndices()
         let metas = indices.map { index -> FanMeta in
             let modeKey: String
+            var hasModeKey = true
             if (try? readBytes(key: "F\(index)Md")) != nil {
                 modeKey = "F\(index)Md"
             } else if (try? readBytes(key: "F\(index)md")) != nil {
                 modeKey = "F\(index)md"
             } else {
                 modeKey = "F\(index)Md"
+                hasModeKey = false
             }
             return FanMeta(
                 index: index,
                 name: (try? fanName(index: index)) ?? "Fan \(index)",
                 minRPM: Double((try? readFloat(key: "F\(index)Mn")) ?? 1000),
                 maxRPM: Double((try? readFloat(key: "F\(index)Mx")) ?? 6000),
-                modeKey: modeKey
+                modeKey: modeKey,
+                hasModeKey: hasModeKey
             )
         }
         cachedFanMetas = metas
@@ -444,8 +476,9 @@ final class SMCKit {
     private func readTemperatureValue(key: String, type: String, size: UInt32) throws -> Double {
         let bytes = try readBytes(key: key, type: type, size: size)
         if type == "ioft", size >= 8 {
+            // Native little-endian 48.16 fixed point, like the `flt ` keys.
             let raw = bytes.prefix(8).enumerated().reduce(UInt64(0)) { acc, item in
-                acc | (UInt64(item.element) << (56 - item.offset * 8))
+                acc | (UInt64(item.element) << (item.offset * 8))
             }
             return Double(raw) / 65536.0
         }
