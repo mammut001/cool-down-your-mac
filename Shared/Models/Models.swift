@@ -92,12 +92,21 @@ public struct TemperatureReading: Identifiable, Codable, Hashable, Sendable {
     public var name: String
     public var celsius: Double
     public var group: SensorGroup
+    /// Apple Silicon's fixed-point (`ioft`) SMC sensors reuse Intel CPU/GPU
+    /// key prefixes (for example `TG0B` reads the battery), so they must never
+    /// be classified by key or drive fan control.
+    public var isAuxiliary: Bool = false
 
-    public init(key: String, name: String, celsius: Double, group: SensorGroup = .other) {
+    enum CodingKeys: String, CodingKey {
+        case key, name, celsius, group
+    }
+
+    public init(key: String, name: String, celsius: Double, group: SensorGroup = .other, isAuxiliary: Bool = false) {
         self.key = key
         self.name = name
         self.celsius = celsius
         self.group = group
+        self.isAuxiliary = isAuxiliary
     }
 }
 
@@ -140,8 +149,12 @@ public struct CurveProfile: Codable, Hashable, Sendable {
     ) {
         self.name = name
         self.points = Self.normalized(points)
-        self.hysteresisC = hysteresisC
+        self.hysteresisC = hysteresisC.clamped(to: Self.hysteresisRange)
     }
+
+    /// Matches the settings slider. A large stored value would freeze the
+    /// curve decision below the warm-temperature safety floors.
+    public static let hysteresisRange: ClosedRange<Double> = 0.5...5
 
     /// Balanced preset biased toward earlier airflow so sustained work in a
     /// warm room does not wait for the chassis to heat-soak before reaching
@@ -222,7 +235,8 @@ public struct CurveProfile: Codable, Hashable, Sendable {
         name = try c.decodeIfPresent(String.self, forKey: .name) ?? "Default"
         let decoded = try c.decodeIfPresent([CurvePoint].self, forKey: .points) ?? CurveProfile.defaultPoints
         points = Self.normalized(decoded)
-        hysteresisC = try c.decodeIfPresent(Double.self, forKey: .hysteresisC) ?? 2.0
+        hysteresisC = (try c.decodeIfPresent(Double.self, forKey: .hysteresisC) ?? 2.0)
+            .clamped(to: Self.hysteresisRange)
     }
 
     /// A thermal fan curve must never command less airflow as temperature rises.
@@ -261,15 +275,8 @@ public struct SensorSnapshot: Codable, Hashable, Sendable {
     }
 
     public var maxTemperatureC: Double? {
-        var maxTemp: Double?
-        for t in temperatures {
-            let val = t.celsius
-            guard val.isFinite, val > 0, val < 115 else { continue }
-            if maxTemp == nil || val > maxTemp! {
-                maxTemp = val
-            }
-        }
-        return maxTemp
+        // Alerts use this value, so it must not discard the hottest real sensor.
+        TemperatureSanity.trustedControlReadings(temperatures).map(\.celsius).max()
     }
 
     /// User-facing temperature: prefer the calculated CPU average so the
@@ -296,9 +303,8 @@ public struct SensorSnapshot: Codable, Hashable, Sendable {
     public var thermalControlTemperatureC: Double? {
         var controlMax: Double?
         var anyMax: Double?
-        for t in temperatures {
+        for t in TemperatureSanity.trustedControlReadings(temperatures) {
             let val = t.celsius
-            guard val.isFinite, val > 0, val < 115 else { continue }
             if anyMax == nil || val > anyMax! {
                 anyMax = val
             }
@@ -377,7 +383,7 @@ public struct AppSettings: Codable, Hashable, Sendable {
         self.mode = mode
         self.curve = curve
         self.manualPercent = manualPercent.clamped(to: 0...1)
-        self.sampleIntervalSeconds = sampleIntervalSeconds
+        self.sampleIntervalSeconds = sampleIntervalSeconds.clamped(to: Self.sampleIntervalRange)
         self.launchAtLogin = launchAtLogin
         self.alertTemperatureC = alertTemperatureC
         self.alertsEnabled = alertsEnabled
@@ -387,6 +393,9 @@ public struct AppSettings: Codable, Hashable, Sendable {
     }
 
     public static let storageKey = "cooldown.settings.v1"
+    /// The helper's 45 s fan lease assumes at most 10 s, or 25 s while the
+    /// display sleeps. Stored values outside the UI range would break that.
+    public static let sampleIntervalRange: ClosedRange<Double> = 1...10
 
     enum CodingKeys: String, CodingKey {
         case mode, curve, manualPercent, sampleIntervalSeconds, launchAtLogin
@@ -402,7 +411,8 @@ public struct AppSettings: Codable, Hashable, Sendable {
         // curves (custom points, custom hysteresis, or custom name) remain untouched.
         curve = decodedCurve.isUntouchedLegacyDefault ? CurveProfile() : decodedCurve
         manualPercent = (try c.decodeIfPresent(Double.self, forKey: .manualPercent) ?? 0.4).clamped(to: 0...1)
-        sampleIntervalSeconds = try c.decodeIfPresent(Double.self, forKey: .sampleIntervalSeconds) ?? 2.0
+        sampleIntervalSeconds = (try c.decodeIfPresent(Double.self, forKey: .sampleIntervalSeconds) ?? 2.0)
+            .clamped(to: Self.sampleIntervalRange)
         launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
         alertTemperatureC = try c.decodeIfPresent(Double.self, forKey: .alertTemperatureC) ?? 90
         alertsEnabled = try c.decodeIfPresent(Bool.self, forKey: .alertsEnabled) ?? false
