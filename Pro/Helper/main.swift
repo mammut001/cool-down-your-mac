@@ -4,6 +4,10 @@ import os.log
 let logger = Logger(subsystem: "com.cooldown.CoolDownPro.PrivilegedHelper", category: "boot")
 logger.info("helper boot uid=\(getuid()) pid=\(getpid(), privacy: .public)")
 
+// Queue this before the listener resumes so it runs before any client
+// command and cannot undo a new client's manual setting.
+HelperService.reconcileAfterLaunch()
+
 let delegate = HelperDelegate()
 let listener = NSXPCListener(machServiceName: coolDownHelperMachServiceName)
 listener.delegate = delegate

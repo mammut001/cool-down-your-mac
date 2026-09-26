@@ -31,7 +31,7 @@ enum DirectSMCReader {
                 )
             }
             let temps = kit.readTemperatures(includeAll: includeAllTemperatures).map {
-                TemperatureReading(key: $0.key, name: $0.name, celsius: $0.celsius)
+                TemperatureReading(key: $0.key, name: $0.name, celsius: $0.celsius, isAuxiliary: $0.isAuxiliary)
             }
             let snapshot = SensorSnapshot(
                 fans: fans,

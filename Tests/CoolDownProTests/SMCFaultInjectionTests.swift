@@ -102,6 +102,7 @@ final class FakeSMC {
     var ignoredWrites: Set<String> = []
     private(set) var writtenKeys: [String] = []
     private var values: [String: [UInt8]] = [:]
+    private var types: [String: String] = [:]
 
     init() {
         values["FNum"] = [2]
@@ -120,10 +121,31 @@ final class FakeSMC {
     func setMode(_ index: Int, _ mode: UInt8) { values["F\(index)md"] = [mode] }
     func setTemperature(_ value: Float) { values["TC0P"] = floatBytes(value) }
     func removeKey(_ key: String) { values.removeValue(forKey: key) }
+    func setRaw(_ key: String, type: String, bytes: [UInt8]) {
+        values[key] = bytes
+        types[key] = type
+    }
+
+    /// Publishes `#KEY` so temperature discovery scans the key table.
+    func enableKeyIndex() {
+        values["#KEY"] = [0, 0, 0, 0]
+        let count = UInt32(values.count)
+        values["#KEY"] = [UInt8(count >> 24), UInt8((count >> 16) & 0xff), UInt8((count >> 8) & 0xff), UInt8(count & 0xff)]
+        types["#KEY"] = "ui32"
+    }
 
     func invoke(_ input: inout SMCKeyData, _ output: inout SMCKeyData) throws {
         let key = keyString(input.key)
         let command = UInt8(bitPattern: input.data8)
+        if Int(command) == kSMCGetKeyFromIndex {
+            let sorted = values.keys.sorted()
+            guard Int(input.data32) < sorted.count else {
+                output.result = 1
+                return
+            }
+            output.key = fourCC(sorted[Int(input.data32)])
+            return
+        }
         guard let stored = values[key] else {
             output.result = 1
             return
@@ -131,7 +153,7 @@ final class FakeSMC {
 
         switch Int(command) {
         case kSMCGetKeyInfo:
-            let type = key == "FNum" || key.hasSuffix("md") ? "ui8 " : "flt "
+            let type = types[key] ?? (key == "FNum" || key.hasSuffix("md") ? "ui8 " : "flt ")
             output.keyInfo.dataSize = UInt32(stored.count)
             output.keyInfo.dataType = fourCC(type)
         case kSMCReadKey:

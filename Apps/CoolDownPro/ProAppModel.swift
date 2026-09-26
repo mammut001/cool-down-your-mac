@@ -95,6 +95,10 @@ final class ProAppModel: ObservableObject {
     /// Avoid re-prompting admin auth / rewriting the same fan command every poll tick.
     private var lastAppliedFanCommand: String?
     private var controlGeneration = 0
+    private var manualOverrideLatch = ThermalOverrideLatch()
+    private var controlActivity: NSObjectProtocol?
+    private var lastTickUptime: TimeInterval?
+    private let controlLogger = Logger(subsystem: "com.cooldown.CoolDownPro", category: "FanControl")
     private var isTicking = false
     private var hasPendingTelemetryChange = false
     private var cancellables = Set<AnyCancellable>()
@@ -213,6 +217,11 @@ final class ProAppModel: ObservableObject {
             .sink { [weak self] _ in self?.startPolling() }
             .store(in: &cancellables)
         settings.$settings
+            .map(\.mode)
+            .removeDuplicates()
+            .sink { [weak self] mode in self?.updateControlActivity(mode: mode) }
+            .store(in: &cancellables)
+        settings.$settings
             .map(\.launchAtLogin)
             .removeDuplicates()
             .dropFirst()
@@ -241,6 +250,22 @@ final class ProAppModel: ObservableObject {
         timer?.invalidate()
     }
 
+    /// A menu-bar app with no visible window is eligible for App Nap, which can
+    /// defer its timer past the helper's 45 s lease. Fans would then drop to
+    /// system auto and back. Opt out only while this app may own the fans.
+    private func updateControlActivity(mode: ControlMode) {
+        let needsTimelyTicks = mode != .systemAuto
+        if needsTimelyTicks, controlActivity == nil {
+            controlActivity = ProcessInfo.processInfo.beginActivity(
+                options: .userInitiatedAllowingIdleSystemSleep,
+                reason: "Renewing the fan-control safety lease"
+            )
+        } else if !needsTimelyTicks, let activity = controlActivity {
+            ProcessInfo.processInfo.endActivity(activity)
+            controlActivity = nil
+        }
+    }
+
     private func handleDisplaySleep(_ asleep: Bool) {
         guard isDisplayAsleep != asleep else { return }
         isDisplayAsleep = asleep
@@ -250,6 +275,8 @@ final class ProAppModel: ObservableObject {
     private func handleSystemSleep() {
         isSystemSleeping = true
         controlGeneration += 1
+        manualOverrideLatch.reset()
+        lastTickUptime = nil
         stopPolling()
         CoolDownHIDPrepareForSleep()
         if helper.isHelperInstalled {
@@ -309,6 +336,11 @@ final class ProAppModel: ObservableObject {
         guard !isSystemSleeping else { return }
         guard !isTicking else { return }
         isTicking = true
+        let tickUptime = ProcessInfo.processInfo.systemUptime
+        if let lastTickUptime, settings.settings.mode != .systemAuto, tickUptime - lastTickUptime > 36 {
+            controlLogger.warning("control tick delayed \(tickUptime - lastTickUptime, format: .fixed(precision: 1))s; helper lease is 45s")
+        }
+        lastTickUptime = tickUptime
         defer {
             isTicking = false
             if hasPendingTelemetryChange {
@@ -414,7 +446,8 @@ final class ProAppModel: ObservableObject {
         if !hasCompletedInitialHelperProbe { hasCompletedInitialHelperProbe = true }
         presentInitialHelperSetupIfNeeded()
 
-        let newControlTemp = controlTemps.map(\.celsius).filter { $0.isFinite && $0 > 5 && $0 < 115 }.max()
+        // `controlReadings` already rejected impossible and uncorroborated values.
+        let newControlTemp = controlTemps.map(\.celsius).max()
         if controlTemperatureC != newControlTemp {
             controlTemperatureC = newControlTemp
         }
@@ -471,10 +504,9 @@ final class ProAppModel: ObservableObject {
     /// above 45°C pose swelling / thermal runaway risks during fast charging.
     /// When battery sensors exceed safe bounds, enforce a cooling floor.
     var batterySafetyFloorPercent: Double? {
-        guard let battTemp = snapshot.temperatures
-            .filter({ $0.group == .battery && $0.celsius.isFinite && $0.celsius > 5 && $0.celsius < 115 })
-            .map(\.celsius)
-            .max() else { return nil }
+        guard let battTemp = TemperatureSanity.trustedControlReadings(
+            snapshot.temperatures.filter { $0.group == .battery }
+        ).map(\.celsius).max() else { return nil }
         if battTemp >= 48 {
             return 1.0 // Emergency battery cooling
         } else if battTemp >= 43 {
@@ -486,18 +518,11 @@ final class ProAppModel: ObservableObject {
     /// High-temperature safety override for Manual mode.
     /// Prevents silent hardware damage / battery baking if the user leaves fans
     /// at low manual RPM while system temperatures or battery reach dangerous levels.
-    var thermalSafetyOverridePercent: Double? {
-        if let battFloor = batterySafetyFloorPercent {
-            return battFloor
-        }
-        if let temp = controlTemperatureC {
-            if temp >= 95 {
-                return 1.0 // Failsafe emergency
-            } else if temp >= 90 {
-                return 0.75 // High temperature protection
-            }
-        }
-        return nil
+    /// The stronger of the battery and chip protections wins; the chip level
+    /// uses hysteresis so a temperature at a threshold cannot flap the fans.
+    private func thermalSafetyOverridePercent(now: TimeInterval) -> Double? {
+        let chip = manualOverrideLatch.update(temperatureC: controlTemperatureC, now: now)
+        return [batterySafetyFloorPercent, chip].compactMap { $0 }.max()
     }
 
     func applyControlPolicy() async {
@@ -524,6 +549,7 @@ final class ProAppModel: ObservableObject {
         do {
             switch mode {
             case .systemAuto:
+                manualOverrideLatch.reset()
                 if targetFanPercent != 0 { targetFanPercent = 0 }
                 if loadBoostPercent != 0 { loadBoostPercent = 0 }
                 curveEngine.reset()
@@ -550,16 +576,18 @@ final class ProAppModel: ObservableObject {
                 var percent = settings.settings.manualPercent
                 curveEngine.reset()
                 loadMonitor.resetFanBoost()
-                if let override = thermalSafetyOverridePercent {
+                if let override = thermalSafetyOverridePercent(now: ProcessInfo.processInfo.systemUptime) {
                     percent = max(percent, override)
                 }
                 if abs(targetFanPercent - percent) > 0.001 { targetFanPercent = percent }
                 try await applyFanWrite(
                     commandKey: String(format: "manual-%.3f", percent),
+                    manualPercent: percent,
                     generation: generation,
                     remote: { try await helper.setFansPercent(percent) }
                 )
             case .smartCurve:
+                manualOverrideLatch.reset()
                 guard let temp = controlTemperatureC, temp.isFinite else {
                     if targetFanPercent != 0 { targetFanPercent = 0 }
                     if loadBoostPercent != 0 { loadBoostPercent = 0 }
@@ -595,6 +623,7 @@ final class ProAppModel: ObservableObject {
                 }
                 try await applyFanWrite(
                     commandKey: String(format: "smart-%.3f", percent),
+                    manualPercent: percent,
                     generation: generation,
                     remote: { try await helper.setFansPercent(percent) }
                 )
@@ -637,18 +666,28 @@ final class ProAppModel: ObservableObject {
     /// The registered helper owns all fan writes after the one-time macOS approval.
     private func applyFanWrite(
         commandKey: String,
+        manualPercent: Double? = nil,
         generation: Int,
         remote: () async throws -> Void
     ) async throws {
         guard !isSystemSleeping, generation == controlGeneration else { return }
+        var reapplyingAfterDrift = false
         if lastAppliedFanCommand == commandKey {
-            if commandKey.hasPrefix("manual-") || commandKey.hasPrefix("smart-") {
-                do {
-                    try await helper.renewFanControlLease()
-                    return
-                } catch {
-                    // The helper lost the old lease. Reapply the current target.
+            if let manualPercent {
+                // Renewal does not touch the SMC. If firmware or another
+                // fan-control app changed the mode or target, write it again.
+                if FanCommandVerification.manualCommandHasDrifted(percent: manualPercent, fans: snapshot.fans) {
+                    controlLogger.warning("fan state differs from \(commandKey, privacy: .public); reapplying")
                     lastAppliedFanCommand = nil
+                    reapplyingAfterDrift = true
+                } else {
+                    do {
+                        try await helper.renewFanControlLease()
+                        return
+                    } catch {
+                        // The helper lost the old lease. Reapply the current target.
+                        lastAppliedFanCommand = nil
+                    }
                 }
             } else {
                 return
@@ -658,7 +697,9 @@ final class ProAppModel: ObservableObject {
         try await remote()
         guard generation == controlGeneration else { return }
         lastAppliedFanCommand = commandKey
-        statusMessage = nil
+        statusMessage = reapplyingAfterDrift
+            ? "Fan speed was changed outside Cool Down Pro and has been reapplied. Quit other fan-control apps."
+            : nil
     }
 
     func installHelper() {
