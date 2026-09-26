@@ -6,6 +6,15 @@
         <description>Updates for Cool Down Pro</description>
         <language>en</language>
         <item>
+            <title>1.0.21</title>
+            <pubDate>Sat, 26 Sep 2026 02:45:59 -0400</pubDate>
+            <sparkle:fullReleaseNotesLink>https://github.com/mammut001/cool-down-your-mac/releases/tag/v1.0.21</sparkle:fullReleaseNotesLink>
+            <sparkle:version>32</sparkle:version>
+            <sparkle:shortVersionString>1.0.21</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/mammut001/cool-down-your-mac/releases/download/v1.0.21/CoolDownPro-1.0.21.zip" length="4166163" type="application/octet-stream" sparkle:edSignature="OLBPLa45uDiFvJRksDxLOM764bPzhLXpDgkzINRPWfU3rzDpJNpl85Vz0jmuaBjlXnf4z38/fwLoZVJGCqHgBg=="/>
+        </item>
+        <item>
             <title>1.0.20</title>
             <pubDate>Thu, 24 Sep 2026 01:49:17 -0400</pubDate>
             <sparkle:fullReleaseNotesLink>https://github.com/mammut001/cool-down-your-mac/releases/tag/v1.0.20</sparkle:fullReleaseNotesLink>
@@ -21,14 +30,6 @@
             <sparkle:shortVersionString>1.0.19</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/mammut001/cool-down-your-mac/releases/download/v1.0.19/CoolDownPro-1.0.19.zip" length="4124608" type="application/octet-stream" sparkle:edSignature="YRRrtVxDcqSzVUMIzG/Ow622su2Gbs+ReACEQcF4i059e4mFXh4Xep0kgKBSgEIkp2ld5WkpFD4/toWBELsTCQ=="/>
-        </item>
-        <item>
-            <title>1.0.18</title>
-            <pubDate>Tue, 15 Sep 2026 18:56:28 -0400</pubDate>
-            <sparkle:version>29</sparkle:version>
-            <sparkle:shortVersionString>1.0.18</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/mammut001/cool-down-your-mac/releases/download/v1.0.18/CoolDownPro-1.0.18.zip" length="4103398" type="application/octet-stream" sparkle:edSignature="bj/Fnh4cb98w1sDpoMo8xbeIOnXlNCeWBZDrVtXenuETa1AXWl9qSvL/uHh2cyYPQ+TRtx1Qm/A9tGL1qNWFAA=="/>
         </item>
     </channel>
 </rss>
