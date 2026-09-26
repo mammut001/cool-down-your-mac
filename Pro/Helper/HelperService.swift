@@ -77,6 +77,24 @@ final class HelperService: NSObject, CoolDownHelperProtocol {
         }
     }
 
+    /// Leases live only in this process. After a crash, kill or upgrade,
+    /// launchd starts a helper that owns no lease, so no client can be
+    /// relying on a manual fan: return any manual fan to system auto and arm
+    /// the watchdog so a failed restore is retried.
+    static func reconcileAfterLaunch() {
+        queue.async {
+            _ = watchdog
+            let manualFans = try? withSMC { try $0.readFans().filter(\.isManual).count }
+            guard manualFans != 0 else { return }
+            do {
+                try restoreAutoLocked()
+                log.info("helper launch found manual fans without a lease — system auto restored")
+            } catch {
+                log.error("helper launch restore failed; retrying: \(String(describing: error), privacy: .public)")
+            }
+        }
+    }
+
     func clientGone() {
         let clientID = self.clientID
         Self.queue.async { [self] in

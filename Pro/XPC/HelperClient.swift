@@ -245,19 +245,28 @@ public final class HelperClient: ObservableObject {
         _ = sema.wait(timeout: .now() + timeout)
     }
 
+    /// Covers the slowest verified write: every fan's 900 ms read-back, the
+    /// rollback and one reopened-SMC retry.
+    private static let replyTimeout: TimeInterval = 10
+
     private func invoke<T>(
         _ body: (CoolDownHelperProtocol, @escaping (Result<T, Error>) -> Void) -> Void
     ) async throws -> T {
-        try await withCheckedThrowingContinuation { continuation in
-            let lock = NSLock()
-            var resumed = false
-            func finish(_ result: Result<T, Error>) {
-                lock.lock()
-                defer { lock.unlock() }
-                guard !resumed else { return }
-                resumed = true
-                continuation.resume(with: result)
+        // Connect first so the timeout targets the connection used below.
+        if connection == nil { reconnect() }
+        let epoch = connectionEpoch
+        return try await awaitReply(
+            timeout: Self.replyTimeout,
+            onTimeout: { [weak self] in
+                // A stuck helper queue never replies. Dropping the connection
+                // lets the helper restore auto for this client once it recovers,
+                // and the next poll reconnects instead of waiting forever.
+                Task { @MainActor in
+                    self?.lastError = ReplyTimeoutError(seconds: Self.replyTimeout).localizedDescription
+                    self?.handleConnectionLoss(epoch: epoch)
+                }
             }
+        ) { finish in
             guard let proxy = proxy(onError: { error in
                 finish(.failure(error))
             }) else {

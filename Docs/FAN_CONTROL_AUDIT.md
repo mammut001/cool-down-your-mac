@@ -1,5 +1,7 @@
 # Fan control safety audit
 
+The properties this audit protects are listed, with their tests, in [FAN_SAFETY_INVARIANTS.md](FAN_SAFETY_INVARIANTS.md).
+
 Baseline: `main` at `55ee7f8a0676212bd3a268424b0d7e671600b729` (Cool Down Pro 1.0.19). Review covers the app's sensor sampling and policy, XPC ownership, privileged helper, and AppleSMC writes. The lease and disconnect recovery paths were also tested on a signed M5 Pro build, as recorded below.
 
 ## Findings and changes for v1.0.20
@@ -51,7 +53,29 @@ Do not run failure injection during critical work or with the machine unattended
 7. On a model with no `FNum` key, confirm per-fan discovery works. Verify that a controller which acknowledges a key write without changing its read-back is treated as a failure.
 8. Upgrade the GUI while leaving the pre-lease helper installed. Confirm manual controls remain disabled, any existing manual fan is returned to auto, and the Repair flow installs a lease-capable helper before manual control becomes available.
 
+## Follow-up audit: sensor trust and hardware-state drift
+
+A second review looked past process and connection failures at the data the policy trusts and at the gap between the fans' actual state and the app's belief. A read-only SMC probe on the M5 Pro supplied the key types and values cited below.
+
+| Priority | Failure path | Change |
+| --- | --- | --- |
+| P1 | Every reading at or above 110 °C (SMC), 115 °C (catalog, control, alerts) or 120 °C (HID) was dropped as a glitch. The hottest die sensor disappeared first, so the control temperature fell as the chip heated; with all CPU values above the cap, a cool GPU sensor could keep Manual's 90/95 °C override and the Smart Curve emergency from engaging. User temperature alerts were capped the same way. | `TemperatureSanity` rejects only non-finite, ≤ 5 °C and ≥ 150 °C values. A reading of 110 °C or more is trusted when a different sensor reads at least 90 °C, which still rejects an isolated glitch. Control, the curated list, battery floor and alerts share the rule. |
+| P1 | Lease renewal never reads the SMC. If firmware or another fan-control app (this Mac also runs Macs Fan Control's root `smcwrite` daemon) changed a fan's mode or target, the app kept renewing and showing its own target. At a stable 100 % emergency command it never wrote again. | Before renewing, the app compares each fan's published mode and target with the owned Manual/Smart Curve command and rewrites it on a mismatch, with a status message naming other fan-control apps. |
+| P1 | Leases exist only in helper memory and the watchdog started with the first command. A helper that crashed or was killed while fans were manual was relaunched with no lease and no watchdog, leaving the last target in place until a GUI reconnected. | On launch, before the XPC listener resumes, the helper arms the watchdog and returns any manual fan to system auto; a failed restore stays pending for retries. |
+| P1 | Manual's thermal override returned the battery floor as soon as it applied, so a 43 °C battery (50 %) masked a 96 °C chip (100 %). | The stronger of the battery and chip protections wins. |
+| P2 | Manual's 90/95 °C override had no hysteresis. A temperature hovering at a threshold switched the fans between full speed and the user's setting on every poll, each switch costing a verified SMC write. | `ThermalOverrideLatch` exits 5 °C below each entry threshold and holds a level for at least 10 s; escalation is immediate. |
+| P2 | XPC requests had no timeout. A helper stuck in IOKit never replied, `isTicking` stayed set, and polling, alerts and status updates stopped silently. | Requests fail after 10 s and drop the connection, so the next poll reconnects and the helper restores auto for that client once its queue recovers. |
+| P2 | The menu-bar app did not opt out of App Nap. A timer deferred past 45 s would let the lease expire, cycling fans between auto and manual. This was not observed; helper info logs are not persisted. | While Manual or Smart Curve is selected, the app holds a `userInitiatedAllowingIdleSystemSleep` activity and logs any control tick delayed beyond 36 s. |
+| P2 | On a Mac without `F*Md`/`F*md` keys (Intel), an auto restore treated the missing key as a failure, wrote each fan's maximum target and left the watchdog retrying every 5 s. Quit in the default Smart Curve mode reached this path. | Fans without a mode key are skipped by auto restore; an I/O failure while probing still attempts it. |
+| P3 | `ioft` temperatures were decoded big-endian (for example `TG0B` read 2.25 × 10¹⁴ instead of 27.6 °C) and only the ceiling hid them. Their values match the battery `TB*T` keys, but the `TG` prefix would classify them as GPU. | Little-endian decoding; `ioft` readings are auxiliary: grouped as Other and excluded from CPU/GPU lists and control. |
+| P3 | Stored sample interval and curve hysteresis were not clamped on decode. An interval above 18 s makes the 25 s display-asleep cadence exceed the 45 s lease. | Decoding and initialization clamp them to the settings ranges, 1–10 s and 0.5–5 °C. |
+| P3 | An unreadable fan-mode key was reported as auto, so quit and old-helper recovery skipped that fan. | An existing but unreadable mode key reports manual, which only causes an extra auto request. |
+
+Twenty-one tests cover these paths; the full suite of 114 tests passes. The changes were not yet exercised on a newly installed privileged helper or on physical faults. Before release, repeat matrix steps 1–3 and 6 with the new helper and additionally: start a Manual target, change it with another tool (or `cooldown-smc percent`), and confirm the app reapplies it within one poll; `kill -9` the helper while Manual is active and the GUI is stopped, trigger a relaunch, and confirm both fans read `manual=false`.
+
 ## Remaining limits
+
+- Two fan-control apps cannot share the SMC. Cool Down Pro now reapplies its own Manual or Smart Curve command when another app changes it, and a relaunched helper returns manual fans to auto, which can override the other app. System Auto still issues one auto request when selected.
 
 - Key read-back verifies the SMC mode and requested target, not the physical fan response. A hardware test must check actual RPM and account for spin-up delay.
 - Restoration is best effort if the SMC rejects auto-mode writes. The helper attempts a maximum-RPM target for affected fans, retries auto while running, and logs failures; it cannot guarantee a hardware outcome after its process is forcibly killed.

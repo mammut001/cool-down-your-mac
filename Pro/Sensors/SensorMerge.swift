@@ -20,7 +20,7 @@ enum SensorMerge {
 
     static func annotateSMC(_ reading: TemperatureReading) -> TemperatureReading {
         var copy = reading
-        copy.group = inferGroup(key: reading.key, name: reading.name)
+        copy.group = reading.isAuxiliary ? .other : inferGroup(key: reading.key, name: reading.name)
         if copy.name == reading.key {
             copy.name = SMCKnownNames.name(for: reading.key)
         }

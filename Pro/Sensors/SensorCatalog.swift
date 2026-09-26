@@ -33,9 +33,8 @@ enum SensorCatalog {
         }
 
         // CPU cores: Tp/TC/Te keys around SoC temps (deduped; last write wins).
-        let cpuKeys = uniqueSMC.values
-            .filter { isCPUKey($0.key) && $0.key.count == 4 }
-            .filter { $0.celsius.isFinite && $0.celsius > 5 && $0.celsius < 115 }
+        let cpuKeys = TemperatureSanity.trustedControlReadings(Array(uniqueSMC.values))
+            .filter { !$0.isAuxiliary && isCPUKey($0.key) && $0.key.count == 4 }
             .sorted { keyPrecedes($0.key, $1.key) }
 
         // Prefer the dense Tp0* block first (Performance + Super on M-series Pro).
@@ -86,12 +85,8 @@ enum SensorCatalog {
         if orderedCPU.isEmpty {
             // The mapper may already contain a synthetic average. Exclude it here
             // because this catalog inserts one canonical average below.
-            let hidCPU = hid.filter {
-                $0.group == .cpu
-                    && $0.key != "hid.cpu.avg"
-                    && $0.celsius.isFinite
-                    && $0.celsius > 5
-                    && $0.celsius < 115
+            let hidCPU = TemperatureSanity.trustedControlReadings(hid).filter {
+                $0.group == .cpu && $0.key != "hid.cpu.avg"
             }
             list.append(contentsOf: hidCPU.prefix(18))
         }
@@ -110,12 +105,11 @@ enum SensorCatalog {
         }
 
         // GPU clusters: pick 4 evenly spaced Tg/TG samples (deduped; last write wins).
-        let gpuKeys = uniqueSMC.values
-            .filter { isGPUKey($0.key) && $0.key.count == 4 }
-            .filter { $0.celsius.isFinite && $0.celsius > 5 && $0.celsius < 115 }
+        let gpuKeys = TemperatureSanity.trustedControlReadings(Array(uniqueSMC.values))
+            .filter { !$0.isAuxiliary && isGPUKey($0.key) && $0.key.count == 4 }
             .sorted { keyPrecedes($0.key, $1.key) }
         if gpuKeys.isEmpty {
-            let hidGPU = hid.filter { $0.group == .gpu && $0.celsius.isFinite && $0.celsius > 5 && $0.celsius < 115 }
+            let hidGPU = TemperatureSanity.trustedControlReadings(hid).filter { $0.group == .gpu }
             list.append(contentsOf: hidGPU.prefix(4))
         } else if !gpuKeys.isEmpty {
             let isAppleSiliconGPU = gpuKeys.contains { $0.key.hasPrefix("Tg") }
@@ -213,20 +207,16 @@ enum SensorCatalog {
     }
 
     /// CPU/GPU readings used for fan decisions. Independent of the curated UI list
-    /// and of the "show all sensors" toggle.
+    /// and of the "show all sensors" toggle. A reading of 110 °C or more is
+    /// kept when another CPU/GPU sensor confirms real heat.
     static func controlReadings(smc: [TemperatureReading], hid: [TemperatureReading]) -> [TemperatureReading] {
         let uniqueSMC = lastWriteWinsByKey(smc)
         var readings = uniqueSMC.values.filter { reading in
-            reading.celsius.isFinite
-                && reading.celsius > 5
-                && reading.celsius < 115
+            !reading.isAuxiliary
                 && (isCPUKey(reading.key) || isGPUKey(reading.key) || reading.group.affectsThermalControl)
         }
-        for item in hid where item.group.affectsThermalControl {
-            guard item.celsius.isFinite, item.celsius > 5, item.celsius < 115 else { continue }
-            readings.append(item)
-        }
-        return readings
+        readings.append(contentsOf: hid.filter { !$0.isAuxiliary && $0.group.affectsThermalControl })
+        return TemperatureSanity.trustedControlReadings(readings)
     }
 
     private static func isCPUKey(_ key: String) -> Bool {
