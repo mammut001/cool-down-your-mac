@@ -27,7 +27,7 @@ struct ProDashboardView: View {
         }
         .frame(minWidth: 640, minHeight: 700)
         .background(Color(nsColor: .windowBackgroundColor))
-        .alert(model.helperSetupTitle, isPresented: $model.shouldPresentHelperSetup) {
+        .alert(model.helperSetupTitle, isPresented: model.helperSetupIsPresented(in: .dashboard)) {
             Button("Not Now", role: .cancel) {}
             Button(model.helperSetupConfirmTitle) { model.performHelperSetup() }
         } message: {

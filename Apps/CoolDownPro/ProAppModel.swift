@@ -79,7 +79,10 @@ final class ProAppModel: ObservableObject {
     var controlTemperatureC: Double? {
         willSet { if newValue != controlTemperatureC { telemetryWillChange() } }
     }
-    @Published var shouldPresentHelperSetup = false
+    /// The window that asked for the "Enable/Repair fan control?" alert.
+    /// Each window binds only to its own case, so having the Dashboard and
+    /// Settings open together never shows the same alert twice.
+    @Published var helperSetupPresenter: HelperSetupPresenter?
     @Published private(set) var helperLaunchFailed = false
     @Published private(set) var hasCompletedInitialHelperProbe = false
 
@@ -462,7 +465,7 @@ final class ProAppModel: ObservableObject {
         ) else { return }
 
         UserDefaults.standard.set(true, forKey: helperSetupPromptShownKey)
-        shouldPresentHelperSetup = true
+        helperSetupPresenter = .dashboard
     }
 
     private func preferredFans(remote: [FanInfo], local: [FanInfo]) -> [FanInfo] {
@@ -731,12 +734,24 @@ final class ProAppModel: ObservableObject {
         }
     }
 
-    func requestHelperSetup() {
+    func requestHelperSetup(from presenter: HelperSetupPresenter = .dashboard) {
         if let helperInstallationSigningIssue {
             statusMessage = helperInstallationSigningIssue
             return
         }
-        shouldPresentHelperSetup = true
+        helperSetupPresenter = presenter
+    }
+
+    /// Binding for one window's `.alert`. Only the window named in
+    /// `helperSetupPresenter` sees `true`; dismissing from that window clears it.
+    func helperSetupIsPresented(in presenter: HelperSetupPresenter) -> Binding<Bool> {
+        Binding(
+            get: { [weak self] in self?.helperSetupPresenter == presenter },
+            set: { [weak self] presented in
+                guard let self, !presented, self.helperSetupPresenter == presenter else { return }
+                self.helperSetupPresenter = nil
+            }
+        )
     }
 
     func performHelperSetup() {
@@ -767,14 +782,14 @@ final class ProAppModel: ObservableObject {
         }
     }
 
-    func performHelperAction() {
+    func performHelperAction(from presenter: HelperSetupPresenter = .dashboard) {
         guard !isBusy else { return }
         if let helperInstallationSigningIssue {
             statusMessage = helperInstallationSigningIssue
             return
         }
         if !helperIsRegistered || helperLaunchFailed || helperNeedsLeaseUpgrade {
-            requestHelperSetup()
+            requestHelperSetup(from: presenter)
         } else {
             isBusy = true
             helper.reconnect()
@@ -967,3 +982,9 @@ private final class SmartCurveCSVWriter: @unchecked Sendable {
     }
 }
 #endif
+
+/// Windows that can host the helper setup alert.
+enum HelperSetupPresenter: Equatable {
+    case dashboard
+    case settings
+}

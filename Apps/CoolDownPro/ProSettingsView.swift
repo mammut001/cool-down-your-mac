@@ -38,7 +38,7 @@ struct ProSettingsView: View {
         } message: {
             Text("Your current curve points will be replaced with the balanced default curve.")
         }
-        .alert(model.helperSetupTitle, isPresented: $model.shouldPresentHelperSetup) {
+        .alert(model.helperSetupTitle, isPresented: model.helperSetupIsPresented(in: .settings)) {
             Button("Not Now", role: .cancel) {}
             Button(model.helperSetupConfirmTitle) {
                 model.performHelperSetup()
@@ -68,14 +68,14 @@ struct ProSettingsView: View {
                         .foregroundStyle(model.helperControlIsReady ? CoolDownTheme.calm : CoolDownTheme.warning)
                 }
                 Button(model.helperActionTitle) {
-                    model.performHelperAction()
+                    model.performHelperAction(from: .settings)
                 }
                 .disabled(!model.helperActionIsEnabled)
                 .liquidGlassButtonStyle(prominent: !model.helperControlIsReady)
                 .help("Installs or repairs the privileged helper used to control fan speed.")
                 if model.helperIsRegistered && model.helperControlIsReady {
                     Button("Repair Fan Control…") {
-                        model.requestHelperSetup()
+                        model.requestHelperSetup(from: .settings)
                     }
                     .disabled(model.isBusy)
                     .help("Replace the installed helper with the copy bundled in this app.")
