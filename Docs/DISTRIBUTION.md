@@ -150,6 +150,12 @@ CoolDownPro-X.Y.Z.zip (GitHub Releases)
 - Check interval: `86400` seconds (daily automatic check, manual check always available in Settings & menu)
 - Automatic install: Disabled by default (`SUAllowsAutomaticUpdates = false`). Users see release notes and approve installations.
 
+### Scheduled updates in a menu-bar app
+
+Cool Down Pro is an `LSUIElement` app. For a scheduled (daily) check that finds an update, Sparkle's standard UI shows the alert **behind other windows without activating the app**, unless the check happens within seconds of launch. With automatic installation off, an update that nobody sees is never installed: on 2026-10-27 a Mac was still running 1.0.18 a month after 1.0.21 shipped, with daily checks succeeding (`SULastCheckTime` current) and Sparkle logging at each launch that the app "does not implement gentle reminders".
+
+Since 1.0.22, `UpdateController` is the `SPUStandardUserDriverDelegate` and implements Sparkle's gentle reminders: Sparkle still shows the alert itself when it would be in focus (near launch); otherwise the controller records the pending version, shows an "Install…" row in the menu-bar popover and in Settings → Updates, and posts a user notification when notifications are already authorized. Clicking either calls `checkForUpdates`, which brings the pending alert into focus. The 1.0.18 → 1.0.21 gap still needs a manual update or a launch while a check is due.
+
 ### Sparkle EdDSA key management
 
 - **Public key**: Embedded in `Info.plist` (`SUPublicEDKey`) and tracked in source control.
