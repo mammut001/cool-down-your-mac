@@ -2,13 +2,13 @@ import Foundation
 
 final class HelperDelegate: NSObject, NSXPCListenerDelegate {
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection newConnection: NSXPCConnection) -> Bool {
-        guard HelperSecurity.isTrustedCaller(connection: newConnection) else {
+        guard let caller = HelperSecurity.trustedCaller(connection: newConnection) else {
             return false
         }
         if #available(macOS 13.0, *) {
             newConnection.setCodeSigningRequirement(HelperSecurity.clientRequirement)
         }
-        let service = HelperService()
+        let service = HelperService(clientBuild: caller.buildNumber)
         newConnection.exportedInterface = NSXPCInterface(with: CoolDownHelperProtocol.self)
         newConnection.exportedObject = service
         newConnection.interruptionHandler = {

@@ -255,6 +255,24 @@ public final class HelperClient: ObservableObject {
         // Connect first so the timeout targets the connection used below.
         if connection == nil { reconnect() }
         let epoch = connectionEpoch
+        do {
+            return try await send(epoch: epoch, body)
+        } catch {
+            // The helper refuses this connection's manual commands after our
+            // lease expired while it stayed open (a tick delayed past 45 s).
+            // Only a new connection may take control again; dropping this one
+            // makes the next tick reconnect and rewrite the current target.
+            if CoolDownXPCError.code(of: error) == .leaseNotRenewed {
+                handleConnectionLoss(epoch: epoch)
+            }
+            throw error
+        }
+    }
+
+    private func send<T>(
+        epoch: Int,
+        _ body: (CoolDownHelperProtocol, @escaping (Result<T, Error>) -> Void) -> Void
+    ) async throws -> T {
         return try await awaitReply(
             timeout: Self.replyTimeout,
             onTimeout: { [weak self] in

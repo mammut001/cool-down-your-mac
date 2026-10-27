@@ -16,11 +16,58 @@ final class HelperService: NSObject, CoolDownHelperProtocol {
         timer.resume()
         return timer
     }()
+    /// Owners whose lease expired while their connection was still open. A
+    /// live app that does not renew is either stalled or too old to know the
+    /// lease; both must not reacquire manual control on their next command,
+    /// or the fans cycle auto/manual every 45 s. Cleared when the connection
+    /// goes away, so a reconnect (new `HelperService`) starts clean.
+    private static var nonRenewingClients: Set<UUID> = []
+    /// Cool Down Pro 1.0.20 (build 31) was the first app to renew the lease.
+    static let minimumLeaseClientBuild = 31
     private let clientID = UUID()
+    private let clientBuild: Int?
     // Only access on the shared helper queue. A disconnect may be queued before
     // an already-delivered fan command; that late command must be rejected.
     private var clientIsGone = false
+    private var loggedOutdatedClient = false
     private static let log = Logger(subsystem: "com.cooldown.CoolDownPro.PrivilegedHelper", category: "SMC")
+
+    /// `clientBuild` is the connected app's `CFBundleVersion` read from its
+    /// signature by `HelperDelegate`; tests default to a lease-capable build.
+    init(clientBuild: Int? = HelperService.minimumLeaseClientBuild) {
+        self.clientBuild = clientBuild
+        super.init()
+    }
+
+    static func buildNumber(fromBundleVersion value: Any?) -> Int? {
+        if let number = value as? NSNumber { return number.intValue }
+        guard let string = value as? String else { return nil }
+        // "32" or "32.1": the leading integer is the build.
+        let head = string.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false).first ?? ""
+        return Int(head.trimmingCharacters(in: .whitespaces))
+    }
+
+    private var clientRenewsLeases: Bool {
+        guard let clientBuild else { return false }
+        return clientBuild >= Self.minimumLeaseClientBuild
+    }
+
+    /// Manual commands need a client that will keep the lease alive. Returns
+    /// the error to reply with, or nil when the command may proceed.
+    private func manualCommandRefusal() -> NSError? {
+        if clientIsGone { return CoolDownXPCError.helperUnavailable.nsError }
+        guard clientRenewsLeases else {
+            if !loggedOutdatedClient {
+                loggedOutdatedClient = true
+                Self.log.error("manual fan command refused: client build \(self.clientBuild.map(String.init) ?? "unknown", privacy: .public) predates lease renewal (needs \(Self.minimumLeaseClientBuild)); fans stay in system auto")
+            }
+            return CoolDownXPCError.clientOutdated.nsError
+        }
+        if Self.nonRenewingClients.contains(clientID) {
+            return CoolDownXPCError.leaseNotRenewed.nsError
+        }
+        return nil
+    }
 
     #if DEBUG
     private static var testOpenSMC: (() throws -> SMCKit)?
@@ -30,6 +77,7 @@ final class HelperService: NSObject, CoolDownHelperProtocol {
         queue.sync {
             smc = nil
             lease.clear()
+            nonRenewingClients.removeAll()
             restorePending = false
             testOpenSMC = openSMC
             testUptime = uptime
@@ -52,6 +100,7 @@ final class HelperService: NSObject, CoolDownHelperProtocol {
         queue.sync {
             smc = nil
             lease.clear()
+            nonRenewingClients.removeAll()
             restorePending = false
             testOpenSMC = nil
             testUptime = nil
@@ -68,6 +117,12 @@ final class HelperService: NSObject, CoolDownHelperProtocol {
 
     private static func watchdogTickLocked() {
         let expired = lease.hasExpired(now: uptime)
+        if expired, let owner = lease.owner, !nonRenewingClients.contains(owner) {
+            // The owner's disconnect would already have cleared this lease, so
+            // its connection is still open: a stalled or lease-unaware app.
+            nonRenewingClients.insert(owner)
+            log.fault("fan lease expired while the controlling app stayed connected; its manual commands are refused until it reconnects")
+        }
         guard restorePending || expired else { return }
         do {
             try restoreAutoLocked()
@@ -99,6 +154,7 @@ final class HelperService: NSObject, CoolDownHelperProtocol {
         let clientID = self.clientID
         Self.queue.async { [self] in
             clientIsGone = true
+            Self.nonRenewingClients.remove(clientID)
             guard Self.lease.isOwned(by: clientID) else { return }
             do {
                 try Self.restoreAutoLocked()
@@ -208,8 +264,8 @@ final class HelperService: NSObject, CoolDownHelperProtocol {
     func setFansPercent(_ percent: Double, reply: @escaping (NSError?) -> Void) {
         let clientID = self.clientID
         Self.queue.async { [self] in
-            guard !clientIsGone else {
-                reply(CoolDownXPCError.helperUnavailable.nsError)
+            if let refusal = manualCommandRefusal() {
+                reply(refusal)
                 return
             }
             guard percent.isFinite, (0...1).contains(percent) else {
@@ -242,8 +298,8 @@ final class HelperService: NSObject, CoolDownHelperProtocol {
     func setFanRPM(index: Int, rpm: Double, reply: @escaping (NSError?) -> Void) {
         let clientID = self.clientID
         Self.queue.async { [self] in
-            guard !clientIsGone else {
-                reply(CoolDownXPCError.helperUnavailable.nsError)
+            if let refusal = manualCommandRefusal() {
+                reply(refusal)
                 return
             }
             guard (0..<8).contains(index), rpm.isFinite, rpm >= 300, rpm <= 12000 else {
