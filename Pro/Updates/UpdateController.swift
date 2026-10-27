@@ -5,6 +5,9 @@ import Combine
 import UserNotifications
 import CoolDownKit
 
+/// Read from Sparkle's and UNUserNotificationCenter's nonisolated callbacks.
+private let updateNotificationIdentifier = "com.cooldown.CoolDownPro.update-available"
+
 /// Manages in-app software updates via Sparkle 2.
 ///
 /// Cool Down Pro is a menu-bar-only (`LSUIElement`) app, and automatic
@@ -32,7 +35,6 @@ public final class UpdateController: NSObject, ObservableObject {
 
     private var updaterController: SPUStandardUpdaterController?
     private var cancellables = Set<AnyCancellable>()
-    private static let updateNotificationIdentifier = "com.cooldown.CoolDownPro.update-available"
 
     public init(startingUpdater: Bool = true) {
         super.init()
@@ -96,7 +98,7 @@ public final class UpdateController: NSObject, ObservableObject {
             content.title = "Cool Down Pro \(version) is available"
             content.body = "Open Cool Down Pro from the menu bar to install the update."
             let request = UNNotificationRequest(
-                identifier: Self.updateNotificationIdentifier,
+                identifier: updateNotificationIdentifier,
                 content: content,
                 trigger: nil
             )
@@ -106,8 +108,8 @@ public final class UpdateController: NSObject, ObservableObject {
 
     private func clearPendingUpdate() {
         pendingUpdateVersion = nil
-        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [Self.updateNotificationIdentifier])
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [Self.updateNotificationIdentifier])
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [updateNotificationIdentifier])
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [updateNotificationIdentifier])
     }
 }
 
@@ -158,7 +160,7 @@ extension UpdateController: UNUserNotificationCenterDelegate {
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        let isUpdateNotification = response.notification.request.identifier == Self.updateNotificationIdentifier
+        let isUpdateNotification = response.notification.request.identifier == updateNotificationIdentifier
         Task { @MainActor in
             if isUpdateNotification {
                 self.checkForUpdates()
