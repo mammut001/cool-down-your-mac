@@ -132,6 +132,26 @@ struct ProMenuBarView: View {
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
 
+            if let pendingVersion = updateController.pendingUpdateVersion {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .foregroundStyle(CoolDownTheme.accent)
+                    Text("Cool Down Pro \(pendingVersion) is available")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                    Spacer()
+                    Button("Install…") {
+                        dismiss()
+                        updateController.checkForUpdates()
+                    }
+                    .liquidGlassButtonStyle(prominent: true)
+                    .controlSize(.mini)
+                }
+                .padding(8)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+
             HStack {
                 Button {
                     updateController.checkForUpdates()

@@ -157,6 +157,9 @@ struct ProSettingsView: View {
             Section("Software Update") {
                 LabeledContent("Installed Version", value: updateController.formattedCurrentVersion)
                 LabeledContent("Last Checked", value: updateController.formattedLastCheckDate)
+                if let pendingVersion = updateController.pendingUpdateVersion {
+                    LabeledContent("Available", value: pendingVersion)
+                }
                 Toggle("Automatically check for updates", isOn: $updateController.automaticallyChecksForUpdates)
                 Button("Check for Updates…") {
                     updateController.checkForUpdates()

@@ -45,19 +45,37 @@ public enum CoolDownXPCError: Int {
     case unauthorized = 2
     case smcFailed = 3
     case encodeFailed = 4
+    /// The connected app predates lease renewal. Such an app never renews, so
+    /// every manual command would expire into system auto 45 s later and be
+    /// rewritten on the next curve change: fans cycling off and on.
+    case clientOutdated = 5
+    /// The app's lease expired while its connection stayed open. Its manual
+    /// commands are refused until it reconnects, instead of repeating the cycle.
+    case leaseNotRenewed = 6
+
+    public static let domain = "com.cooldown.CoolDownPro.XPC"
 
     public var nsError: NSError {
         let messages: [CoolDownXPCError: String] = [
             .helperUnavailable: "Privileged helper is unavailable",
             .unauthorized: "Caller is not authorized",
             .smcFailed: "SMC operation failed",
-            .encodeFailed: "Failed to encode snapshot"
+            .encodeFailed: "Failed to encode snapshot",
+            .clientOutdated: "This fan-control helper requires Cool Down Pro 1.0.20 or newer. Fans stay in System Auto until the app is updated.",
+            .leaseNotRenewed: "Cool Down Pro stopped renewing its fan-control lease, so the fans were returned to System Auto. Update Cool Down Pro, then reconnect fan control."
         ]
         return NSError(
-            domain: "com.cooldown.CoolDownPro.XPC",
+            domain: Self.domain,
             code: rawValue,
             userInfo: [NSLocalizedDescriptionKey: messages[self] ?? "Unknown error"]
         )
+    }
+
+    /// The helper's own error code carried by an XPC reply, if any.
+    public static func code(of error: Error) -> CoolDownXPCError? {
+        let nsError = error as NSError
+        guard nsError.domain == domain else { return nil }
+        return CoolDownXPCError(rawValue: nsError.code)
     }
 }
 

@@ -18,27 +18,36 @@ enum HelperSecurity {
     static let helperRequirement =
         "identifier \"com.cooldown.CoolDownPro.PrivilegedHelper\" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = Z5D5N7CU6L"
 
-    static func isTrustedCaller(connection: NSXPCConnection) -> Bool {
+    struct TrustedCaller {
+        /// `CFBundleVersion` from the client's signed Info.plist. `nil` when
+        /// the plist carries no usable build number; the helper then refuses
+        /// manual fan control rather than guess that the app renews leases.
+        let buildNumber: Int?
+    }
+
+    static func trustedCaller(connection: NSXPCConnection) -> TrustedCaller? {
 #if DEBUG
         if ProcessInfo.processInfo.environment["COOLDOWN_HELPER_DEV"] == "1" {
-            return true
+            return TrustedCaller(buildNumber: HelperService.minimumLeaseClientBuild)
         }
 #endif
         guard let codesign = try? guestCodesign(connection: connection) else {
-            return false
+            return nil
         }
         guard let team = codesign.teamID, !team.isEmpty, allowedTeamIDs.contains(team) else {
-            return false
+            return nil
         }
         guard let bundleID = codesign.bundleID, allowedBundleIDs.contains(bundleID) else {
-            return false
+            return nil
         }
-        return codesign.signatureValid
+        guard codesign.signatureValid else { return nil }
+        return TrustedCaller(buildNumber: codesign.buildNumber)
     }
 
     private struct CodesignInfo {
         var bundleID: String?
         var teamID: String?
+        var buildNumber: Int?
         var signatureValid: Bool
     }
 
@@ -76,9 +85,13 @@ enum HelperSecurity {
 
         let identifiers = info[kSecCodeInfoIdentifier as String] as? String
         let team = info[kSecCodeInfoTeamIdentifier as String] as? String
+        // The sealed Info.plist is part of the signature, so a valid signature
+        // also vouches for this build number.
+        let plist = info[kSecCodeInfoPList as String] as? [String: Any]
         return CodesignInfo(
             bundleID: identifiers,
             teamID: team,
+            buildNumber: HelperService.buildNumber(fromBundleVersion: plist?["CFBundleVersion"]),
             signatureValid: validity == errSecSuccess
         )
     }

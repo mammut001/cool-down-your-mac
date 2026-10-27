@@ -73,6 +73,25 @@ A second review looked past process and connection failures at the data the poli
 
 Twenty-four new tests cover these paths and the invariants; the full suite of 117 tests passes. On 2026-09-26, the signed Debug helper from commit `72f1036` was installed on the M5 Pro and matched the bundled helper by SHA-256. With the GUI in Manual at 50% and a 2-second poll interval, Macs Fan Control changed fan 0's target from 3349 to 4500 RPM; an independent SMC read showed Cool Down Pro restore 3349 RPM within about one second. With both fans manual, the GUI was stopped and the root helper force-quit. After a launchd kickstart, both fans read `manual=false` while the GUI remained stopped. The GUI was resumed and quit normally, and both fans remained in system auto. This validates the two additional live cases; the other matrix steps were not repeated for this follow-up. Physical AppleSMC fault injection and Intel runtime behavior remain untested.
 
+## Follow-up audit: lease-unaware app driving a lease-capable helper
+
+Reported on 2026-10-27 on the M5 Pro: in Smart Curve at about 63 °C the fans stopped completely, paused for a few seconds, then returned to their previous speed. The helper log showed the mechanism:
+
+```
+11:16:22 setFansPercent 0.752470 OK
+11:17:09 fan lease expired or restore retried — system auto restored
+11:17:18 setFansPercent 0.792292 OK
+```
+
+The running app was Cool Down Pro 1.0.18 (build 29) from `/Applications`, while the installed helper was the lease-capable build from the 2026-09-26 live test. A 1.0.18 app writes the SMC only when its target changes and never calls `renewFanControlLease`. Whenever the curve held one target for more than 45 s, the lease expired, the helper restored system auto, firmware idled the fans at that temperature, and the next target change rewrote manual. The cycle was invisible in the app, which still displayed its target. The 1.0.20 guard against the reverse mismatch (new app, pre-lease helper) did not cover this direction.
+
+| Priority | Failure path | Change |
+| --- | --- | --- |
+| P0 | A lease-capable helper accepted manual commands from any correctly signed app, including builds that never renew. Each command expired into auto 45 s later and the next curve step restored manual: fans cycling off and on without any error. | The helper reads the client's `CFBundleVersion` from its sealed Info.plist and refuses manual commands (`clientOutdated`) from builds older than 31, the first to renew. An unknown build is refused too. `setFansAuto` is always accepted, so an old app leaves the fans under firmware control and shows the helper's message. |
+| P1 | A connected app whose lease expired (stalled past 45 s, or any future renewal regression) could immediately reacquire manual control and repeat the expiry. | When a lease expires with its owner's connection still open, the helper logs a fault and refuses that connection's manual commands (`leaseNotRenewed`) until it reconnects. The current app drops its connection on that error and rewrites the target from a fresh connection on the next tick. |
+
+The helper distinguishes the two by whether the owner's disconnect already cleared the lease: a disconnect restore runs on the same queue before the watchdog can observe an expiry, so an expired lease with an owner means the owner is still connected.
+
 ## Remaining limits
 
 - Two fan-control apps cannot share the SMC. Cool Down Pro now reapplies its own Manual or Smart Curve command when another app changes it, and a relaunched helper returns manual fans to auto, which can override the other app. System Auto still issues one auto request when selected.
